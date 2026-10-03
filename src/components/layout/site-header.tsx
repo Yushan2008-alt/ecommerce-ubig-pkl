@@ -58,7 +58,7 @@ export async function SiteHeader() {
     .select('id, name, slug, parent_id')
     .order('sort_order', { ascending: true })
 
-  // Kategori horizontal bar sesuai referensi screenshot Modesy
+  // Kategori horizontal bar sesuai referensi screenshot Krafita
   const topNavCategories = [
     { name: 'Clothing', slug: 'clothing' },
     { name: 'Shoes', slug: 'shoes' },
@@ -79,7 +79,7 @@ export async function SiteHeader() {
       {/* 1. TOP UTILITY BAR (Persis seperti di baris teratas gambar referensi) */}
       <div className="bg-[#f8f9fa] dark:bg-card/40 border-b border-border/60 text-[11px] sm:text-[12px] text-muted-foreground py-1.5">
         <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between">
-          {/* Sisi Kiri: Contact | Sell on Modesy */}
+          {/* Sisi Kiri: Contact | Sell on Krafita */}
           <div className="flex items-center space-x-3 sm:space-x-4">
             <Link
               href="/contact"
@@ -92,7 +92,7 @@ export async function SiteHeader() {
               href="/sell"
               className="hover:text-primary transition-colors font-medium"
             >
-              Sell on Modesy
+              Sell on Krafita
             </Link>
           </div>
 
@@ -204,7 +204,7 @@ export async function SiteHeader() {
             <SheetContent side="left" className="w-[300px]">
               <SheetHeader>
                 <SheetTitle className="text-left font-bold text-xl tracking-tight">
-                  <span className="text-foreground">Modesy</span>
+                  <span className="text-foreground">Krafita</span>
                 </SheetTitle>
               </SheetHeader>
               <div className="flex flex-col gap-3 mt-6 text-sm">
@@ -220,16 +220,16 @@ export async function SiteHeader() {
                 ))}
                 <hr className="my-2 border-border" />
                 <Link href="/sell" className="font-semibold text-primary flex items-center gap-2 py-1">
-                  <Store className="w-4 h-4" /> Mulai Jual di Modesy
+                  <Store className="w-4 h-4" /> Mulai Jual di Krafita
                 </Link>
               </div>
             </SheetContent>
           </Sheet>
 
-          {/* Logo Minimalis Bersih Modesy */}
+          {/* Logo Minimalis Bersih Krafita */}
           <Link href="/" className="flex items-center gap-2 select-none group">
             <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
-              Modesy
+              Krafita
             </span>
           </Link>
         </div>

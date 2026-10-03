@@ -58,7 +58,7 @@ export function SiteFooter() {
               <span className="bg-primary text-primary-foreground w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shadow-sm">
                 U
               </span>
-              <span>Marketplace Ubig</span>
+              <span>Krafita</span>
             </div>
             <p className="text-xs leading-relaxed text-muted-foreground">
               Platform marketplace multi-vendor terpadu untuk jual beli produk fisik berkualitas dan aset digital resmi di Indonesia.
@@ -149,9 +149,9 @@ export function SiteFooter() {
 
         {/* Baris Bawah */}
         <div className="mt-12 pt-6 border-t border-border/60 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <p>&copy; {new Date().getFullYear()} Marketplace Ubig. Hak cipta dilindungi undang-undang.</p>
+          <p>&copy; {new Date().getFullYear()} Krafita. Hak cipta dilindungi undang-undang.</p>
           <p className="flex items-center gap-2">
-            <span>Pembayaran Sandbox Didukung oleh</span>
+            <span>Pembayaran didukung oleh</span>
             <span className="font-semibold text-foreground">Midtrans</span>
           </p>
         </div>
