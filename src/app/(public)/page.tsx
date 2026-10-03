@@ -1,109 +1,83 @@
+import { HeroSlider } from '@/components/home/hero-slider'
+import { CategoryGrid } from '@/components/home/category-grid'
 import Link from 'next/link'
+import { ArrowRight, Package, Download, ShieldCheck, Sparkles, Store } from 'lucide-react'
 import { buttonVariants } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { ArrowRight, Download, Package, Sparkles, Store, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function HomePage() {
   return (
-    <div className="space-y-12 pb-16">
-      {/* Hero Banner Section */}
-      <section className="bg-gradient-to-br from-primary/10 via-muted/40 to-background border-b border-border/60 py-16 md:py-24">
-        <div className="container mx-auto px-4 text-center max-w-3xl space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-xs font-semibold">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Marketplace Multi-Vendor Produk Fisik & Digital</span>
-          </div>
+    <div className="w-full flex flex-col bg-background">
+      {/* 1. SLIDESHOW HERO BANNER (Persis di bawah Category Bar pada referensi gambar) */}
+      <HeroSlider />
 
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-foreground leading-tight">
-            Temukan Produk Impian & Aset Digital Terbaik dalam Satu Platform
-          </h1>
+      {/* 2. SHOP BY CATEGORY (12 Lingkaran Kategori persis di bawah Slideshow) */}
+      <CategoryGrid />
 
-          <p className="text-base md:text-lg text-muted-foreground leading-relaxed">
-            Belanja ribuan produk fisik pilihan dengan pengiriman terjamin, atau unduh aset digital resmi secara instan dengan pembayaran otomatis Midtrans.
-          </p>
-
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-            <Link
-              href="/products"
-              className={cn(buttonVariants({ size: 'lg' }), 'rounded-full px-8 font-semibold shadow-md')}
-            >
-              <span>Mulai Belanja</span>
-              <ArrowRight className="w-4 h-4 ml-2" />
-            </Link>
-            <Link
-              href="/sell"
-              className={cn(buttonVariants({ variant: 'outline', size: 'lg' }), 'rounded-full px-8 font-semibold')}
-            >
-              <Store className="w-4 h-4 mr-2" />
-              <span>Buka Toko Vendor</span>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Fitur Utama Banner */}
-      <section className="container mx-auto px-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
+      {/* 3. VALUE PROPOSITION & TRUST BADGES (Minimalis & Elegan) */}
+      <section className="border-t border-border/60 bg-muted/20 py-12">
+        <div className="container mx-auto px-4 max-w-7xl">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-background border border-border/70 shadow-xs">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <Package className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-base text-foreground">Produk Fisik Berkualitas</h3>
+                <h3 className="font-bold text-sm text-foreground">Produk Fisik Terkurasi</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Pilihan produk fashion, gadget, dan kebutuhan harian dari vendor tepercaya dengan tarif flat per toko.
+                  Belanja pakaian, kerajinan, dan perabotan dari ribuan vendor terpercaya dengan tarif ongkir flat.
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-background border border-border/70 shadow-xs">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <Download className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-base text-foreground">Aset Digital Instan</h3>
+                <h3 className="font-bold text-sm text-foreground">Aset Digital Instan</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  E-book, template grafis, dan source code resmi dengan tautan unduhan langsung aktif seketika setelah pembayaran.
+                  Download e-book, template grafis, dan source code langsung aktif seketika setelah pembayaran terverifikasi.
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
 
-          <Card className="border border-border/80 shadow-sm hover:shadow-md transition-shadow">
-            <CardContent className="p-6 flex items-start gap-4">
-              <div className="w-12 h-12 rounded-xl bg-green-500/10 text-green-600 flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-4 p-4 rounded-xl bg-background border border-border/70 shadow-xs">
+              <div className="w-12 h-12 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0">
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <div className="space-y-1">
-                <h3 className="font-bold text-base text-foreground">Pembayaran Midtrans Aman</h3>
+                <h3 className="font-bold text-sm text-foreground">Pembayaran Midtrans Terjamin</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Dukungan pembayaran lengkap Virtual Account, QRIS, GoPay, dan Kartu Kredit dengan verifikasi server terenkripsi.
+                  Transaksi aman menggunakan QRIS, Virtual Account bank nasional, dan GoPay dengan verifikasi otomatis.
                 </p>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* CTA Belanja */}
-      <section className="container mx-auto px-4">
-        <div className="bg-muted/40 border border-border/80 rounded-2xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-2 text-center md:text-left">
-            <h2 className="text-2xl font-bold text-foreground">Siap Menjelajahi Katalog Lengkap?</h2>
-            <p className="text-sm text-muted-foreground max-w-xl">
-              Lihat koleksi produk fisik dan aset digital terbaru dari ratusan toko yang terdaftar di Marketplace Ubig.
+      {/* 4. BANNER AJAKAN MULAI BERJUALAN */}
+      <section className="container mx-auto px-4 max-w-7xl py-12 md:py-16">
+        <div className="rounded-2xl bg-gradient-to-r from-neutral-900 to-neutral-800 text-white p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-6 shadow-md">
+          <div className="space-y-2 text-center md:text-left max-w-xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-primary text-xs font-semibold">
+              <Sparkles className="w-3.5 h-3.5" />
+              <span>Program Multi-Vendor Modesy</span>
+            </div>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
+              Ingin Menjual Produk Fisik atau Karya Digital Anda?
+            </h2>
+            <p className="text-xs md:text-sm text-neutral-300 leading-relaxed">
+              Buka toko online gratis hanya dalam hitungan menit. Jual karya kreatif atau produk fisik Anda ke seluruh Indonesia dengan komisi platform yang adil.
             </p>
           </div>
           <Link
-            href="/products"
-            className={cn(buttonVariants({ size: 'lg' }), 'rounded-full px-8 shrink-0 font-semibold')}
+            href="/sell"
+            className="inline-flex items-center justify-center px-6 py-3 rounded-md bg-[#00a699] hover:bg-[#008f84] text-white font-semibold text-sm transition-colors shadow-md hover:shadow-lg shrink-0"
           >
-            <span>Lihat Semua Produk</span>
-            <ArrowRight className="w-4 h-4 ml-2" />
+            <Store className="w-4 h-4 mr-2" />
+            <span>Daftar Jadi Penjual Sekarang</span>
           </Link>
         </div>
       </section>
