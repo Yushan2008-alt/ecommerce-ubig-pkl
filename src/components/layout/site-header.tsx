@@ -127,7 +127,7 @@ export async function SiteHeader() {
           {/* Logo Minimalis Bersih Krafita */}
           <Link href="/" className="flex items-center gap-2 select-none group">
             <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
-              Krafita
+              Kr<span className="text-primary">a</span>fita
             </span>
           </Link>
         </div>

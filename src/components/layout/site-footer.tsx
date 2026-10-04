@@ -29,7 +29,7 @@ export function SiteFooter() {
           <div className="space-y-4">
             <Link href="/" className="inline-block group">
               <span className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground font-sans">
-                Kraf<span className="text-primary">i</span>ta
+                Kr<span className="text-primary">a</span>fita
               </span>
             </Link>
 

@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLanguage, LanguageSwitcher } from '@/context/language-context'
+import { useCartWishlist } from '@/context/cart-wishlist-context'
 import {
   Search,
   ShoppingCart,
@@ -148,13 +149,18 @@ export function HeaderSearchBar() {
 }
 
 export function HeaderNavActions({
-  cartCount,
-  wishlistCount,
+  cartCount: initialCartCount = 0,
+  wishlistCount: initialWishlistCount = 0,
 }: {
-  cartCount: number
-  wishlistCount: number
+  cartCount?: number
+  wishlistCount?: number
 }) {
   const { t } = useLanguage()
+  const { cartCount, wishlistCount } = useCartWishlist()
+
+  // Use live client context counts if available, otherwise fallback to server initial
+  const activeCartCount = cartCount !== undefined ? cartCount : initialCartCount
+  const activeWishlistCount = wishlistCount !== undefined ? wishlistCount : initialWishlistCount
 
   return (
     <div className="flex items-center gap-3 sm:gap-6">
@@ -168,9 +174,9 @@ export function HeaderNavActions({
             className="w-5 h-5 text-foreground group-hover:text-primary transition-colors"
             aria-hidden="true"
           />
-          {cartCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-              {cartCount > 99 ? '99+' : cartCount}
+          {activeCartCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-in zoom-in-75 duration-200">
+              {activeCartCount > 99 ? '99+' : activeCartCount}
             </span>
           )}
         </div>
@@ -187,9 +193,9 @@ export function HeaderNavActions({
             className="w-5 h-5 text-foreground group-hover:text-primary transition-colors"
             aria-hidden="true"
           />
-          {wishlistCount > 0 && (
-            <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
-              {wishlistCount > 99 ? '99+' : wishlistCount}
+          {activeWishlistCount > 0 && (
+            <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center animate-in zoom-in-75 duration-200">
+              {activeWishlistCount > 99 ? '99+' : activeWishlistCount}
             </span>
           )}
         </div>

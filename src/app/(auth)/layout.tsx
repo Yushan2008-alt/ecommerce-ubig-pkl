@@ -11,9 +11,9 @@ export default function AuthLayout({
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-2 font-bold text-2xl tracking-tight text-foreground">
             <span className="bg-primary text-primary-foreground w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shadow-sm">
-              U
+              K
             </span>
-            <span>Marketplace Ubig</span>
+            <span>Krafita</span>
           </Link>
         </div>
         {children}

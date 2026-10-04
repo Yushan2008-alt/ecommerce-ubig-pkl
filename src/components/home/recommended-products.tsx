@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useLanguage } from '@/context/language-context'
+import { ProductHoverActions } from '@/components/products/product-hover-actions'
 
 export interface RecommendedProductItem {
   id: string
@@ -250,7 +251,7 @@ export function RecommendedProducts() {
               href={`/products/${item.slug}`}
               className="group bg-card border border-border/80 hover:border-primary/60 hover:shadow-md transition-all rounded-xs overflow-hidden flex flex-col focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             >
-              {/* Gambar Produk dengan Diskon di Kanan Atas */}
+              {/* Gambar Produk dengan Diskon di Kiri Atas & Hover Action Buttons di Kanan Atas */}
               <div className="relative aspect-square w-full bg-muted/40 overflow-hidden">
                 <Image
                   src={item.imageUrl}
@@ -261,12 +262,25 @@ export function RecommendedProducts() {
                   loading="lazy"
                 />
 
-                {/* Badge Diskon di Pojok Kanan Atas */}
+                {/* Badge Diskon di Pojok Kiri Atas Sesuai Gambar Referensi (-12%) */}
                 {item.discountPercent && (
-                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-bl-xs shadow-xs">
+                  <div className="absolute top-2 left-2 bg-rose-500 text-white text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-sm shadow-xs z-10">
                     -{item.discountPercent}%
                   </div>
                 )}
+
+                {/* Floating Action Buttons: Cart & Wishlist Animasi Slide-in Kanan Atas */}
+                <ProductHoverActions
+                  product={{
+                    id: item.id,
+                    title: item.title,
+                    price: item.price,
+                    comparePrice: item.originalPrice,
+                    imageUrl: item.imageUrl,
+                    slug: item.slug,
+                    vendor: item.sellerType,
+                  }}
+                />
               </div>
 
               {/* Detail Konten Produk */}

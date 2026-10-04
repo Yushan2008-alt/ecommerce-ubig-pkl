@@ -5,7 +5,7 @@ import { CatalogView } from '@/components/products/catalog-view'
 import { CatalogProduct, CATALOG_PRODUCTS } from '@/lib/catalog-data'
 
 export const metadata: Metadata = {
-  title: 'Katalog Produk & Filter Kategori — Krafita Marketplace',
+  title: 'Katalog Produk & Filter Kategori — Krafita',
   description:
     'Jelajahi produk berkualitas pilihan: pakaian wanita, pria, furnitur, sepatu, aksesoris, dan karya digital terlengkap dengan penawaran terbaik di Krafita.',
 }

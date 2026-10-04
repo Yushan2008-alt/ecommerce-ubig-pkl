@@ -12,6 +12,8 @@ import {
   CatalogProduct,
 } from '@/lib/catalog-data'
 import { useLanguage } from '@/context/language-context'
+import { useCartWishlist } from '@/context/cart-wishlist-context'
+import { ProductHoverActions } from '@/components/products/product-hover-actions'
 import {
   ChevronDown,
   ChevronUp,
@@ -32,6 +34,7 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { t, locale } = useLanguage()
+  const { isInWishlist, toggleWishlist: contextToggleWishlist } = useCartWishlist()
 
   // Ambil state dari URL query params
   const paramCategorySlug = searchParams.get('category') || ''
@@ -622,8 +625,12 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {filteredProducts.map((prod) => {
-                const isFavorited = wishlistedIds[prod.id]
+                const isFavorited = isInWishlist(prod.id)
                 const title = locale === 'id' ? prod.title_id : prod.title_en
+                const discountPercent =
+                  prod.comparePrice && prod.comparePrice > prod.price
+                    ? Math.round(((prod.comparePrice - prod.price) / prod.comparePrice) * 100)
+                    : 0
 
                 return (
                   <article
@@ -641,12 +648,34 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                         loading="lazy"
                       />
 
-                      {/* Badge "Featured" / "Unggulan" Hijau */}
-                      {prod.featured && (
-                        <div className="absolute top-2.5 left-2.5 bg-[#10b981] text-white text-[10px] font-bold px-2 py-0.5 rounded-2xs shadow-xs tracking-wide">
+                      {/* Badge Diskon di Kiri Atas Sesuai Gambar Referensi (-12%) */}
+                      {discountPercent > 0 && (
+                        <div className="absolute top-2.5 left-2.5 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm shadow-xs z-10">
+                          -{discountPercent}%
+                        </div>
+                      )}
+
+                      {/* Badge "Featured" / "Unggulan" Hijau (jika tidak diskon atau jika featured) */}
+                      {prod.featured && discountPercent === 0 && (
+                        <div className="absolute top-2.5 left-2.5 bg-[#10b981] text-white text-[10px] font-bold px-2 py-0.5 rounded-2xs shadow-xs tracking-wide z-10">
                           {t.featured}
                         </div>
                       )}
+
+                      {/* Floating Action Buttons: Cart & Wishlist Animasi Slide-in Kanan Atas */}
+                      <ProductHoverActions
+                        product={{
+                          id: prod.id,
+                          title,
+                          price: prod.price,
+                          comparePrice: prod.comparePrice,
+                          imageUrl: prod.imageUrl,
+                          slug: prod.slug,
+                          vendor: prod.vendor,
+                          rating: prod.rating,
+                          wishlistCount: prod.wishlistCount,
+                        }}
+                      />
                     </div>
 
                     {/* Informasi Produk */}
@@ -682,7 +711,21 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                           {/* Heart Wishlist Icon + Count */}
                           <button
                             type="button"
-                            onClick={(e) => toggleWishlist(prod.id, e)}
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              contextToggleWishlist({
+                                id: prod.id,
+                                title,
+                                price: prod.price,
+                                comparePrice: prod.comparePrice,
+                                imageUrl: prod.imageUrl,
+                                slug: prod.slug,
+                                vendor: prod.vendor,
+                                rating: prod.rating,
+                                wishlistCount: prod.wishlistCount,
+                              })
+                            }}
                             aria-label={`Sukai ${title}`}
                             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-rose-500 transition-colors cursor-pointer select-none"
                           >

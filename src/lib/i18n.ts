@@ -216,6 +216,37 @@ export const translations = {
     why_sell_title: 'Mengapa Memilih Berjualan di Krafita?',
     steps_title: '4 Langkah Mudah Memulai',
     faq_title: 'Pertanyaan yang Sering Diajukan (FAQ)',
+
+    // Cart & Wishlist Pages & Interactions
+    cart_page_title: 'Keranjang Belanja',
+    wishlist_page_title: 'Daftar Favorit Saya',
+    cart_empty_title: 'Keranjang Belanja Anda Masih Kosong',
+    cart_empty_desc:
+      'Jelajahi beragam produk fisik dan digital berkualitas kami dan temukan apa yang Anda butuhkan.',
+    wishlist_empty_title: 'Belum Ada Produk di Wishlist',
+    wishlist_empty_desc:
+      'Simpan produk favorit Anda dengan mengklik ikon hati pada produk kapan saja.',
+    shop_now: 'Mulai Belanja',
+    continue_shopping: 'Lanjutkan Belanja',
+    proceed_to_checkout: 'Lanjut ke Pembayaran',
+    order_summary: 'Ringkasan Pesanan',
+    subtotal: 'Subtotal Produk',
+    estimated_tax: 'Pajak & Layanan',
+    total_payment: 'Total Pembayaran',
+    unit_price: 'Harga Satuan',
+    quantity: 'Jumlah',
+    item_action: 'Aksi',
+    remove_item: 'Hapus',
+    clear_cart: 'Kosongkan Keranjang',
+    login_required_checkout: 'Wajib Masuk / Daftar untuk Checkout',
+    login_required_checkout_desc:
+      'Anda dapat bebas melihat dan menyimpan produk di keranjang. Namun untuk melanjutkan proses pembayaran, silakan masuk ke akun Anda atau mendaftar terlebih dahulu.',
+    add_to_cart: 'Tambah ke Keranjang',
+    added_to_cart: 'Produk berhasil ditambahkan ke keranjang!',
+    view_cart: 'Lihat Keranjang',
+    added_to_wishlist: 'Produk ditambahkan ke wishlist!',
+    removed_from_wishlist: 'Produk dihapus dari wishlist',
+    items_count: 'barang',
   },
 
   en: {
@@ -433,5 +464,36 @@ export const translations = {
     why_sell_title: 'Why Choose to Sell on Krafita?',
     steps_title: '4 Easy Steps to Get Started',
     faq_title: 'Frequently Asked Questions (FAQ)',
+
+    // Cart & Wishlist Pages & Interactions
+    cart_page_title: 'Shopping Cart',
+    wishlist_page_title: 'My Wishlist',
+    cart_empty_title: 'Your Shopping Cart is Empty',
+    cart_empty_desc:
+      'Explore our wide range of quality physical and digital products to find what you love.',
+    wishlist_empty_title: 'No Items in Your Wishlist Yet',
+    wishlist_empty_desc:
+      'Save your favorite products by clicking the heart icon on any product card.',
+    shop_now: 'Start Shopping',
+    continue_shopping: 'Continue Shopping',
+    proceed_to_checkout: 'Proceed to Checkout',
+    order_summary: 'Order Summary',
+    subtotal: 'Product Subtotal',
+    estimated_tax: 'Taxes & Fees',
+    total_payment: 'Total Payment',
+    unit_price: 'Unit Price',
+    quantity: 'Quantity',
+    item_action: 'Action',
+    remove_item: 'Remove',
+    clear_cart: 'Clear Cart',
+    login_required_checkout: 'Login or Register Required to Checkout',
+    login_required_checkout_desc:
+      'You can freely browse and add items to your cart. To proceed with payment, please sign in or register an account.',
+    add_to_cart: 'Add to Cart',
+    added_to_cart: 'Product added to cart!',
+    view_cart: 'View Cart',
+    added_to_wishlist: 'Product added to wishlist!',
+    removed_from_wishlist: 'Product removed from wishlist',
+    items_count: 'items',
   },
 }

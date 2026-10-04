@@ -2,11 +2,9 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 const PROTECTED = [
-  '/cart',
   '/checkout',
   '/orders',
   '/downloads',
-  '/wishlist',
   '/account',
   '/vendor',
 ]
