@@ -3,8 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
+import { useLanguage } from '@/context/language-context'
 
 export function SiteFooter() {
+  const { t, locale } = useLanguage()
   const [email, setEmail] = useState('')
   const [subscribed, setSubscribed] = useState(false)
 
@@ -12,7 +14,11 @@ export function SiteFooter() {
     e.preventDefault()
     if (!email) return
     setSubscribed(true)
-    toast.success('Terima kasih! Anda berhasil berlangganan newsletter Krafita.')
+    toast.success(
+      locale === 'id'
+        ? 'Terima kasih! Anda berhasil berlangganan newsletter Krafita.'
+        : 'Thank you! You have successfully subscribed to Krafita newsletter.'
+    )
   }
   return (
     <footer className="w-full bg-[#fdfdfd] dark:bg-card/40 border-t border-border/80 text-muted-foreground mt-auto">
@@ -28,7 +34,9 @@ export function SiteFooter() {
             </Link>
 
             <p className="text-xs text-muted-foreground leading-relaxed max-w-sm">
-              Krafita is a modern e-commerce marketplace where buyers and sellers connect with ease. Whether you are looking to shop for unique items or grow your business by selling online, Krafita is here to help you every step of the way.
+              {locale === 'id'
+                ? 'Krafita adalah marketplace e-commerce modern tempat bertemunya pembeli dan penjual dengan mudah. Baik untuk berbelanja produk unik maupun mengembangkan bisnis Anda secara online, Krafita siap mendampingi setiap langkah Anda.'
+                : 'Krafita is a modern e-commerce marketplace where buyers and sellers connect with ease. Whether you are looking to shop for unique items or grow your business by selling online, Krafita is here to help you every step of the way.'}
             </p>
 
             {/* Deretan 10 Ikon Media Sosial (2 Baris x 5 Ikon Sesuai Gambar) */}
@@ -133,50 +141,50 @@ export function SiteFooter() {
             </div>
           </div>
 
-          {/* KOLOM 2: CATEGORIES */}
+          {/* KOLOM 2: CATEGORIES (Bilingual) */}
           <div className="space-y-4">
             <h4 className="text-xs font-bold text-foreground tracking-wider uppercase">
-              CATEGORIES
+              {locale === 'id' ? 'KATEGORI' : 'CATEGORIES'}
             </h4>
             <ul className="space-y-2.5 text-xs">
               <li>
                 <Link href="/products?category=clothing" className="hover:text-primary transition-colors">
-                  Clothing
+                  {t.clothing}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=shoes" className="hover:text-primary transition-colors">
-                  Shoes
+                  {t.shoes}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=home-living" className="hover:text-primary transition-colors">
-                  Home & Living
+                  {t.home_living}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=jewelry-accessories" className="hover:text-primary transition-colors">
-                  Jewelry & Accessories
+                  {t.jewelry_accessories}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=toys-entertainment" className="hover:text-primary transition-colors">
-                  Toys & Entertainment
+                  {t.toys_entertainment}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=graphics" className="hover:text-primary transition-colors">
-                  Graphics & Photos
+                  {t.graphics}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=video-audio" className="hover:text-primary transition-colors">
-                  Video & Audio
+                  {t.video_audio}
                 </Link>
               </li>
               <li>
                 <Link href="/products?category=template-source-code" className="hover:text-primary transition-colors">
-                  Web Templates & Code
+                  {t.template_code}
                 </Link>
               </li>
             </ul>
@@ -186,27 +194,27 @@ export function SiteFooter() {
           <div className="space-y-6">
             <div className="space-y-3">
               <h4 className="text-xs font-bold text-foreground tracking-wider uppercase">
-                QUICK LINKS
+                {locale === 'id' ? 'TAUTAN CEPAT' : 'QUICK LINKS'}
               </h4>
               <ul className="space-y-2.5 text-xs">
                 <li>
                   <Link href="/" className="hover:text-primary transition-colors">
-                    Home
+                    {t.home}
                   </Link>
                 </li>
                 <li>
-                  <Link href="/blog" className="hover:text-primary transition-colors">
-                    Blog
+                  <Link href="/products" className="hover:text-primary transition-colors">
+                    {t.products}
                   </Link>
                 </li>
                 <li>
-                  <Link href="/shops" className="hover:text-primary transition-colors">
-                    Shops
+                  <Link href="/contact" className="hover:text-primary transition-colors">
+                    {t.contact}
                   </Link>
                 </li>
                 <li>
-                  <Link href="/help" className="hover:text-primary transition-colors">
-                    Help Center
+                  <Link href="/sell" className="hover:text-primary transition-colors">
+                    {t.sell_on_krafita}
                   </Link>
                 </li>
               </ul>
@@ -214,17 +222,17 @@ export function SiteFooter() {
 
             <div className="space-y-3 pt-1">
               <h4 className="text-xs font-bold text-foreground tracking-wider uppercase">
-                INFORMATION
+                {locale === 'id' ? 'INFORMASI' : 'INFORMATION'}
               </h4>
               <ul className="space-y-2.5 text-xs">
                 <li>
                   <Link href="/terms" className="hover:text-primary transition-colors">
-                    Terms & Conditions
+                    {t.terms_conditions}
                   </Link>
                 </li>
                 <li>
-                  <Link href="/about" className="hover:text-primary transition-colors">
-                    About Us
+                  <Link href="/sell" className="hover:text-primary transition-colors">
+                    {t.why_sell_title}
                   </Link>
                 </li>
               </ul>
@@ -237,13 +245,17 @@ export function SiteFooter() {
               NEWSLETTER
             </h4>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Join our subscribers list to get the latest news, updates and special offers directly in your inbox.
+              {locale === 'id'
+                ? 'Dapatkan berita terkini, pembaruan katalog, dan diskon spesial langsung di email Anda.'
+                : 'Join our subscribers list to get the latest news, updates and special offers directly in your inbox.'}
             </p>
 
             {/* Form Input Email & Tombol Subscribe Teal */}
             {subscribed ? (
               <div className="p-3 rounded-md bg-primary/10 border border-primary/30 text-primary text-xs font-medium">
-                ✓ Terima kasih! Anda telah terdaftar dalam newsletter Krafita.
+                {locale === 'id'
+                  ? '✓ Terima kasih! Anda telah terdaftar dalam newsletter Krafita.'
+                  : '✓ Thank you! You have subscribed to Krafita newsletter.'}
               </div>
             ) : (
               <form onSubmit={handleSubscribe} className="space-y-2">
@@ -251,7 +263,7 @@ export function SiteFooter() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email"
+                  placeholder={locale === 'id' ? 'Masukkan email Anda' : 'Enter your email'}
                   aria-label="Enter your email for newsletter"
                   autoComplete="email"
                   spellCheck={false}
@@ -262,7 +274,7 @@ export function SiteFooter() {
                   type="submit"
                   className="w-full h-10 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-semibold rounded-md transition-colors shadow-xs cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                 >
-                  Subscribe
+                  {locale === 'id' ? 'Langganan' : 'Subscribe'}
                 </button>
               </form>
             )}

@@ -4,8 +4,10 @@ import React, { useState } from 'react'
 import Link from 'next/link'
 import { Phone, Mail, MapPin, CheckCircle2, Loader2, Send } from 'lucide-react'
 import { toast } from 'sonner'
+import { useLanguage } from '@/context/language-context'
 
 export default function ContactPage() {
+  const { t } = useLanguage()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
@@ -28,7 +30,7 @@ export default function ContactPage() {
     setTimeout(() => {
       setIsSubmitting(false)
       setSubmitted(true)
-      toast.success('Pesan Anda berhasil dikirim! Tim Krafita akan segera merespons.')
+      toast.success(t.success_sent)
       setName('')
       setEmail('')
       setMessage('')
@@ -38,31 +40,27 @@ export default function ContactPage() {
 
   return (
     <div className="container mx-auto px-4 max-w-7xl py-6 md:py-8">
-      {/* 1. Breadcrumbs (Persis Gambar Referensi 1: Home / Contact) */}
+      {/* 1. Breadcrumbs */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <ol className="flex items-center space-x-1.5 text-xs text-muted-foreground">
           <li>
             <Link href="/" className="hover:text-foreground transition-colors">
-              Home
+              {t.home}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li className="font-semibold text-foreground">Contact</li>
+          <li className="font-semibold text-foreground">{t.contact_title}</li>
         </ol>
       </nav>
 
-      {/* 2. Judul Halaman Contact & Paragraf Penjelasan (Persis Gambar 1) */}
+      {/* 2. Judul Halaman Contact & Paragraf Penjelasan */}
       <div className="space-y-4 mb-10 max-w-5xl">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-foreground">
-          Contact
+          {t.contact_title}
         </h1>
         <div className="space-y-3 text-xs md:text-sm text-muted-foreground leading-relaxed">
-          <p>
-            We are here to help you with any questions, concerns, or feedback you may have about our platform. Whether you are a buyer or a seller, our team is dedicated to providing you with the best possible support. If you need assistance with an order, have questions about our platform, or simply want to provide feedback, please don&apos;t hesitate to contact us. You can reach us through our contact form, located on this page. Simply fill out the form with your details and a brief message, and we will get back to you as soon as possible.
-          </p>
-          <p>
-            Alternatively, you can also reach us through our social media channels or email. Our team is available to assist you with any questions or concerns you may have.
-          </p>
+          <p>{t.contact_desc_1}</p>
+          <p>{t.contact_desc_2}</p>
         </div>
       </div>
 
@@ -71,7 +69,7 @@ export default function ContactPage() {
         {/* KOLOM KIRI: Formulir Leave Message */}
         <div className="lg:col-span-7 bg-background">
           <h2 className="text-lg md:text-xl font-bold tracking-tight text-foreground mb-4">
-            Leave Message
+            {t.leave_message}
           </h2>
 
           {submitted && (
@@ -94,7 +92,7 @@ export default function ContactPage() {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Name"
+                placeholder={t.form_name}
                 required
                 className="w-full h-11 px-3.5 text-xs sm:text-sm bg-background border border-border rounded-xs placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] transition-all"
               />
@@ -103,14 +101,14 @@ export default function ContactPage() {
             {/* Input Email Address */}
             <div>
               <label htmlFor="contact-email" className="sr-only">
-                Email Address
+                {t.form_email}
               </label>
               <input
                 id="contact-email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email Address"
+                placeholder={t.form_email}
                 required
                 className="w-full h-11 px-3.5 text-xs sm:text-sm bg-background border border-border rounded-xs placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] transition-all"
               />
@@ -119,14 +117,14 @@ export default function ContactPage() {
             {/* Input Message Textarea */}
             <div>
               <label htmlFor="contact-message" className="sr-only">
-                Message
+                {t.form_message}
               </label>
               <textarea
                 id="contact-message"
                 rows={6}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="Message"
+                placeholder={t.form_message}
                 required
                 className="w-full p-3.5 text-xs sm:text-sm bg-background border border-border rounded-xs placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] transition-all resize-y"
               />
@@ -145,12 +143,12 @@ export default function ContactPage() {
                 htmlFor="terms-agree"
                 className="text-xs text-muted-foreground cursor-pointer select-none"
               >
-                I have read and agree to the{' '}
+                {t.agree_terms}{' '}
                 <Link
                   href="/terms"
                   className="text-foreground underline hover:text-[#00a699] transition-colors"
                 >
-                  Terms &amp; Conditions
+                  {t.terms_conditions}
                 </Link>
               </label>
             </div>
@@ -178,7 +176,7 @@ export default function ContactPage() {
               </div>
             </div>
 
-            {/* Tombol Submit Teal (Persis Gambar 1) */}
+            {/* Tombol Submit Teal */}
             <div className="pt-2">
               <button
                 type="submit"
@@ -188,12 +186,12 @@ export default function ContactPage() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Sending...</span>
+                    <span>{t.sending}</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>Submit</span>
+                    <span>{t.submit}</span>
                   </>
                 )}
               </button>
@@ -242,10 +240,10 @@ export default function ContactPage() {
             </div>
           </div>
 
-          {/* Deretan 12 Ikon Media Sosial Bundar (Persis Gambar 1) */}
+          {/* Deretan 12 Ikon Media Sosial Bundar */}
           <div className="pt-4 border-t border-border/60">
             <p className="text-xs font-semibold text-muted-foreground mb-3">
-              Connect With Us
+              {t.connect_with_us}
             </p>
             <div className="flex flex-wrap gap-2">
               {/* 1. Facebook */}

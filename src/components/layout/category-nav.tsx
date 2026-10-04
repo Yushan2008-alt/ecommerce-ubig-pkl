@@ -4,8 +4,10 @@ import React, { useState, useRef } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { CATALOG_CATEGORIES, CategoryNavData } from '@/lib/catalog-data'
+import { useLanguage } from '@/context/language-context'
 
 export function CategoryNav() {
+  const { locale } = useLanguage()
   const [activeCategory, setActiveCategory] = useState<CategoryNavData | null>(null)
   const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -39,6 +41,8 @@ export function CategoryNav() {
         <div className="flex items-center space-x-6 lg:space-x-8 text-xs font-semibold whitespace-nowrap overflow-x-auto scrollbar-none">
           {CATALOG_CATEGORIES.map((cat) => {
             const isActive = activeCategory?.id === cat.id
+            const catName = locale === 'id' ? cat.name_id : cat.name_en
+
             return (
               <div
                 key={cat.id}
@@ -60,7 +64,7 @@ export function CategoryNav() {
                       aria-hidden="true"
                     />
                   )}
-                  {cat.name}
+                  {catName}
                 </Link>
               </div>
             )
@@ -72,7 +76,7 @@ export function CategoryNav() {
       {activeCategory && (
         <div
           role="region"
-          aria-label={`Subkategori ${activeCategory.name}`}
+          aria-label={`Subkategori ${locale === 'id' ? activeCategory.name_id : activeCategory.name_en}`}
           className="absolute top-full left-0 w-full bg-background border-b border-border shadow-xl z-50 animate-in fade-in-50 duration-150"
           onMouseEnter={handleDropdownEnter}
           onMouseLeave={handleMouseLeave}
@@ -81,58 +85,69 @@ export function CategoryNav() {
             <div className="grid grid-cols-12 gap-8 items-start">
               {/* Sisi Kiri: Kolom-kolom Subkategori (Sesuai Gambar 2) */}
               <div className="col-span-8 grid grid-cols-3 gap-8">
-                {activeCategory.subgroups.map((group) => (
-                  <div key={group.slug} className="space-y-3">
-                    <Link
-                      href={`/products?category=${activeCategory.slug}&subcategory=${group.slug}`}
-                      onClick={() => setActiveCategory(null)}
-                      className="font-bold text-sm text-foreground hover:text-[#00a699] transition-colors block pb-1 border-b border-border/40"
-                    >
-                      {group.title}
-                    </Link>
-                    <ul className="space-y-2">
-                      {group.items.map((subItem) => (
-                        <li key={subItem.slug}>
-                          <Link
-                            href={`/products?category=${activeCategory.slug}&subcategory=${subItem.slug}`}
-                            onClick={() => setActiveCategory(null)}
-                            className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors block py-0.5"
-                          >
-                            {subItem.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                {activeCategory.subgroups.map((group) => {
+                  const groupTitle = locale === 'id' ? group.title_id : group.title_en
+
+                  return (
+                    <div key={group.slug} className="space-y-3">
+                      <Link
+                        href={`/products?category=${activeCategory.slug}&subcategory=${group.slug}`}
+                        onClick={() => setActiveCategory(null)}
+                        className="font-bold text-sm text-foreground hover:text-[#00a699] transition-colors block pb-1 border-b border-border/40"
+                      >
+                        {groupTitle}
+                      </Link>
+                      <ul className="space-y-2">
+                        {group.items.map((subItem) => {
+                          const itemName = locale === 'id' ? subItem.name_id : subItem.name_en
+                          return (
+                            <li key={subItem.slug}>
+                              <Link
+                                href={`/products?category=${activeCategory.slug}&subcategory=${subItem.slug}`}
+                                onClick={() => setActiveCategory(null)}
+                                className="text-xs text-muted-foreground hover:text-foreground hover:underline transition-colors block py-0.5"
+                              >
+                                {itemName}
+                              </Link>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Sisi Kanan: 3 Visual Featured Cards (Persis Gambar 2) */}
               <div className="col-span-4 grid grid-cols-2 gap-3 pl-4 border-l border-border/50">
-                {activeCategory.featuredCards.map((card, idx) => (
-                  <Link
-                    key={card.title}
-                    href={card.link}
-                    onClick={() => setActiveCategory(null)}
-                    className={`group relative rounded-xs overflow-hidden border border-border/80 shadow-2xs hover:shadow-md transition-all ${
-                      idx === 2 ? 'col-span-2 aspect-[21/9]' : 'aspect-[4/3]'
-                    }`}
-                  >
-                    <Image
-                      src={card.imageUrl}
-                      alt={card.title}
-                      fill
-                      sizes="220px"
-                      className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {/* Gradient Overlay Gelap */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
-                    {/* Label Teks di Bawah Gambar */}
-                    <span className="absolute bottom-2 left-2.5 right-2.5 text-xs font-semibold text-white drop-shadow-xs truncate">
-                      {card.title}
-                    </span>
-                  </Link>
-                ))}
+                {activeCategory.featuredCards.map((card, idx) => {
+                  const cardTitle = locale === 'id' ? card.title_id : card.title_en
+
+                  return (
+                    <Link
+                      key={card.title_en}
+                      href={card.link}
+                      onClick={() => setActiveCategory(null)}
+                      className={`group relative rounded-xs overflow-hidden border border-border/80 shadow-2xs hover:shadow-md transition-all ${
+                        idx === 2 ? 'col-span-2 aspect-[21/9]' : 'aspect-[4/3]'
+                      }`}
+                    >
+                      <Image
+                        src={card.imageUrl}
+                        alt={cardTitle}
+                        fill
+                        sizes="220px"
+                        className="object-cover object-center group-hover:scale-105 transition-transform duration-300"
+                      />
+                      {/* Gradient Overlay Gelap */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent" />
+                      {/* Label Teks di Bawah Gambar */}
+                      <span className="absolute bottom-2 left-2.5 right-2.5 text-xs font-semibold text-white drop-shadow-xs truncate">
+                        {cardTitle}
+                      </span>
+                    </Link>
+                  )
+                })}
               </div>
             </div>
           </div>

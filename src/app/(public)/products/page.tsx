@@ -40,7 +40,8 @@ export default async function ProductsPage() {
 
       return {
         id: p.id,
-        title: p.title,
+        title_id: p.title,
+        title_en: fallback.title_en,
         slug: p.slug,
         category: categoryData?.slug || fallback.category,
         subcategory: fallback.subcategory,
@@ -53,6 +54,8 @@ export default async function ProductsPage() {
         wishlistCount: fallback.wishlistCount,
         featured: fallback.featured,
         imageUrl: fallback.imageUrl,
+        tags_id: fallback.tags_id,
+        tags_en: fallback.tags_en,
       }
     })
 

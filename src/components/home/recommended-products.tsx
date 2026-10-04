@@ -1,7 +1,8 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/server'
-import { getUser } from '@/lib/auth'
+import { useLanguage } from '@/context/language-context'
 
 export interface RecommendedProductItem {
   id: string
@@ -218,42 +219,17 @@ const defaultRecommendedProducts: RecommendedProductItem[] = [
   },
 ]
 
-export async function RecommendedProducts() {
-  const { user } = await getUser()
-  const supabase = await createClient()
-
-  // Ambil produk jika ada yang tersimpan di database
-  const { data: dbProducts } = await supabase
-    .from('products')
-    .select('id, title, slug, price, status')
-    .eq('status', 'published')
-    .limit(18)
-
-  const products: RecommendedProductItem[] =
-    dbProducts && dbProducts.length > 0
-      ? dbProducts.map((p, idx) => {
-          const fallback = defaultRecommendedProducts[idx % defaultRecommendedProducts.length]
-          return {
-            id: p.id,
-            title: p.title,
-            slug: p.slug,
-            price: Number(p.price),
-            discountPercent: fallback.discountPercent,
-            sellerType: fallback.sellerType,
-            tag: fallback.tag,
-            imageUrl: fallback.imageUrl,
-            alt: p.title,
-          }
-        })
-      : defaultRecommendedProducts
+export function RecommendedProducts() {
+  const { t } = useLanguage()
+  const products = defaultRecommendedProducts
 
   return (
     <section id="rekomendasi" className="container mx-auto px-4 max-w-7xl pt-2 pb-16">
-      {/* 1. Header Tab: REKOMENDASI (Sesuai tema proyek Krafita) */}
+      {/* 1. Header Tab: REKOMENDASI / RECOMMENDED */}
       <div className="w-full bg-background border-b-2 border-primary mb-4 py-2.5 sm:py-3">
         <div className="flex items-center justify-center">
           <span className="text-primary font-extrabold text-sm sm:text-base tracking-wider uppercase select-none">
-            REKOMENDASI
+            {t.recommended}
           </span>
         </div>
       </div>
@@ -326,23 +302,14 @@ export async function RecommendedProducts() {
         })}
       </div>
 
-      {/* 3. Tombol Login Untuk Lihat Lainnya (Sesuai Referensi Gambar) */}
+      {/* 3. Tombol Login Untuk Lihat Lainnya (Bilingual) */}
       <div className="pt-10 pb-6 flex justify-center">
-        {user ? (
-          <Link
-            href="/products"
-            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          >
-            Lihat Produk Lainnya
-          </Link>
-        ) : (
-          <Link
-            href="/login?next=%2F#rekomendasi"
-            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-          >
-            Login Untuk Lihat Lainnya
-          </Link>
-        )}
+        <Link
+          href="/login?next=%2F#rekomendasi"
+          className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+        >
+          {t.login_for_more}
+        </Link>
       </div>
     </section>
   )

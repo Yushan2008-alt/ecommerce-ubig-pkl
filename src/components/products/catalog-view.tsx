@@ -11,6 +11,7 @@ import {
   CATALOG_PRODUCTS,
   CatalogProduct,
 } from '@/lib/catalog-data'
+import { useLanguage } from '@/context/language-context'
 import {
   ChevronDown,
   ChevronUp,
@@ -30,9 +31,10 @@ interface CatalogViewProps {
 export function CatalogView({ initialProducts }: CatalogViewProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { t, locale } = useLanguage()
 
   // Ambil state dari URL query params
-  const currentCategorySlug = searchParams.get('category') || 'clothing'
+  const paramCategorySlug = searchParams.get('category') || ''
   const currentSubcategory = searchParams.get('subcategory') || ''
   const currentQuery = searchParams.get('q') || ''
   const currentSort = searchParams.get('sort') || 'recent'
@@ -64,18 +66,45 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  // Deteksi jika keyword pencarian cocok dengan nama kategori dalam bahasa yang sedang aktif
+  const queryMatchedCategory = useMemo(() => {
+    if (!currentQuery.trim()) return null
+    const q = currentQuery.trim().toLowerCase()
+
+    return CATALOG_CATEGORIES.find((cat) => {
+      const catName = (locale === 'id' ? cat.name_id : cat.name_en).toLowerCase()
+      if (catName === q || cat.slug === q) return true
+      return cat.subgroups.some((g) => {
+        const groupTitle = (locale === 'id' ? g.title_id : g.title_en).toLowerCase()
+        return (
+          groupTitle === q ||
+          g.items.some(
+            (i) => (locale === 'id' ? i.name_id : i.name_en).toLowerCase() === q
+          )
+        )
+      })
+    })
+  }, [currentQuery, locale])
+
+  // Tentukan slug kategori aktif: dari URL param, atau dari kecocokan pencarian kategori, atau default clothing
+  const effectiveCategorySlug = useMemo(() => {
+    if (paramCategorySlug) return paramCategorySlug
+    if (queryMatchedCategory) return queryMatchedCategory.slug
+    return currentQuery ? '' : 'clothing'
+  }, [paramCategorySlug, queryMatchedCategory, currentQuery])
+
   // Data Kategori Aktif
   const activeCategory = useMemo(() => {
+    if (!effectiveCategorySlug) return null
     return (
-      CATALOG_CATEGORIES.find((c) => c.slug === currentCategorySlug) ||
+      CATALOG_CATEGORIES.find((c) => c.slug === effectiveCategorySlug) ||
       CATALOG_CATEGORIES[0]
     )
-  }, [currentCategorySlug])
+  }, [effectiveCategorySlug])
 
   // Gabungkan produk database dengan catalog mock
   const allProducts = useMemo(() => {
-    const base = initialProducts && initialProducts.length > 0 ? initialProducts : CATALOG_PRODUCTS
-    return base
+    return initialProducts && initialProducts.length > 0 ? initialProducts : CATALOG_PRODUCTS
   }, [initialProducts])
 
   // Filter Brand berdasarkan input pencarian brand
@@ -119,18 +148,18 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
     setBrandSearch('')
   }
 
-  // Filter dan Sort Produk
+  // Filter dan Sort Produk (Language-Aware Searching & Filtering)
   const filteredProducts = useMemo(() => {
     return allProducts.filter((product) => {
-      // Filter Kategori (Jika user memilih kategori tertentu)
-      if (currentCategorySlug && currentCategorySlug !== 'all') {
-        if (product.category !== currentCategorySlug) {
-          // Check if category matches
+      // 1. Filter Kategori
+      if (effectiveCategorySlug && effectiveCategorySlug !== 'all') {
+        if (product.category !== effectiveCategorySlug) {
+          // Jika pencarian kategori tidak cocok dengan kategori produk
           return false
         }
       }
 
-      // Filter Subkategori
+      // 2. Filter Subkategori
       if (currentSubcategory) {
         if (
           product.subcategory !== currentSubcategory &&
@@ -140,31 +169,54 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
         }
       }
 
-      // Filter Search Query
+      // 3. Filter Kata Kunci Pencarian (DISESUAIKAN DENGAN BAHASA AKTIF)
       if (currentQuery) {
-        const q = currentQuery.toLowerCase()
-        const matchesTitle = product.title.toLowerCase().includes(q)
-        const matchesBrand = product.brand.toLowerCase().includes(q)
-        if (!matchesTitle && !matchesBrand) return false
+        const q = currentQuery.toLowerCase().trim()
+
+        if (locale === 'id') {
+          // Hanya cari pada data berbahasa Indonesia
+          const matchesTitle = product.title_id.toLowerCase().includes(q)
+          const matchesBrand = product.brand.toLowerCase().includes(q)
+          const matchesTags = product.tags_id.some((tag) => tag.toLowerCase().includes(q))
+          const matchesCat = (
+            CATALOG_CATEGORIES.find((c) => c.slug === product.category)?.name_id || ''
+          ).toLowerCase().includes(q)
+
+          if (!matchesTitle && !matchesBrand && !matchesTags && !matchesCat) {
+            return false
+          }
+        } else {
+          // Hanya cari pada data berbahasa Inggris
+          const matchesTitle = product.title_en.toLowerCase().includes(q)
+          const matchesBrand = product.brand.toLowerCase().includes(q)
+          const matchesTags = product.tags_en.some((tag) => tag.toLowerCase().includes(q))
+          const matchesCat = (
+            CATALOG_CATEGORIES.find((c) => c.slug === product.category)?.name_en || ''
+          ).toLowerCase().includes(q)
+
+          if (!matchesTitle && !matchesBrand && !matchesTags && !matchesCat) {
+            return false
+          }
+        }
       }
 
-      // Filter Brands
+      // 4. Filter Brands
       if (selectedBrands.length > 0) {
         if (!selectedBrands.includes(product.brand)) return false
       }
 
-      // Filter Fabrics
+      // 5. Filter Fabrics
       if (selectedFabrics.length > 0) {
         if (!product.fabric || !selectedFabrics.includes(product.fabric)) return false
       }
 
-      // Filter Min Price
+      // 6. Filter Min Price
       if (priceMin && !product.isQuote) {
         const min = Number(priceMin)
         if (!isNaN(min) && product.price < min) return false
       }
 
-      // Filter Max Price
+      // 7. Filter Max Price
       if (priceMax && !product.isQuote) {
         const max = Number(priceMax)
         if (!isNaN(max) && product.price > max) return false
@@ -179,9 +231,10 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
     })
   }, [
     allProducts,
-    currentCategorySlug,
+    effectiveCategorySlug,
     currentSubcategory,
     currentQuery,
+    locale,
     selectedBrands,
     selectedFabrics,
     priceMin,
@@ -215,26 +268,32 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
     (priceMin ? 1 : 0) +
     (priceMax ? 1 : 0)
 
+  const activeCategoryName = activeCategory
+    ? locale === 'id'
+      ? activeCategory.name_id
+      : activeCategory.name_en
+    : ''
+
   return (
     <div className="container mx-auto px-4 max-w-7xl py-6">
-      {/* 1. Breadcrumbs (Persis Gambar 3: Home / Products / Clothing) */}
+      {/* 1. Breadcrumbs (Bilingual: Beranda / Produk / Kategori) */}
       <nav aria-label="Breadcrumb" className="mb-6">
         <ol className="flex items-center space-x-1.5 text-xs text-muted-foreground">
           <li>
             <Link href="/" className="hover:text-foreground transition-colors">
-              Home
+              {t.home}
             </Link>
           </li>
           <li aria-hidden="true">/</li>
           <li>
             <Link href="/products" className="hover:text-foreground transition-colors">
-              Products
+              {t.products}
             </Link>
           </li>
           {activeCategory && (
             <>
               <li aria-hidden="true">/</li>
-              <li className="font-semibold text-foreground">{activeCategory.name}</li>
+              <li className="font-semibold text-foreground">{activeCategoryName}</li>
             </>
           )}
           {currentSubcategory && (
@@ -256,7 +315,9 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
           className="flex items-center gap-2 px-4 py-2 border border-border rounded-md text-xs font-semibold bg-background hover:bg-muted/50 transition-colors"
         >
           <SlidersHorizontal className="w-4 h-4 text-primary" />
-          <span>Filter Produk ({activeFiltersCount})</span>
+          <span>
+            {t.filter_products} ({activeFiltersCount})
+          </span>
         </button>
 
         {/* Mobile Sort Dropdown */}
@@ -268,17 +329,17 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
             className="bg-transparent border border-border rounded-md px-2 py-1.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             aria-label="Urutkan produk"
           >
-            <option value="recent">Most Recent</option>
-            <option value="price_asc">Harga Terendah</option>
-            <option value="price_desc">Harga Tertinggi</option>
-            <option value="rating">Rating Tertinggi</option>
+            <option value="recent">{t.most_recent}</option>
+            <option value="price_asc">{t.price_low_high}</option>
+            <option value="price_desc">{t.price_high_low}</option>
+            <option value="rating">{t.highest_rating}</option>
           </select>
         </div>
       </div>
 
-      {/* 2. Main Content Grid: Sidebar Kiri (1/4) + Katalog Kanan (3/4) */}
+      {/* 2. Main Content Grid: Sidebar Kiri + Katalog Kanan */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* SIDEBAR FILTER (Persis Sesuai Gambar 3) */}
+        {/* SIDEBAR FILTER (Bilingual) */}
         <aside
           className={`lg:col-span-3 bg-background border border-border/80 rounded-md p-5 space-y-6 ${
             mobileFilterOpen
@@ -288,7 +349,7 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
         >
           {/* Header Mobile Drawer */}
           <div className="flex items-center justify-between lg:hidden pb-3 border-b border-border">
-            <h3 className="font-bold text-base text-foreground">Filter Produk</h3>
+            <h3 className="font-bold text-base text-foreground">{t.filter_products}</h3>
             <button
               type="button"
               onClick={() => setMobileFilterOpen(false)}
@@ -303,65 +364,69 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
           {activeFiltersCount > 0 && (
             <div className="flex items-center justify-between pb-3 border-b border-border/60">
               <span className="text-xs font-semibold text-muted-foreground">
-                {activeFiltersCount} Filter Aktif
+                {activeFiltersCount} {t.active_filters}
               </span>
               <button
                 type="button"
                 onClick={resetFilters}
                 className="text-xs font-medium text-destructive hover:underline flex items-center gap-1 cursor-pointer"
               >
-                <RotateCcw className="w-3 h-3" /> Reset Semua
+                <RotateCcw className="w-3 h-3" /> {t.reset_all}
               </button>
             </div>
           )}
 
-          {/* SECTION 1: CATEGORY (Persis Gambar 3: ← Clothing + Subkategori) */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-              Category
-            </h4>
-            <div className="space-y-2">
-              <Link
-                href={`/products?category=${activeCategory.slug}`}
-                className="flex items-center gap-1.5 text-sm font-bold text-foreground hover:text-[#00a699] transition-colors"
-              >
-                <span>←</span>
-                <span>{activeCategory.name}</span>
-              </Link>
+          {/* SECTION 1: CATEGORY (Bilingual) */}
+          {activeCategory && (
+            <div className="space-y-3">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                {t.category}
+              </h4>
+              <div className="space-y-2">
+                <Link
+                  href={`/products?category=${activeCategory.slug}`}
+                  className="flex items-center gap-1.5 text-sm font-bold text-foreground hover:text-[#00a699] transition-colors"
+                >
+                  <span>←</span>
+                  <span>{activeCategoryName}</span>
+                </Link>
 
-              {/* Subkategori Indented */}
-              <div className="pl-4 space-y-1.5 border-l-2 border-border/60">
-                {activeCategory.subgroups.map((group) => {
-                  const isSubActive = currentSubcategory === group.slug
-                  return (
-                    <Link
-                      key={group.slug}
-                      href={`/products?category=${activeCategory.slug}&subcategory=${group.slug}`}
-                      onClick={() => setMobileFilterOpen(false)}
-                      className={`block text-xs py-0.5 transition-colors ${
-                        isSubActive
-                          ? 'font-bold text-[#00a699]'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {group.title}
-                    </Link>
-                  )
-                })}
+                {/* Subkategori Indented */}
+                <div className="pl-4 space-y-1.5 border-l-2 border-border/60">
+                  {activeCategory.subgroups.map((group) => {
+                    const isSubActive = currentSubcategory === group.slug
+                    const groupTitle = locale === 'id' ? group.title_id : group.title_en
+
+                    return (
+                      <Link
+                        key={group.slug}
+                        href={`/products?category=${activeCategory.slug}&subcategory=${group.slug}`}
+                        onClick={() => setMobileFilterOpen(false)}
+                        className={`block text-xs py-0.5 transition-colors ${
+                          isSubActive
+                            ? 'font-bold text-[#00a699]'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {groupTitle}
+                      </Link>
+                    )
+                  })}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <hr className="border-border/60" />
 
-          {/* SECTION 2: BRAND FILTER (Persis Gambar 3: Search Brand input + Checkboxes scrollable) */}
+          {/* SECTION 2: BRAND FILTER */}
           <div className="space-y-3">
             <button
               type="button"
               onClick={() => setIsBrandOpen(!isBrandOpen)}
               className="w-full flex items-center justify-between text-sm font-bold text-foreground hover:text-primary transition-colors cursor-pointer select-none"
             >
-              <span>Brand</span>
+              <span>{t.brand}</span>
               {isBrandOpen ? (
                 <ChevronUp className="w-4 h-4 text-muted-foreground" />
               ) : (
@@ -371,14 +436,14 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
 
             {isBrandOpen && (
               <div className="space-y-3 pt-1">
-                {/* Search Brand Input (Persis Gambar 3) */}
+                {/* Search Brand Input */}
                 <div className="relative">
                   <input
                     type="text"
-                    placeholder="Search Brand"
+                    placeholder={t.search_brand}
                     value={brandSearch}
                     onChange={(e) => setBrandSearch(e.target.value)}
-                    aria-label="Cari Brand"
+                    aria-label={t.search_brand}
                     className="w-full h-8 pl-3 pr-8 text-xs bg-background border border-border rounded-xs placeholder:text-muted-foreground/60 focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699]"
                   />
                   <Search className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
@@ -406,7 +471,7 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                     )
                   })}
                   {filteredBrands.length === 0 && (
-                    <p className="text-[11px] text-muted-foreground py-1">Brand tidak ditemukan</p>
+                    <p className="text-[11px] text-muted-foreground py-1">{t.brand_not_found}</p>
                   )}
                 </div>
               </div>
@@ -415,14 +480,14 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
 
           <hr className="border-border/60" />
 
-          {/* SECTION 3: FABRIC FILTER (Persis Gambar 3: Checkboxes Bamboo, Cotton, etc.) */}
+          {/* SECTION 3: FABRIC FILTER */}
           <div className="space-y-3">
             <button
               type="button"
               onClick={() => setIsFabricOpen(!isFabricOpen)}
               className="w-full flex items-center justify-between text-sm font-bold text-foreground hover:text-primary transition-colors cursor-pointer select-none"
             >
-              <span>Fabric</span>
+              <span>{t.fabric}</span>
               {isFabricOpen ? (
                 <ChevronUp className="w-4 h-4 text-muted-foreground" />
               ) : (
@@ -464,7 +529,7 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
               onClick={() => setIsPriceOpen(!isPriceOpen)}
               className="w-full flex items-center justify-between text-sm font-bold text-foreground hover:text-primary transition-colors cursor-pointer select-none"
             >
-              <span>Price</span>
+              <span>{t.price}</span>
               {isPriceOpen ? (
                 <ChevronUp className="w-4 h-4 text-muted-foreground" />
               ) : (
@@ -476,7 +541,9 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
               <div className="space-y-2.5 pt-1">
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] text-muted-foreground block mb-1">Min (Rp)</label>
+                    <label className="text-[10px] text-muted-foreground block mb-1">
+                      {t.min_price}
+                    </label>
                     <input
                       type="number"
                       placeholder="0"
@@ -486,7 +553,9 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] text-muted-foreground block mb-1">Max (Rp)</label>
+                    <label className="text-[10px] text-muted-foreground block mb-1">
+                      {t.max_price}
+                    </label>
                     <input
                       type="number"
                       placeholder="Maks"
@@ -507,28 +576,29 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                 onClick={() => setMobileFilterOpen(false)}
                 className="w-full bg-[#00a699] text-white py-2.5 rounded-md text-xs font-semibold"
               >
-                Terapkan Filter ({filteredProducts.length} Produk)
+                {t.apply_filter} ({filteredProducts.length} {t.products_count})
               </button>
             </div>
           )}
         </aside>
 
-        {/* RIGHT MAIN CATALOG CONTENT (Persis Sesuai Gambar 3) */}
+        {/* RIGHT MAIN CATALOG CONTENT (Bilingual) */}
         <section className="lg:col-span-9 space-y-5">
           {/* Top Control Bar: Total produk + Sorting Dropdown */}
           <div className="flex items-center justify-between pb-3 border-b border-border/60">
             <div className="text-xs text-muted-foreground">
-              Menampilkan{' '}
-              <span className="font-semibold text-foreground">{filteredProducts.length}</span> produk
+              {t.showing}{' '}
+              <span className="font-semibold text-foreground">{filteredProducts.length}</span>{' '}
+              {t.products_count}
               {currentQuery && (
                 <span>
                   {' '}
-                  untuk kata kunci &ldquo;<strong className="text-foreground">{currentQuery}</strong>&rdquo;
+                  {t.for_keyword} &ldquo;<strong className="text-foreground">{currentQuery}</strong>&rdquo;
                 </span>
               )}
             </div>
 
-            {/* Sorting Dropdown (Persis Gambar 3: ⇅ Most Recent) */}
+            {/* Sorting Dropdown */}
             <div className="hidden sm:flex items-center gap-2">
               <div className="relative inline-flex items-center">
                 <select
@@ -537,10 +607,10 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                   aria-label="Urutkan produk"
                   className="appearance-none h-9 pl-8 pr-8 text-xs font-semibold bg-background border border-border rounded-xs hover:border-foreground/40 focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] cursor-pointer"
                 >
-                  <option value="recent">Most Recent</option>
-                  <option value="price_asc">Harga: Terendah ke Tertinggi</option>
-                  <option value="price_desc">Harga: Tertinggi ke Terendah</option>
-                  <option value="rating">Rating Tertinggi</option>
+                  <option value="recent">{t.most_recent}</option>
+                  <option value="price_asc">{t.price_low_high}</option>
+                  <option value="price_desc">{t.price_high_low}</option>
+                  <option value="rating">{t.highest_rating}</option>
                 </select>
                 <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground absolute left-2.5 pointer-events-none" />
                 <ChevronDown className="w-3.5 h-3.5 text-muted-foreground absolute right-2.5 pointer-events-none" />
@@ -548,11 +618,12 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
             </div>
           </div>
 
-          {/* 4-Column Product Grid (Persis Sesuai Gambar 3) */}
+          {/* 4-Column Product Grid */}
           {filteredProducts.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-5">
               {filteredProducts.map((prod) => {
                 const isFavorited = wishlistedIds[prod.id]
+                const title = locale === 'id' ? prod.title_id : prod.title_en
 
                 return (
                   <article
@@ -563,35 +634,35 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                     <div className="relative aspect-[3/4] w-full bg-muted/30 overflow-hidden">
                       <Image
                         src={prod.imageUrl}
-                        alt={prod.title}
+                        alt={title}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
                         className="object-cover object-center group-hover:scale-105 transition-transform duration-500 ease-out"
                         loading="lazy"
                       />
 
-                      {/* Badge "Featured" Hijau di Pojok Kiri Atas (Persis Gambar 3) */}
+                      {/* Badge "Featured" / "Unggulan" Hijau */}
                       {prod.featured && (
                         <div className="absolute top-2.5 left-2.5 bg-[#10b981] text-white text-[10px] font-bold px-2 py-0.5 rounded-2xs shadow-xs tracking-wide">
-                          Featured
+                          {t.featured}
                         </div>
                       )}
                     </div>
 
-                    {/* Informasi Produk (Persis Gambar 3) */}
+                    {/* Informasi Produk */}
                     <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
                       <div className="space-y-1">
-                        {/* Judul Produk */}
+                        {/* Judul Produk Bilingual */}
                         <h3 className="text-xs sm:text-sm font-semibold text-foreground line-clamp-2 leading-snug group-hover:text-[#00a699] transition-colors">
                           <Link href={`/products/${prod.slug}`} className="focus:outline-none">
-                            {prod.title}
+                            {title}
                           </Link>
                         </h3>
 
-                        {/* Nama Toko / Vendor (Persis Gambar 3: Trendshop / Admin) */}
+                        {/* Nama Toko / Vendor */}
                         <p className="text-[11px] text-muted-foreground">{prod.vendor}</p>
 
-                        {/* Rating Bintang & Wishlist Count (Persis Gambar 3) */}
+                        {/* Rating Bintang & Wishlist Count */}
                         <div className="flex items-center justify-between pt-1">
                           <div className="flex items-center gap-0.5">
                             {[1, 2, 3, 4, 5].map((starIdx) => (
@@ -608,11 +679,11 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                             ))}
                           </div>
 
-                          {/* Heart Wishlist Icon + Count (Persis Gambar 3: ♡ 0) */}
+                          {/* Heart Wishlist Icon + Count */}
                           <button
                             type="button"
                             onClick={(e) => toggleWishlist(prod.id, e)}
-                            aria-label={`Sukai ${prod.title}`}
+                            aria-label={`Sukai ${title}`}
                             className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-rose-500 transition-colors cursor-pointer select-none"
                           >
                             <Heart
@@ -627,11 +698,11 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                         </div>
                       </div>
 
-                      {/* Baris Harga (Persis Gambar 3: Green Price + Strikethrough atau Request a Quote) */}
+                      {/* Baris Harga */}
                       <div className="pt-2 border-t border-border/40 flex items-center justify-between">
                         {prod.isQuote ? (
                           <span className="text-xs font-bold text-foreground">
-                            Request a Quote
+                            {t.request_quote}
                           </span>
                         ) : (
                           <div className="flex items-baseline gap-2">
@@ -652,32 +723,32 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
               })}
             </div>
           ) : (
-            /* State Kosong */
+            /* State Kosong Bilingual */
             <div className="bg-card border border-border rounded-lg p-12 text-center space-y-3">
               <p className="text-base font-semibold text-foreground">
-                Tidak ada produk yang cocok dengan filter yang dipilih.
+                {t.no_products_title}
               </p>
               <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                Coba sesuaikan pencarian brand, bahan fabric, atau rentang harga untuk melihat lebih banyak produk.
+                {t.no_products_desc}
               </p>
               <button
                 type="button"
                 onClick={resetFilters}
                 className="mt-3 px-4 py-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-semibold rounded-md transition-colors shadow-xs"
               >
-                Reset Semua Filter
+                {t.reset_all}
               </button>
             </div>
           )}
         </section>
       </div>
 
-      {/* 3. Floating Scroll-to-Top Button (Persis Gambar 3 di Pojok Kanan Bawah: Black square with chevron up) */}
+      {/* 3. Floating Scroll-to-Top Button */}
       {showScrollTop && (
         <button
           type="button"
           onClick={scrollToTop}
-          aria-label="Kembali ke atas"
+          aria-label={t.back_to_top}
           className="fixed bottom-6 right-6 w-10 h-10 bg-black/90 hover:bg-black text-white rounded-xs shadow-lg flex items-center justify-center transition-all duration-300 z-50 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#00a699] focus-visible:outline-none"
         >
           <ChevronUp className="w-5 h-5 stroke-[2.5]" />

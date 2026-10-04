@@ -1,14 +1,17 @@
 export interface CategoryNavData {
   id: string
-  name: string
+  name_id: string
+  name_en: string
   slug: string
   subgroups: {
-    title: string
+    title_id: string
+    title_en: string
     slug: string
-    items: { name: string; slug: string }[]
+    items: { name_id: string; name_en: string; slug: string }[]
   }[]
   featuredCards: {
-    title: string
+    title_id: string
+    title_en: string
     imageUrl: string
     link: string
   }[]
@@ -16,7 +19,8 @@ export interface CategoryNavData {
 
 export interface CatalogProduct {
   id: string
-  title: string
+  title_id: string
+  title_en: string
   slug: string
   category: string
   subcategory: string
@@ -30,57 +34,66 @@ export interface CatalogProduct {
   wishlistCount: number
   featured?: boolean
   imageUrl: string
+  tags_id: string[]
+  tags_en: string[]
 }
 
 export const CATALOG_CATEGORIES: CategoryNavData[] = [
   {
     id: 'clothing',
-    name: 'Clothing',
+    name_id: 'Pakaian',
+    name_en: 'Clothing',
     slug: 'clothing',
     subgroups: [
       {
-        title: "Women's Clothing",
+        title_id: 'Pakaian Wanita',
+        title_en: "Women's Clothing",
         slug: 'womens-clothing',
         items: [
-          { name: 'Dresses', slug: 'dresses' },
-          { name: 'Skirts', slug: 'skirts' },
-          { name: 'Pants & Capris', slug: 'pants-capris' },
-          { name: 'Sweaters', slug: 'sweaters' },
+          { name_id: 'Gaun & Dress', name_en: 'Dresses', slug: 'dresses' },
+          { name_id: 'Rok', name_en: 'Skirts', slug: 'skirts' },
+          { name_id: 'Celana & Kapri', name_en: 'Pants & Capris', slug: 'pants-capris' },
+          { name_id: 'Sweater & Rajut', name_en: 'Sweaters', slug: 'sweaters' },
         ],
       },
       {
-        title: "Men's Clothing",
+        title_id: 'Pakaian Pria',
+        title_en: "Men's Clothing",
         slug: 'mens-clothing',
         items: [
-          { name: 'Jackets & Coats', slug: 'jackets-coats' },
-          { name: 'Sweaters', slug: 'mens-sweaters' },
-          { name: 'Pants & Jeans', slug: 'pants-jeans' },
-          { name: 'Shirts', slug: 'shirts' },
+          { name_id: 'Jaket & Mantel', name_en: 'Jackets & Coats', slug: 'jackets-coats' },
+          { name_id: 'Sweater Pria', name_en: 'Sweaters', slug: 'mens-sweaters' },
+          { name_id: 'Celana & Jeans', name_en: 'Pants & Jeans', slug: 'pants-jeans' },
+          { name_id: 'Kemeja', name_en: 'Shirts', slug: 'shirts' },
         ],
       },
       {
-        title: "Kid's Clothing",
+        title_id: 'Pakaian Anak',
+        title_en: "Kid's Clothing",
         slug: 'kids-clothing',
         items: [
-          { name: 'Clothing Sets', slug: 'clothing-sets' },
-          { name: 'T-Shirts & Tops', slug: 'kids-tops' },
-          { name: 'Baby Outfits', slug: 'baby-outfits' },
+          { name_id: 'Setelan Pakaian', name_en: 'Clothing Sets', slug: 'clothing-sets' },
+          { name_id: 'Kaos & Atasan', name_en: 'T-Shirts & Tops', slug: 'kids-tops' },
+          { name_id: 'Baju Bayi', name_en: 'Baby Outfits', slug: 'baby-outfits' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: "Women's Clothing..",
+        title_id: 'Pakaian Wanita..',
+        title_en: "Women's Clothing..",
         imageUrl: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=clothing&subcategory=womens-clothing',
       },
       {
-        title: 'Sweaters',
+        title_id: 'Koleksi Rajut & Sweater',
+        title_en: 'Sweaters',
         imageUrl: 'https://images.unsplash.com/photo-1434389677669-e08b4cac3105?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=clothing&subcategory=sweaters',
       },
       {
-        title: "Men's Clothing",
+        title_id: 'Pakaian Pria',
+        title_en: "Men's Clothing",
         imageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=clothing&subcategory=mens-clothing',
       },
@@ -88,51 +101,58 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'shoes',
-    name: 'Shoes',
+    name_id: 'Sepatu',
+    name_en: 'Shoes',
     slug: 'shoes',
     subgroups: [
       {
-        title: "Men's Shoes",
+        title_id: 'Sepatu Pria',
+        title_en: "Men's Shoes",
         slug: 'mens-shoes',
         items: [
-          { name: 'Boots', slug: 'boots' },
-          { name: 'Sneakers', slug: 'sneakers' },
-          { name: 'Formal Loafers', slug: 'loafers' },
-          { name: 'Sandals', slug: 'mens-sandals' },
+          { name_id: 'Sepatu Boots', name_en: 'Boots', slug: 'boots' },
+          { name_id: 'Sepatu Sneakers / Kets', name_en: 'Sneakers', slug: 'sneakers' },
+          { name_id: 'Pantofel & Loafer', name_en: 'Formal Loafers', slug: 'loafers' },
+          { name_id: 'Sandal Pria', name_en: 'Sandals', slug: 'mens-sandals' },
         ],
       },
       {
-        title: "Women's Shoes",
+        title_id: 'Sepatu Wanita',
+        title_en: "Women's Shoes",
         slug: 'womens-shoes',
         items: [
-          { name: 'High Heels', slug: 'heels' },
-          { name: 'Flats & Ballerinas', slug: 'flats' },
-          { name: 'Sneakers', slug: 'womens-sneakers' },
-          { name: 'Ankle Boots', slug: 'ankle-boots' },
+          { name_id: 'Sepatu Hak Tinggi', name_en: 'High Heels', slug: 'heels' },
+          { name_id: 'Sepatu Teplek & Ballerina', name_en: 'Flats & Ballerinas', slug: 'flats' },
+          { name_id: 'Sneakers Wanita', name_en: 'Sneakers', slug: 'womens-sneakers' },
+          { name_id: 'Sepatu Ankle Boots', name_en: 'Ankle Boots', slug: 'ankle-boots' },
         ],
       },
       {
-        title: 'Kids Shoes',
+        title_id: 'Sepatu Anak',
+        title_en: 'Kids Shoes',
         slug: 'kids-shoes',
         items: [
-          { name: 'School Shoes', slug: 'school-shoes' },
-          { name: 'Casual Sneakers', slug: 'kids-sneakers' },
+          { name_id: 'Sepatu Sekolah', name_en: 'School Shoes', slug: 'school-shoes' },
+          { name_id: 'Sneakers Anak', name_en: 'Casual Sneakers', slug: 'kids-sneakers' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Boots Collection',
+        title_id: 'Koleksi Sepatu Boots',
+        title_en: 'Boots Collection',
         imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=shoes&subcategory=boots',
       },
       {
-        title: 'Running Sneakers',
+        title_id: 'Sepatu Lari & Sneakers',
+        title_en: 'Running Sneakers',
         imageUrl: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=shoes&subcategory=sneakers',
       },
       {
-        title: 'Leather Shoes',
+        title_id: 'Sepatu Kulit Formal',
+        title_en: 'Leather Shoes',
         imageUrl: 'https://images.unsplash.com/photo-1614252235316-8c857d38b5f4?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=shoes&subcategory=loafers',
       },
@@ -140,52 +160,59 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'home-living',
-    name: 'Home & Living',
+    name_id: 'Rumah & Dekorasi',
+    name_en: 'Home & Living',
     slug: 'home-living',
     subgroups: [
       {
-        title: 'Furniture',
+        title_id: 'Furnitur',
+        title_en: 'Furniture',
         slug: 'furniture',
         items: [
-          { name: 'Living Room Sofas', slug: 'sofas' },
-          { name: 'Dining Tables', slug: 'dining-tables' },
-          { name: 'Ergonomic Chairs', slug: 'chairs' },
-          { name: 'Bookshelves', slug: 'bookshelves' },
+          { name_id: 'Sofa Ruang Tamu', name_en: 'Living Room Sofas', slug: 'sofas' },
+          { name_id: 'Meja Makan', name_en: 'Dining Tables', slug: 'dining-tables' },
+          { name_id: 'Kursi Ergonomis', name_en: 'Ergonomic Chairs', slug: 'chairs' },
+          { name_id: 'Rak Buku', name_en: 'Bookshelves', slug: 'bookshelves' },
         ],
       },
       {
-        title: 'Home Decor',
+        title_id: 'Dekorasi Rumah',
+        title_en: 'Home Decor',
         slug: 'home-decor',
         items: [
-          { name: 'Decorative Pillows', slug: 'decorative-pillows' },
-          { name: 'Wall Art & Prints', slug: 'wall-art' },
-          { name: 'Vases & Planters', slug: 'vases' },
-          { name: 'Aroma Diffusers', slug: 'diffusers' },
+          { name_id: 'Bantal Sofa Dekoratif', name_en: 'Decorative Pillows', slug: 'decorative-pillows' },
+          { name_id: 'Hiasan Dinding & Seni', name_en: 'Wall Art & Prints', slug: 'wall-art' },
+          { name_id: 'Vas & Pot Tanaman', name_en: 'Vases & Planters', slug: 'vases' },
+          { name_id: 'Diffuser Aromaterapi', name_en: 'Aroma Diffusers', slug: 'diffusers' },
         ],
       },
       {
-        title: 'Kitchen & Dining',
+        title_id: 'Dapur & Ruang Makan',
+        title_en: 'Kitchen & Dining',
         slug: 'kitchen-dining',
         items: [
-          { name: 'Cookware Sets', slug: 'cookware' },
-          { name: 'Ceramic Plates', slug: 'plates' },
-          { name: 'Coffee Makers', slug: 'coffee-makers' },
+          { name_id: 'Wajan & Panci Masak', name_en: 'Cookware Sets', slug: 'cookware' },
+          { name_id: 'Piring Keramik', name_en: 'Ceramic Plates', slug: 'plates' },
+          { name_id: 'Alat Pembuat Kopi', name_en: 'Coffee Makers', slug: 'coffee-makers' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Nordic Sofa',
+        title_id: 'Sofa Scandinavian',
+        title_en: 'Nordic Sofa',
         imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=home-living&subcategory=furniture',
       },
       {
-        title: 'Bohemian Pillows',
+        title_id: 'Bantal Bohemian',
+        title_en: 'Bohemian Pillows',
         imageUrl: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=home-living&subcategory=home-decor',
       },
       {
-        title: 'Kitchen Accents',
+        title_id: 'Peralatan Dapur Modern',
+        title_en: 'Kitchen Accents',
         imageUrl: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=home-living&subcategory=kitchen-dining',
       },
@@ -193,52 +220,59 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'jewelry-accessories',
-    name: 'Jewelry & Accessories',
+    name_id: 'Aksesoris & Perhiasan',
+    name_en: 'Jewelry & Accessories',
     slug: 'jewelry-accessories',
     subgroups: [
       {
-        title: 'Fine Jewelry',
+        title_id: 'Perhiasan Emas & Perak',
+        title_en: 'Fine Jewelry',
         slug: 'fine-jewelry',
         items: [
-          { name: 'Necklaces & Pendants', slug: 'necklaces' },
-          { name: 'Earrings', slug: 'earrings' },
-          { name: 'Rings & Bands', slug: 'rings' },
-          { name: 'Bracelets', slug: 'bracelets' },
+          { name_id: 'Kalung & Liontin', name_en: 'Necklaces & Pendants', slug: 'necklaces' },
+          { name_id: 'Anting-Anting', name_en: 'Earrings', slug: 'earrings' },
+          { name_id: 'Cincin', name_en: 'Rings & Bands', slug: 'rings' },
+          { name_id: 'Gelang', name_en: 'Bracelets', slug: 'bracelets' },
         ],
       },
       {
-        title: 'Bags & Purses',
+        title_id: 'Tas & Dompet',
+        title_en: 'Bags & Purses',
         slug: 'bags-purses',
         items: [
-          { name: 'Leather Handbags', slug: 'handbags' },
-          { name: 'Crossbody Bags', slug: 'crossbody' },
-          { name: 'Backpacks', slug: 'backpacks' },
-          { name: 'Wallets', slug: 'wallets' },
+          { name_id: 'Tas Jinjing Kulit', name_en: 'Leather Handbags', slug: 'handbags' },
+          { name_id: 'Tas Selempang', name_en: 'Crossbody Bags', slug: 'crossbody' },
+          { name_id: 'Ransel Kasual', name_en: 'Backpacks', slug: 'backpacks' },
+          { name_id: 'Dompet', name_en: 'Wallets', slug: 'wallets' },
         ],
       },
       {
-        title: 'Wearable Accents',
+        title_id: 'Aksesoris Pakai',
+        title_en: 'Wearable Accents',
         slug: 'wearable-accents',
         items: [
-          { name: 'Watches', slug: 'watches' },
-          { name: 'Sunglasses', slug: 'sunglasses' },
-          { name: 'Hats & Caps', slug: 'hats' },
+          { name_id: 'Jam Tangan', name_en: 'Watches', slug: 'watches' },
+          { name_id: 'Kacamata Hitam', name_en: 'Sunglasses', slug: 'sunglasses' },
+          { name_id: 'Topi & Kupluk', name_en: 'Hats & Caps', slug: 'hats' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Gold Pendants',
+        title_id: 'Liontin Emas Mewah',
+        title_en: 'Gold Pendants',
         imageUrl: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=jewelry-accessories&subcategory=fine-jewelry',
       },
       {
-        title: 'Luxury Handbags',
+        title_id: 'Tas Kulit Elegan',
+        title_en: 'Luxury Handbags',
         imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=jewelry-accessories&subcategory=bags-purses',
       },
       {
-        title: 'Vintage Chrono',
+        title_id: 'Jam Vintage',
+        title_en: 'Vintage Chrono',
         imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=jewelry-accessories&subcategory=wearable-accents',
       },
@@ -246,49 +280,56 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'toys-entertainment',
-    name: 'Toys & Entertainment',
+    name_id: 'Mainan & Hiburan',
+    name_en: 'Toys & Entertainment',
     slug: 'toys-entertainment',
     subgroups: [
       {
-        title: 'Action & Figures',
+        title_id: 'Action Figure & Model',
+        title_en: 'Action & Figures',
         slug: 'action-figures',
         items: [
-          { name: 'Collectible Figures', slug: 'figures' },
-          { name: 'Die-cast Vehicles', slug: 'vehicles' },
-          { name: 'Building Blocks', slug: 'lego' },
+          { name_id: 'Miniatur Karakter', name_en: 'Collectible Figures', slug: 'figures' },
+          { name_id: 'Die-cast Mobilan', name_en: 'Die-cast Vehicles', slug: 'vehicles' },
+          { name_id: 'Balok Susun', name_en: 'Building Blocks', slug: 'lego' },
         ],
       },
       {
-        title: 'Board Games & Puzzles',
+        title_id: 'Board Game & Puzzle',
+        title_en: 'Board Games & Puzzles',
         slug: 'games-puzzles',
         items: [
-          { name: 'Strategy Games', slug: 'board-games' },
-          { name: 'Jigsaw Puzzles', slug: 'puzzles' },
-          { name: 'Card Games', slug: 'card-games' },
+          { name_id: 'Game Strategi', name_en: 'Strategy Games', slug: 'board-games' },
+          { name_id: 'Jigsaw Puzzle', name_en: 'Jigsaw Puzzles', slug: 'puzzles' },
+          { name_id: 'Game Kartu', name_en: 'Card Games', slug: 'card-games' },
         ],
       },
       {
-        title: 'Outdoor & Sports Toys',
+        title_id: 'Mainan Luar Ruang',
+        title_en: 'Outdoor & Sports Toys',
         slug: 'outdoor-toys',
         items: [
-          { name: 'Ride-on Toys', slug: 'ride-on' },
-          { name: 'Drones & RC Cars', slug: 'rc-toys' },
+          { name_id: 'Skuter & Sepeda Anak', name_en: 'Ride-on Toys', slug: 'ride-on' },
+          { name_id: 'Drone & RC Car', name_en: 'Drones & RC Cars', slug: 'rc-toys' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Plush & Stuffed',
+        title_id: 'Boneka Mewah',
+        title_en: 'Plush & Stuffed',
         imageUrl: 'https://images.unsplash.com/photo-1558877385-81a1c7e67d72?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=toys-entertainment&subcategory=action-figures',
       },
       {
-        title: 'Wooden Blocks',
+        title_id: 'Balok Kayu Edukasi',
+        title_en: 'Wooden Blocks',
         imageUrl: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=toys-entertainment&subcategory=games-puzzles',
       },
       {
-        title: 'Smart Gadget Toys',
+        title_id: 'Gadget Mainan Pintar',
+        title_en: 'Smart Gadget Toys',
         imageUrl: 'https://images.unsplash.com/photo-1508898578281-774ac4893c0c?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=toys-entertainment&subcategory=outdoor-toys',
       },
@@ -296,50 +337,57 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'graphics',
-    name: 'Graphics & Photos',
+    name_id: 'Grafis & Foto',
+    name_en: 'Graphics & Photos',
     slug: 'graphics',
     subgroups: [
       {
-        title: 'Vectors & Illustrations',
+        title_id: 'Vektor & Ilustrasi',
+        title_en: 'Vectors & Illustrations',
         slug: 'vectors-illustrations',
         items: [
-          { name: 'Icon Packs', slug: 'icons' },
-          { name: 'Logo Templates', slug: 'logos' },
-          { name: 'Character Illustrations', slug: 'illustrations' },
-          { name: 'Infographics', slug: 'infographics' },
+          { name_id: 'Paket Ikon UI', name_en: 'Icon Packs', slug: 'icons' },
+          { name_id: 'Template Logo', name_en: 'Logo Templates', slug: 'logos' },
+          { name_id: 'Ilustrasi Karakter', name_en: 'Character Illustrations', slug: 'illustrations' },
+          { name_id: 'Infografis', name_en: 'Infographics', slug: 'infographics' },
         ],
       },
       {
-        title: 'Stock Photos',
+        title_id: 'Foto Stok Komersial',
+        title_en: 'Stock Photos',
         slug: 'stock-photos',
         items: [
-          { name: 'Commercial Photography', slug: 'commercial-photos' },
-          { name: 'Food & Beverage', slug: 'food-photos' },
-          { name: 'Nature & Landscapes', slug: 'nature-photos' },
+          { name_id: 'Fotografi Bisnis', name_en: 'Commercial Photography', slug: 'commercial-photos' },
+          { name_id: 'Foto Kuliner', name_en: 'Food & Beverage', slug: 'food-photos' },
+          { name_id: 'Foto Alam & Lanskap', name_en: 'Nature & Landscapes', slug: 'nature-photos' },
         ],
       },
       {
-        title: 'Print Mockups',
+        title_id: 'Mockup Desain Cetak',
+        title_en: 'Print Mockups',
         slug: 'print-mockups',
         items: [
-          { name: 'T-shirt Mockups', slug: 'apparel-mockups' },
-          { name: 'Stationery & Branding', slug: 'branding-mockups' },
+          { name_id: 'Mockup Kaos & Baju', name_en: 'T-shirt Mockups', slug: 'apparel-mockups' },
+          { name_id: 'Mockup Kemasan & Branding', name_en: 'Stationery & Branding', slug: 'branding-mockups' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Vector Art Packs',
+        title_id: 'Paket Vektor Digital',
+        title_en: 'Vector Art Packs',
         imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=graphics&subcategory=vectors-illustrations',
       },
       {
-        title: 'Modern UI Mockups',
+        title_id: 'Mockup UI Modern',
+        title_en: 'Modern UI Mockups',
         imageUrl: 'https://images.unsplash.com/photo-1581291518655-952384377e77?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=graphics&subcategory=print-mockups',
       },
       {
-        title: 'Fine Canvas Prints',
+        title_id: 'Karya Kanvas Seni',
+        title_en: 'Fine Canvas Prints',
         imageUrl: 'https://images.unsplash.com/photo-1579783900882-c0d3dad7b119?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=graphics&subcategory=stock-photos',
       },
@@ -347,50 +395,57 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'video-audio',
-    name: 'Video & Audio',
+    name_id: 'Video & Audio',
+    name_en: 'Video & Audio',
     slug: 'video-audio',
     subgroups: [
       {
-        title: 'Stock Footage',
+        title_id: 'Footage Video 4K',
+        title_en: 'Stock Footage',
         slug: 'stock-footage',
         items: [
-          { name: '4K Drone Aerials', slug: 'drone-aerials' },
-          { name: 'Timelapse & Hyperlapse', slug: 'timelapse' },
-          { name: 'Green Screen Assets', slug: 'greenscreen' },
+          { name_id: 'Video Drone Udara', name_en: '4K Drone Aerials', slug: 'drone-aerials' },
+          { name_id: 'Timelapse & Hyperlapse', name_en: 'Timelapse & Hyperlapse', slug: 'timelapse' },
+          { name_id: 'Layar Hijau Greenscreen', name_en: 'Green Screen Assets', slug: 'greenscreen' },
         ],
       },
       {
-        title: 'Motion Graphics',
+        title_id: 'Animasi & Motion Graphics',
+        title_en: 'Motion Graphics',
         slug: 'motion-graphics',
         items: [
-          { name: 'After Effects Templates', slug: 'ae-templates' },
-          { name: 'Premiere Pro Presets', slug: 'pr-presets' },
-          { name: 'Stream Overlays', slug: 'stream-overlays' },
+          { name_id: 'Template After Effects', name_en: 'After Effects Templates', slug: 'ae-templates' },
+          { name_id: 'Preset Premiere Pro', name_en: 'Premiere Pro Presets', slug: 'pr-presets' },
+          { name_id: 'Overlay Live Streaming', name_en: 'Stream Overlays', slug: 'stream-overlays' },
         ],
       },
       {
-        title: 'Audio & Music',
+        title_id: 'Musik & Efek Suara (SFX)',
+        title_en: 'Audio & Music',
         slug: 'audio-music',
         items: [
-          { name: 'Royalty Free Music', slug: 'royalty-free-music' },
-          { name: 'Sound FX Packs', slug: 'sfx' },
-          { name: 'Podcast Intros', slug: 'podcast-audio' },
+          { name_id: 'Musik Bebas Royalti', name_en: 'Royalty Free Music', slug: 'royalty-free-music' },
+          { name_id: 'Paket Efek Suara SFX', name_en: 'Sound FX Packs', slug: 'sfx' },
+          { name_id: 'Intro & Jingle Podcast', name_en: 'Podcast Intros', slug: 'podcast-audio' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Cinematic 4K Clips',
+        title_id: 'Klip Sinematik 4K',
+        title_en: 'Cinematic 4K Clips',
         imageUrl: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=video-audio&subcategory=stock-footage',
       },
       {
-        title: 'Sound Design Kit',
+        title_id: 'Paket Sound Design',
+        title_en: 'Sound Design Kit',
         imageUrl: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=video-audio&subcategory=audio-music',
       },
       {
-        title: 'Broadcast Titles',
+        title_id: 'Judul Pembuka Siaran',
+        title_en: 'Broadcast Titles',
         imageUrl: 'https://images.unsplash.com/photo-1536240478700-b869070f9279?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=video-audio&subcategory=motion-graphics',
       },
@@ -398,50 +453,57 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
   },
   {
     id: 'template-source-code',
-    name: 'Web Templates & Code',
+    name_id: 'Template Web & Kode',
+    name_en: 'Web Templates & Code',
     slug: 'template-source-code',
     subgroups: [
       {
-        title: 'CMS & Frameworks',
+        title_id: 'Template Web & CMS',
+        title_en: 'CMS & Frameworks',
         slug: 'cms-frameworks',
         items: [
-          { name: 'Next.js & React Apps', slug: 'nextjs-templates' },
-          { name: 'WordPress Themes', slug: 'wordpress-themes' },
-          { name: 'Shopify Storefronts', slug: 'shopify-themes' },
+          { name_id: 'Template Next.js & React', name_en: 'Next.js & React Apps', slug: 'nextjs-templates' },
+          { name_id: 'Tema WordPress Premium', name_en: 'WordPress Themes', slug: 'wordpress-themes' },
+          { name_id: 'Tema Toko Shopify', name_en: 'Shopify Storefronts', slug: 'shopify-themes' },
         ],
       },
       {
-        title: 'Mobile Apps',
+        title_id: 'Source Code Aplikasi Mobile',
+        title_en: 'Mobile Apps',
         slug: 'mobile-apps',
         items: [
-          { name: 'Flutter Full Apps', slug: 'flutter-apps' },
-          { name: 'React Native Starters', slug: 'react-native' },
-          { name: 'iOS Swift Boilerplates', slug: 'swift-apps' },
+          { name_id: 'Aplikasi Flutter Lengkap', name_en: 'Flutter Full Apps', slug: 'flutter-apps' },
+          { name_id: 'Starter React Native', name_en: 'React Native Starters', slug: 'react-native' },
+          { name_id: 'Boilerplate iOS Swift', name_en: 'iOS Swift Boilerplates', slug: 'swift-apps' },
         ],
       },
       {
-        title: 'Backend & APIs',
+        title_id: 'Backend & Layanan API',
+        title_en: 'Backend & APIs',
         slug: 'backend-apis',
         items: [
-          { name: 'Node.js Express Starters', slug: 'nodejs' },
-          { name: 'Python FastAPI Microservices', slug: 'python-api' },
-          { name: 'Database Schemas', slug: 'db-schemas' },
+          { name_id: 'Starter Express & Node.js', name_en: 'Node.js Express Starters', slug: 'nodejs' },
+          { name_id: 'Microservice Python FastAPI', name_en: 'Python FastAPI Microservices', slug: 'python-api' },
+          { name_id: 'Skema Database Postgres', name_en: 'Database Schemas', slug: 'db-schemas' },
         ],
       },
     ],
     featuredCards: [
       {
-        title: 'Next.js SaaS Kit',
+        title_id: 'Next.js 16 SaaS Kit',
+        title_en: 'Next.js SaaS Kit',
         imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=template-source-code&subcategory=cms-frameworks',
       },
       {
-        title: 'Flutter eCommerce',
+        title_id: 'Flutter eCommerce App',
+        title_en: 'Flutter eCommerce',
         imageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=template-source-code&subcategory=mobile-apps',
       },
       {
-        title: 'API Microservices',
+        title_id: 'API Microservices Kit',
+        title_en: 'API Microservices',
         imageUrl: 'https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=template-source-code&subcategory=backend-apis',
       },
@@ -486,7 +548,8 @@ export const CATALOG_FABRICS = [
 export const CATALOG_PRODUCTS: CatalogProduct[] = [
   {
     id: 'prod-c1',
-    title: 'Black midi skirt with white flowers',
+    title_id: 'Rok midi hitam motif bunga putih',
+    title_en: 'Black midi skirt with white flowers',
     slug: 'black-midi-skirt-with-white-flowers',
     category: 'clothing',
     subcategory: 'womens-clothing',
@@ -499,10 +562,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 0,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['rok', 'pakaian', 'baju', 'wanita', 'motif bunga', 'hitam', 'zara'],
+    tags_en: ['skirt', 'clothing', 'women', 'dress', 'flowers', 'black', 'zara'],
   },
   {
     id: 'prod-c2',
-    title: 'Floral women sundress',
+    title_id: 'Gaun santai wanita corak bunga',
+    title_en: 'Floral women sundress',
     slug: 'floral-women-sundress',
     category: 'clothing',
     subcategory: 'womens-clothing',
@@ -515,10 +581,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 0,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1572804013309-59a88b7e92f1?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['gaun', 'dress', 'pakaian', 'baju', 'wanita', 'sundress', 'h & m'],
+    tags_en: ['dress', 'sundress', 'clothing', 'women', 'floral', 'h & m'],
   },
   {
     id: 'prod-c3',
-    title: 'Women casual dress',
+    title_id: 'Gaun kasual wanita elegan',
+    title_en: 'Women casual dress',
     slug: 'women-casual-dress',
     category: 'clothing',
     subcategory: 'womens-clothing',
@@ -530,10 +599,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 0,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1515372039744-b8f02a3ae446?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['gaun', 'dress', 'kasual', 'pakaian', 'wanita', 'putih', 'gucci'],
+    tags_en: ['dress', 'casual', 'clothing', 'women', 'white', 'gucci'],
   },
   {
     id: 'prod-c4',
-    title: 'Light blue women shirt',
+    title_id: 'Kemeja wanita warna biru muda',
+    title_en: 'Light blue women shirt',
     slug: 'light-blue-women-shirt',
     category: 'clothing',
     subcategory: 'womens-clothing',
@@ -546,10 +618,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 0,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1598033129183-c4f50c736f10?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['kemeja', 'pakaian', 'baju', 'wanita', 'biru', 'uniqlo', 'atasan'],
+    tags_en: ['shirt', 'clothing', 'women', 'light blue', 'uniqlo', 'top'],
   },
   {
     id: 'prod-c5',
-    title: 'Summer fashion top lace',
+    title_id: 'Atasan brokat renda musim panas',
+    title_en: 'Summer fashion top lace',
     slug: 'summer-fashion-top-lace',
     category: 'clothing',
     subcategory: 'womens-clothing',
@@ -562,10 +637,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 1,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['atasan', 'renda', 'baju', 'pakaian', 'wanita', 'musim panas', 'armani'],
+    tags_en: ['top', 'lace', 'clothing', 'women', 'summer', 'fashion', 'armani'],
   },
   {
     id: 'prod-c6',
-    title: 'Cobalt man t-shirt all colors',
+    title_id: 'Kaos pria cobalt berbagai warna',
+    title_en: 'Cobalt man t-shirt all colors',
     slug: 'cobalt-man-t-shirt-all-colors',
     category: 'clothing',
     subcategory: 'mens-clothing',
@@ -578,10 +656,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 1,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['kaos', 't-shirt', 'pria', 'pakaian', 'baju', 'cobalt', "levi's"],
+    tags_en: ['t-shirt', 'shirt', 'men', 'clothing', 'cobalt', "levi's"],
   },
   {
     id: 'prod-c7',
-    title: 'Navy polka dot dress',
+    title_id: 'Gaun polkadot navy wanita',
+    title_en: 'Navy polka dot dress',
     slug: 'navy-polka-dot-dress',
     category: 'clothing',
     subcategory: 'womens-clothing',
@@ -594,10 +675,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 0,
     featured: false,
     imageUrl: 'https://images.unsplash.com/photo-1496747611176-843222e1e57c?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['gaun', 'dress', 'polkadot', 'navy', 'pakaian', 'wanita', 'burberry'],
+    tags_en: ['dress', 'polka dot', 'navy', 'clothing', 'women', 'burberry'],
   },
   {
     id: 'prod-c8',
-    title: 'Men outerwear navy color',
+    title_id: 'Jaket outerwear pria warna navy',
+    title_en: 'Men outerwear navy color',
     slug: 'men-outerwear-navy-color',
     category: 'clothing',
     subcategory: 'mens-clothing',
@@ -610,10 +694,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 0,
     featured: false,
     imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['jaket', 'outerwear', 'pria', 'pakaian', 'navy', 'diesel'],
+    tags_en: ['jacket', 'outerwear', 'men', 'clothing', 'navy', 'diesel'],
   },
   {
     id: 'prod-s1',
-    title: 'Classic Leather Chelsea Boots',
+    title_id: 'Sepatu Boots Kulit Chelsea Klasik',
+    title_en: 'Classic Leather Chelsea Boots',
     slug: 'classic-leather-chelsea-boots',
     category: 'shoes',
     subcategory: 'mens-shoes',
@@ -626,10 +713,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 3,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['sepatu', 'boots', 'kulit', 'pria', 'chelsea', 'hugo boss'],
+    tags_en: ['shoes', 'boots', 'leather', 'men', 'chelsea', 'hugo boss'],
   },
   {
     id: 'prod-s2',
-    title: 'Air Flow Performance Sneakers',
+    title_id: 'Sepatu Sneakers Olahraga Air Flow',
+    title_en: 'Air Flow Performance Sneakers',
     slug: 'air-flow-performance-sneakers',
     category: 'shoes',
     subcategory: 'mens-shoes',
@@ -642,10 +732,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 5,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1549298916-b41d501d3772?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['sepatu', 'sneakers', 'kets', 'olahraga', 'lari', 'nike', 'pria'],
+    tags_en: ['shoes', 'sneakers', 'sports', 'running', 'nike', 'men'],
   },
   {
     id: 'prod-h1',
-    title: 'Nordic Minimalist Fabric Armchair',
+    title_id: 'Kursi Armchair Scandinavian Minimalis',
+    title_en: 'Nordic Minimalist Fabric Armchair',
     slug: 'nordic-minimalist-fabric-armchair',
     category: 'home-living',
     subcategory: 'furniture',
@@ -658,10 +751,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 2,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['furnitur', 'kursi', 'sofa', 'ruang tamu', 'rumah', 'dekorasi'],
+    tags_en: ['furniture', 'chair', 'armchair', 'sofa', 'home', 'living'],
   },
   {
     id: 'prod-h2',
-    title: 'Bohemian Decorative Cushion Set',
+    title_id: 'Set Bantal Sofa Dekoratif Bohemian',
+    title_en: 'Bohemian Decorative Cushion Set',
     slug: 'bohemian-decorative-cushion-set',
     category: 'home-living',
     subcategory: 'home-decor',
@@ -674,10 +770,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 4,
     featured: false,
     imageUrl: 'https://images.unsplash.com/photo-1584100936595-c0654b55a2e2?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['bantal', 'dekorasi', 'sofa', 'rumah', 'bohemian'],
+    tags_en: ['pillows', 'cushions', 'decor', 'sofa', 'home', 'living'],
   },
   {
     id: 'prod-j1',
-    title: 'Handcrafted Golden Pendant Necklace',
+    title_id: 'Kalung Liontin Emas Kerajinan Tangan',
+    title_en: 'Handcrafted Golden Pendant Necklace',
     slug: 'handcrafted-golden-pendant-necklace',
     category: 'jewelry-accessories',
     subcategory: 'fine-jewelry',
@@ -690,10 +789,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 6,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1599643478518-a784e5dc4c8f?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['kalung', 'liontin', 'emas', 'perhiasan', 'aksesoris', 'wanita'],
+    tags_en: ['necklace', 'pendant', 'gold', 'jewelry', 'accessories', 'women'],
   },
   {
     id: 'prod-j2',
-    title: 'Classic Italian Leather Handbag',
+    title_id: 'Tas Tangan Jinjing Kulit Italia Klasik',
+    title_en: 'Classic Italian Leather Handbag',
     slug: 'classic-italian-leather-handbag',
     category: 'jewelry-accessories',
     subcategory: 'bags-purses',
@@ -706,10 +808,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 2,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['tas', 'handbag', 'tas jinjing', 'kulit', 'wanita', 'aksesoris'],
+    tags_en: ['bag', 'handbag', 'purses', 'leather', 'women', 'accessories'],
   },
   {
     id: 'prod-t1',
-    title: 'Wooden Educational Architecture Blocks',
+    title_id: 'Balok Susun Edukasi Kayu Anak',
+    title_en: 'Wooden Educational Architecture Blocks',
     slug: 'wooden-educational-architecture-blocks',
     category: 'toys-entertainment',
     subcategory: 'games-puzzles',
@@ -722,10 +827,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 1,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1596461404969-9ae70f2830c1?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['mainan', 'balok', 'kayu', 'edukasi', 'anak', 'puzzle'],
+    tags_en: ['toys', 'blocks', 'wooden', 'educational', 'kids', 'puzzle'],
   },
   {
     id: 'prod-g1',
-    title: 'Creative Abstract Vector Illustrations Pack',
+    title_id: 'Paket Vektor Ilustrasi Abstrak Kreatif',
+    title_en: 'Creative Abstract Vector Illustrations Pack',
     slug: 'creative-abstract-vector-illustrations-pack',
     category: 'graphics',
     subcategory: 'vectors-illustrations',
@@ -737,10 +845,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 8,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['vektor', 'ilustrasi', 'grafis', 'desain', 'digital', 'ikon'],
+    tags_en: ['vector', 'illustration', 'graphics', 'design', 'digital', 'icons'],
   },
   {
     id: 'prod-v1',
-    title: 'Cinematic 4K Drone Nature Footage Pack',
+    title_id: 'Paket Video Drone Alam Sinematik 4K',
+    title_en: 'Cinematic 4K Drone Nature Footage Pack',
     slug: 'cinematic-4k-drone-nature-footage-pack',
     category: 'video-audio',
     subcategory: 'stock-footage',
@@ -752,10 +863,13 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 3,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['video', 'footage', 'drone', '4k', 'sinematik', 'alam'],
+    tags_en: ['video', 'footage', 'drone', '4k', 'cinematic', 'nature'],
   },
   {
     id: 'prod-w1',
-    title: 'Modern Next.js 16 Multi-Vendor SaaS Template',
+    title_id: 'Template SaaS Marketplace Multi-Vendor Next.js 16',
+    title_en: 'Modern Next.js 16 Multi-Vendor SaaS Template',
     slug: 'modern-nextjs-16-multivendor-saas-template',
     category: 'template-source-code',
     subcategory: 'cms-frameworks',
@@ -767,5 +881,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     wishlistCount: 12,
     featured: true,
     imageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=600&q=80',
+    tags_id: ['template', 'source code', 'next.js', 'react', 'web', 'aplikasi'],
+    tags_en: ['template', 'source code', 'next.js', 'react', 'web', 'apps'],
   },
 ]
