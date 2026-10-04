@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getUser } from '@/lib/auth'
 import { signOut } from '@/actions/auth'
 import { createClient } from '@/lib/supabase/server'
+import { CategoryNav } from '@/components/layout/category-nav'
 import {
   Search,
   ShoppingCart,
@@ -303,25 +304,8 @@ export async function SiteHeader() {
         </div>
       </div>
 
-      {/* 3. HORIZONTAL CATEGORY SUB-BAR (Persis seperti deretan kategori di bawah header gambar) */}
-      <nav
-        aria-label="Navigasi Kategori Utama"
-        className="border-t border-border/50 bg-background hidden md:block"
-      >
-        <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between overflow-x-auto py-2.5 scrollbar-none">
-          <div className="flex items-center space-x-6 lg:space-x-8 text-xs font-semibold text-foreground/80 whitespace-nowrap">
-            {topNavCategories.map((cat) => (
-              <Link
-                key={cat.slug}
-                href={`/products?category=${cat.slug}`}
-                className="hover:text-primary transition-colors py-0.5"
-              >
-                {cat.name}
-              </Link>
-            ))}
-          </div>
-        </div>
-      </nav>
+      {/* 3. INTERACTIVE CATEGORY SUB-BAR & MEGA MENU (Persis seperti Gambar 1 dan Gambar 2) */}
+      <CategoryNav />
     </header>
   )
 }

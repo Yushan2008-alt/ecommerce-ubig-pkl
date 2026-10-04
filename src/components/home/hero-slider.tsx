@@ -39,7 +39,7 @@ const slides: SlideItem[] = [
     title: 'Modern Living & Handcrafted Decor',
     subtitle: 'Sentuhan hangat perabotan estetik dan dekorasi rumah buatan tangan dari pengrajin terbaik',
     ctaText: 'Koleksi Rumah & Living',
-    ctaLink: '/products',
+    ctaLink: '/products?category=rumah-living',
     image: 'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1920&q=85',
     alt: 'Ruang tamu modern estetik dengan perabotan kayu dan dekorasi minimalis',
   },
@@ -58,7 +58,7 @@ export function HeroSlider() {
     setCurrent((prev) => (prev - 1 + slides.length) % slides.length)
   }, [])
 
-  // Auto-play timer (pause saat mouse hover atau tab tidak fokus)
+  // Auto-play timer berulang dengan animasi sliding halus
   useEffect(() => {
     if (isPaused) return
 
@@ -68,7 +68,7 @@ export function HeroSlider() {
 
     const timer = setInterval(() => {
       nextSlide()
-    }, 5500)
+    }, 4500)
 
     return () => clearInterval(timer)
   }, [isPaused, nextSlide])
@@ -94,65 +94,66 @@ export function HeroSlider() {
       onMouseLeave={() => setIsPaused(false)}
       className="relative w-full h-[360px] sm:h-[440px] md:h-[500px] lg:h-[540px] overflow-hidden bg-neutral-900 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none select-none"
     >
-      {/* Slides Container */}
-      {slides.map((slide, index) => {
-        const isActive = index === current
-        return (
-          <div
-            key={slide.id}
-            role="group"
-            aria-roledescription="slide"
-            aria-label={`${index + 1} dari ${slides.length}`}
-            aria-hidden={!isActive}
-            className={`absolute inset-0 w-full h-full transition-all duration-700 ease-in-out ${
-              isActive
-                ? 'opacity-100 visible z-10 scale-100'
-                : 'opacity-0 invisible z-0 pointer-events-none'
-            }`}
-          >
-            {/* Background Image */}
-            <div className="absolute inset-0">
-              <Image
-                src={slide.image}
-                alt={slide.alt}
-                fill
-                priority={index === 0}
-                className="object-cover object-center"
-                sizes="100vw"
-              />
-              {/* Overlay Gradient halus agar teks selalu terbaca kontras */}
-              <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/35 to-transparent" />
-            </div>
+      {/* Sliding Track dengan Animasi translateX */}
+      <div
+        className="flex w-full h-full transition-transform duration-700 ease-out will-change-transform"
+        style={{ transform: `translateX(-${current * 100}%)` }}
+      >
+        {slides.map((slide, index) => {
+          const isActive = index === current
+          return (
+            <div
+              key={slide.id}
+              role="group"
+              aria-roledescription="slide"
+              aria-label={`${index + 1} dari ${slides.length}`}
+              aria-hidden={!isActive}
+              className="relative w-full h-full shrink-0 overflow-hidden"
+            >
+              {/* Background Image */}
+              <div className="absolute inset-0">
+                <Image
+                  src={slide.image}
+                  alt={slide.alt}
+                  fill
+                  priority={index === 0}
+                  className="object-cover object-center"
+                  sizes="100vw"
+                />
+                {/* Overlay Gradient halus agar teks selalu terbaca kontras */}
+                <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/35 to-transparent" />
+              </div>
 
-            {/* Slide Content (Kiri sesuai referensi gambar) */}
-            <div className="relative z-20 container mx-auto px-6 sm:px-12 md:px-16 h-full flex flex-col justify-center max-w-7xl">
-              <div className="max-w-xl text-white space-y-4">
-                <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.15] text-balance drop-shadow-sm">
-                  {slide.title}
-                </h1>
-                <p className="text-sm sm:text-base md:text-lg text-white/90 font-normal leading-relaxed drop-shadow-sm max-w-lg">
-                  {slide.subtitle}
-                </p>
-                <div className="pt-2">
-                  <Link
-                    href={slide.ctaLink}
-                    className="inline-flex items-center justify-center px-6 py-3 rounded-md bg-[#00a699] hover:bg-[#008f84] text-white font-medium text-sm transition-colors shadow-lg hover:shadow-xl focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
-                  >
-                    {slide.ctaText}
-                  </Link>
+              {/* Slide Content (Kiri sesuai referensi gambar) */}
+              <div className="relative z-20 container mx-auto px-6 sm:px-12 md:px-16 h-full flex flex-col justify-center max-w-7xl">
+                <div className="max-w-xl text-white space-y-4">
+                  <h1 className="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight leading-[1.15] text-balance drop-shadow-sm">
+                    {slide.title}
+                  </h1>
+                  <p className="text-sm sm:text-base md:text-lg text-white/90 font-normal leading-relaxed drop-shadow-sm max-w-lg">
+                    {slide.subtitle}
+                  </p>
+                  <div className="pt-2">
+                    <Link
+                      href={slide.ctaLink}
+                      className="inline-flex items-center justify-center px-6 py-3 rounded-md bg-[#00a699] hover:bg-[#008f84] text-white font-medium text-sm transition-colors shadow-lg hover:shadow-xl focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none"
+                    >
+                      {slide.ctaText}
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )
-      })}
+          )
+        })}
+      </div>
 
       {/* Tombol Panah Kiri (<) */}
       <button
         type="button"
         onClick={prevSlide}
         aria-label="Slide sebelumnya"
-        className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+        className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none cursor-pointer"
       >
         <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" />
       </button>
@@ -162,28 +163,10 @@ export function HeroSlider() {
         type="button"
         onClick={nextSlide}
         aria-label="Slide berikutnya"
-        className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+        className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 z-30 w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-white/70 hover:bg-white text-neutral-800 flex items-center justify-center shadow-md backdrop-blur-sm transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none cursor-pointer"
       >
         <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" aria-hidden="true" />
       </button>
-
-      {/* Paginasi Bulatan (Dots) */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2">
-        {slides.map((slide, idx) => (
-          <button
-            key={slide.id}
-            type="button"
-            onClick={() => setCurrent(idx)}
-            aria-label={`Pindah ke slide ${idx + 1}`}
-            aria-current={current === idx ? 'true' : 'false'}
-            className={`transition-all duration-300 rounded-full focus-visible:ring-2 focus-visible:ring-white focus-visible:outline-none ${
-              current === idx
-                ? 'w-7 h-2.5 bg-[#00a699]'
-                : 'w-2.5 h-2.5 bg-white/60 hover:bg-white'
-            }`}
-          />
-        ))}
-      </div>
     </div>
   )
 }

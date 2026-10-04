@@ -103,7 +103,7 @@ const defaultRecommendedProducts: RecommendedProductItem[] = [
     discountPercent: 23,
     sellerType: 'Star+',
     tag: 'Garansi Harga Terbaik',
-    imageUrl: 'https://images.unsplash.com/photo-1584824486509-112e4181ff6b?auto=format&fit=crop&w=400&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1541534741688-6078c6bfb5c5?auto=format&fit=crop&w=400&q=80',
     alt: 'Sarung tangan biliar bahan lycra wanita',
   },
   {
@@ -249,16 +249,16 @@ export async function RecommendedProducts() {
 
   return (
     <section id="rekomendasi" className="container mx-auto px-4 max-w-7xl pt-2 pb-16">
-      {/* 1. Header Tab: REKOMENDASI (Sesuai gambar referensi 1) */}
-      <div className="w-full bg-background border-b-2 border-red-500 mb-4 py-2.5 sm:py-3">
+      {/* 1. Header Tab: REKOMENDASI (Sesuai tema proyek Krafita) */}
+      <div className="w-full bg-background border-b-2 border-primary mb-4 py-2.5 sm:py-3">
         <div className="flex items-center justify-center">
-          <span className="text-red-500 font-extrabold text-sm sm:text-base tracking-wider uppercase select-none">
+          <span className="text-primary font-extrabold text-sm sm:text-base tracking-wider uppercase select-none">
             REKOMENDASI
           </span>
         </div>
       </div>
 
-      {/* 2. Grid Produk: 6 Kolom Sesuai Referensi Gambar 1 & 2 */}
+      {/* 2. Grid Produk: 6 Kolom Sesuai Referensi Gambar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 sm:gap-2.5 md:gap-3">
         {products.map((item) => {
           const formattedPrice = new Intl.NumberFormat('id-ID', {
@@ -272,7 +272,7 @@ export async function RecommendedProducts() {
             <Link
               key={item.id}
               href={`/products/${item.slug}`}
-              className="group bg-card border border-border/80 hover:border-red-400 hover:shadow-md transition-all rounded-xs overflow-hidden flex flex-col focus-visible:ring-2 focus-visible:ring-red-500 focus-visible:outline-none"
+              className="group bg-card border border-border/80 hover:border-primary/60 hover:shadow-md transition-all rounded-xs overflow-hidden flex flex-col focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
             >
               {/* Gambar Produk dengan Diskon di Kanan Atas */}
               <div className="relative aspect-square w-full bg-muted/40 overflow-hidden">
@@ -285,9 +285,9 @@ export async function RecommendedProducts() {
                   loading="lazy"
                 />
 
-                {/* Badge Diskon di Pojok Kanan Atas (Kuning Oranye Shopee style) */}
+                {/* Badge Diskon di Pojok Kanan Atas */}
                 {item.discountPercent && (
-                  <div className="absolute top-0 right-0 bg-[#ffe97a] text-[#ee4d2d] text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-bl-xs">
+                  <div className="absolute top-0 right-0 bg-primary text-primary-foreground text-[10px] sm:text-[11px] font-bold px-1.5 py-0.5 rounded-bl-xs shadow-xs">
                     -{item.discountPercent}%
                   </div>
                 )}
@@ -297,8 +297,8 @@ export async function RecommendedProducts() {
               <div className="p-2 sm:p-2.5 flex-1 flex flex-col justify-between space-y-1.5">
                 {/* Judul Produk dengan Badge Star/Star+ */}
                 <div className="space-y-1">
-                  <h3 className="text-xs font-normal text-foreground line-clamp-2 leading-tight group-hover:text-red-500 transition-colors">
-                    <span className="bg-[#ee4d2d] text-white text-[9px] font-bold px-1 py-0.5 rounded-xs inline-block mr-1 align-baseline">
+                  <h3 className="text-xs font-normal text-foreground line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                    <span className="bg-primary text-primary-foreground text-[9px] font-bold px-1.5 py-0.5 rounded-xs inline-block mr-1 align-baseline">
                       {item.sellerType}
                     </span>
                     {item.title}
@@ -307,7 +307,7 @@ export async function RecommendedProducts() {
                   {/* Tag Garansi Harga Terbaik / Stok Terbatas */}
                   {item.tag && (
                     <div className="pt-0.5">
-                      <span className="border border-[#ee4d2d]/60 text-[#ee4d2d] text-[9px] font-medium px-1 py-0.5 rounded-2xs inline-block">
+                      <span className="border border-primary/40 text-primary bg-primary/5 text-[9px] font-medium px-1.5 py-0.5 rounded-2xs inline-block">
                         {item.tag}
                       </span>
                     </div>
@@ -316,7 +316,7 @@ export async function RecommendedProducts() {
 
                 {/* Harga Produk */}
                 <div className="pt-1">
-                  <span className="text-[#ee4d2d] text-sm sm:text-base font-bold tabular-nums">
+                  <span className="text-primary text-sm sm:text-base font-bold tabular-nums">
                     {formattedPrice}
                   </span>
                 </div>
@@ -326,19 +326,19 @@ export async function RecommendedProducts() {
         })}
       </div>
 
-      {/* 3. Tombol Login Untuk Lihat Lainnya (Sesuai Referensi Gambar 3) */}
+      {/* 3. Tombol Login Untuk Lihat Lainnya (Sesuai Referensi Gambar) */}
       <div className="pt-10 pb-6 flex justify-center">
         {user ? (
           <Link
             href="/products"
-            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-border/90 hover:border-foreground/40 hover:bg-muted text-xs sm:text-sm font-medium text-foreground rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             Lihat Produk Lainnya
           </Link>
         ) : (
           <Link
             href="/login?next=%2F#rekomendasi"
-            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-border/90 hover:border-foreground/40 hover:bg-muted text-xs sm:text-sm font-medium text-foreground rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
           >
             Login Untuk Lihat Lainnya
           </Link>

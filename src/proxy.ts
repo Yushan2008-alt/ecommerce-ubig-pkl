@@ -8,7 +8,6 @@ const PROTECTED = [
   '/downloads',
   '/wishlist',
   '/account',
-  '/sell',
   '/vendor',
 ]
 
