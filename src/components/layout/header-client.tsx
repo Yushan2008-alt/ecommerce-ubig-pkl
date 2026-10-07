@@ -12,6 +12,8 @@ import {
   MapPin,
   ChevronDown,
   Store,
+  User,
+  LogOut,
 } from 'lucide-react'
 import { CATALOG_CATEGORIES } from '@/lib/catalog-data'
 
@@ -45,7 +47,7 @@ export function HeaderTopRightControls({
   profile: any
   signOutAction: () => Promise<void>
 }) {
-  const { t } = useLanguage()
+  const { t, locale } = useLanguage()
 
   return (
     <div className="flex items-center space-x-3 sm:space-x-4">
@@ -68,9 +70,47 @@ export function HeaderTopRightControls({
 
       {/* User Login/Register State */}
       {user ? (
-        <span className="font-semibold text-foreground text-xs">
-          {profile?.display_name || user.email?.split('@')[0]}
-        </span>
+        <div className="relative group">
+          <Link
+            href="/account"
+            className="flex items-center gap-1.5 font-semibold text-foreground text-xs hover:text-primary transition-colors py-1 cursor-pointer"
+          >
+            <User className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
+            <span className="max-w-[120px] truncate">
+              {profile?.display_name || user.email?.split('@')[0]}
+            </span>
+            <ChevronDown className="w-2.5 h-2.5 opacity-60" />
+          </Link>
+
+          {/* Quick Menu Popover on Hover */}
+          <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-50">
+            <div className="w-44 bg-card rounded-md border border-border shadow-lg p-1.5 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
+              <Link
+                href="/account"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
+              >
+                <User className="w-3.5 h-3.5 text-[#00a699]" />
+                <span>{t.my_account}</span>
+              </Link>
+              <Link
+                href="/account"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
+              >
+                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                <span>{t.address_book}</span>
+              </Link>
+              <hr className="my-1 border-border" />
+              <button
+                type="button"
+                onClick={() => signOutAction()}
+                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer text-left"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>{locale === 'id' ? 'Keluar' : 'Sign Out'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
       ) : (
         <div className="flex items-center gap-1 font-medium">
           <Link href="/login" className="hover:text-primary transition-colors">

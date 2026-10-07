@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -13,20 +13,46 @@ import {
   ShieldCheck,
   ShoppingBag,
   LogIn,
+  Store,
+  MapPin,
+  Truck,
+  FileText,
+  Check,
+  Sparkles,
 } from 'lucide-react'
-import { useCartWishlist } from '@/context/cart-wishlist-context'
+import { useCartWishlist, CartItem } from '@/context/cart-wishlist-context'
 import { useLanguage } from '@/context/language-context'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
+interface GroupedShop {
+  shopId: string
+  shopName: string
+  shopSlug: string
+  shopCity: string | null
+  flatShippingCost: number
+  hasPhysical: boolean
+  effectiveShippingCost: number
+  subtotal: number
+  items: CartItem[]
+}
+
 export default function CartPage() {
   const router = useRouter()
   const { t, locale } = useLanguage()
-  const { cartItems, updateCartQty, removeFromCart, clearCart, cartSubtotal, cartCount } =
-    useCartWishlist()
+  const {
+    cartItems,
+    updateCartQty,
+    updateBuyerNote,
+    removeFromCart,
+    clearCart,
+    cartCount,
+  } = useCartWishlist()
 
-  const [isCheckingAuth, setIsCheckingAuth] = useState(false)
   const [currentUser, setCurrentUser] = useState<any>(null)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [noteText, setNoteText] = useState<string>('')
+  const [isSavingNote, setIsSavingNote] = useState<boolean>(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -46,8 +72,75 @@ export default function CartPage() {
       .replace(/\s+/g, '')
   }
 
+  // Pengelompokan cart items berdasarkan toko (shopId / vendor)
+  const shopGroups = useMemo<GroupedShop[]>(() => {
+    const map = new Map<string, GroupedShop>()
+
+    for (const item of cartItems) {
+      const shopKey = item.shopId || item.vendor || 'krafita-default'
+      const shopName = item.shopName || item.vendor || 'Toko Krafita'
+      const shopSlug = item.shopSlug || ''
+      const shopCity = item.shopCity || null
+      const flatShippingCost = item.flatShippingCost || 0
+
+      if (!map.has(shopKey)) {
+        map.set(shopKey, {
+          shopId: shopKey,
+          shopName,
+          shopSlug,
+          shopCity,
+          flatShippingCost,
+          hasPhysical: false,
+          effectiveShippingCost: 0,
+          subtotal: 0,
+          items: [],
+        })
+      }
+
+      const grp = map.get(shopKey)!
+      grp.items.push(item)
+      grp.subtotal += item.price * item.qty
+      if (!item.isDigital) {
+        grp.hasPhysical = true
+      }
+    }
+
+    // Hitung ongkir efektif: 0 jika semua digital, flatShippingCost jika ada fisik
+    const groups: GroupedShop[] = []
+    for (const grp of map.values()) {
+      grp.effectiveShippingCost = grp.hasPhysical ? grp.flatShippingCost : 0
+      groups.push(grp)
+    }
+
+    return groups
+  }, [cartItems])
+
+  // Ringkasan total
+  const totalProductsPrice = useMemo(() => {
+    return shopGroups.reduce((acc, g) => acc + g.subtotal, 0)
+  }, [shopGroups])
+
+  const totalShippingFee = useMemo(() => {
+    return shopGroups.reduce((acc, g) => acc + g.effectiveShippingCost, 0)
+  }, [shopGroups])
+
+  const grandTotal = totalProductsPrice + totalShippingFee
+
+  // Handler Note Modal/Inline
+  const handleOpenNote = (item: CartItem) => {
+    setEditingNoteId(item.id)
+    setNoteText(item.buyerNote || '')
+  }
+
+  const handleSaveNote = async (item: CartItem) => {
+    setIsSavingNote(true)
+    await updateBuyerNote(item.id, noteText.trim())
+    setIsSavingNote(false)
+    setEditingNoteId(null)
+    toast.success(t.note_saved)
+  }
+
   const handleProceedToCheckout = async () => {
-    setIsCheckingAuth(true)
     const supabase = createClient()
     const { data } = await supabase.auth.getUser()
 
@@ -60,7 +153,6 @@ export default function CartPage() {
     } else {
       router.push('/checkout')
     }
-    setIsCheckingAuth(false)
   }
 
   return (
@@ -84,7 +176,7 @@ export default function CartPage() {
             </h1>
             <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               {cartCount > 0
-                ? `${cartCount} ${t.items_count}`
+                ? `${cartCount} ${t.items_count} • ${shopGroups.length} ${t.shop_badge}`
                 : t.cart_empty_title}
             </p>
           </div>
@@ -137,161 +229,326 @@ export default function CartPage() {
         ) : (
           /* Cart Content: Two Column Layout */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Daftar Produk di Keranjang */}
-            <div className="lg:col-span-8 bg-card border border-border/80 rounded-md overflow-hidden shadow-xs divide-y divide-border/60">
-              {/* Header List */}
-              <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-3 text-xs font-semibold text-muted-foreground bg-muted/30">
-                <div className="col-span-6">{t.products}</div>
-                <div className="col-span-2 text-right">{t.unit_price}</div>
-                <div className="col-span-2 text-center">{t.quantity}</div>
-                <div className="col-span-2 text-right">{t.subtotal}</div>
-              </div>
-
-              {/* Items */}
-              {cartItems.map((item) => (
+            {/* Daftar Produk Dikelompokkan Per Toko */}
+            <div className="lg:col-span-8 space-y-6">
+              {shopGroups.map((group) => (
                 <div
-                  key={item.id}
-                  className="p-4 sm:p-5 flex flex-col sm:grid sm:grid-cols-12 gap-4 items-center"
+                  key={group.shopId}
+                  className="bg-card border border-border/80 rounded-md overflow-hidden shadow-xs divide-y divide-border/60"
                 >
-                  {/* Info Produk & Gambar */}
-                  <div className="w-full sm:col-span-6 flex items-center gap-3.5">
-                    <Link
-                      href={`/products/${item.slug}`}
-                      className="relative w-16 h-16 sm:w-20 sm:h-20 bg-muted/40 rounded-sm overflow-hidden shrink-0 border border-border/60"
-                    >
-                      <Image
-                        src={item.imageUrl}
-                        alt={item.title}
-                        fill
-                        className="object-cover object-center"
-                      />
-                    </Link>
-
-                    <div className="min-w-0 flex-1">
-                      <Link
-                        href={`/products/${item.slug}`}
-                        className="text-xs sm:text-sm font-semibold text-foreground hover:text-primary transition-colors line-clamp-2 leading-snug"
-                      >
-                        {item.title}
-                      </Link>
-                      {item.vendor && (
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {item.vendor}
-                        </p>
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.id)}
-                        className="text-[11px] text-rose-600 hover:text-rose-700 flex items-center gap-1 mt-2 cursor-pointer font-medium"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        {t.remove_item}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Unit Price */}
-                  <div className="w-full sm:w-auto sm:col-span-2 sm:text-right flex justify-between sm:block text-xs text-muted-foreground">
-                    <span className="sm:hidden font-medium">{t.unit_price}:</span>
-                    <span className="font-semibold text-foreground">
-                      {formatPrice(item.price)}
-                    </span>
-                  </div>
-
-                  {/* Quantity Modifier */}
-                  <div className="w-full sm:w-auto sm:col-span-2 flex justify-between sm:justify-center items-center">
-                    <span className="sm:hidden text-xs text-muted-foreground font-medium">
-                      {t.quantity}:
-                    </span>
-                    <div className="inline-flex items-center border border-border rounded-md bg-background overflow-hidden">
-                      <button
-                        type="button"
-                        onClick={() => updateCartQty(item.id, item.qty - 1)}
-                        className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                        aria-label="Kurangi jumlah"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="w-8 text-center text-xs font-semibold tabular-nums">
-                        {item.qty}
+                  {/* Shop Group Header */}
+                  <div className="p-4 sm:px-5 sm:py-3.5 bg-muted/40 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Store className="w-4 h-4 text-[#00a699]" />
+                      <span className="font-semibold text-xs sm:text-sm text-foreground">
+                        {group.shopName}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => updateCartQty(item.id, item.qty + 1)}
-                        className="p-1.5 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                        aria-label="Tambah jumlah"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                      {group.shopCity && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground bg-background px-2 py-0.5 rounded border border-border/60">
+                          <MapPin className="w-3 h-3" />
+                          {group.shopCity}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <Truck className="w-3.5 h-3.5 text-muted-foreground/80" />
+                      {group.hasPhysical ? (
+                        <span>
+                          {t.flat_shipping}:{' '}
+                          <span className="font-semibold text-foreground">
+                            {formatPrice(group.flatShippingCost)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-emerald-600 dark:text-emerald-400 font-medium">
+                          {t.free_shipping_digital}
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  {/* Line Total */}
-                  <div className="w-full sm:w-auto sm:col-span-2 sm:text-right flex justify-between sm:block text-xs">
-                    <span className="sm:hidden text-muted-foreground font-medium">
-                      {t.subtotal}:
-                    </span>
-                    <span className="text-sm font-extrabold text-[#00a699] tabular-nums">
-                      {formatPrice(item.price * item.qty)}
-                    </span>
+                  {/* Header Kolom */}
+                  <div className="hidden sm:grid grid-cols-12 gap-4 px-5 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider bg-background/50">
+                    <div className="col-span-6">{t.products}</div>
+                    <div className="col-span-2 text-right">{t.unit_price}</div>
+                    <div className="col-span-2 text-center">{t.quantity}</div>
+                    <div className="col-span-2 text-right">{t.subtotal}</div>
+                  </div>
+
+                  {/* Items dalam toko */}
+                  {group.items.map((item) => (
+                    <div key={item.id} className="p-4 sm:px-5 sm:py-4 space-y-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-4 items-center">
+                        {/* Info Produk & Thumbnail */}
+                        <div className="sm:col-span-6 flex items-start gap-3.5">
+                          <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-md overflow-hidden bg-muted/40 shrink-0 border border-border/60">
+                            <Image
+                              src={item.imageUrl}
+                              alt={item.title}
+                              fill
+                              className="object-cover object-center"
+                            />
+                          </div>
+
+                          <div className="space-y-1 min-w-0 flex-1">
+                            <h3 className="text-xs sm:text-sm font-semibold text-foreground line-clamp-2 leading-snug">
+                              <Link
+                                href={`/products/${item.slug}`}
+                                className="hover:text-primary transition-colors"
+                              >
+                                {item.title}
+                              </Link>
+                            </h3>
+
+                            {/* Badge Tipe Produk */}
+                            <div className="flex items-center gap-1.5 pt-0.5">
+                              {item.isDigital ? (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
+                                  <Sparkles className="w-2.5 h-2.5 mr-0.5" />
+                                  Digital
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
+                                  Fisik
+                                </span>
+                              )}
+
+                              {item.stock !== null &&
+                                item.stock !== undefined &&
+                                item.stock <= 5 &&
+                                !item.isDigital && (
+                                  <span className="text-[10px] text-amber-600 font-medium">
+                                    Sisa {item.stock}
+                                  </span>
+                                )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Harga Satuan */}
+                        <div className="sm:col-span-2 sm:text-right flex items-center justify-between sm:block">
+                          <span className="sm:hidden text-xs text-muted-foreground">
+                            {t.unit_price}:
+                          </span>
+                          <div>
+                            <div className="text-xs sm:text-sm font-semibold text-foreground">
+                              {formatPrice(item.price)}
+                            </div>
+                            {item.comparePrice && item.comparePrice > item.price && (
+                              <div className="text-[11px] text-muted-foreground line-through">
+                                {formatPrice(item.comparePrice)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Pengatur Kuantitas */}
+                        <div className="sm:col-span-2 flex items-center justify-between sm:justify-center">
+                          <span className="sm:hidden text-xs text-muted-foreground">
+                            {t.quantity}:
+                          </span>
+
+                          {item.isDigital ? (
+                            <div className="text-center">
+                              <span className="text-xs font-semibold px-2.5 py-1 bg-muted/60 rounded border border-border/80">
+                                1
+                              </span>
+                              <div className="text-[10px] text-muted-foreground mt-0.5">
+                                Maks. 1
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex items-center border border-border rounded-md bg-background overflow-hidden">
+                              <button
+                                type="button"
+                                onClick={() => updateCartQty(item.id, item.qty - 1)}
+                                className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                                aria-label="Kurangi kuantitas"
+                              >
+                                <Minus className="w-3 h-3" />
+                              </button>
+                              <span className="w-8 text-center text-xs font-medium text-foreground tabular-nums select-none">
+                                {item.qty}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateCartQty(item.id, item.qty + 1)}
+                                disabled={
+                                  item.stock !== null &&
+                                  item.stock !== undefined &&
+                                  item.qty >= item.stock
+                                }
+                                className="w-7 h-7 flex items-center justify-center text-muted-foreground hover:bg-muted transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                aria-label="Tambah kuantitas"
+                              >
+                                <Plus className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Subtotal Item & Hapus */}
+                        <div className="sm:col-span-2 sm:text-right flex items-center justify-between sm:justify-end gap-3">
+                          <span className="sm:hidden text-xs text-muted-foreground">
+                            {t.subtotal}:
+                          </span>
+                          <div className="text-xs sm:text-sm font-bold text-[#00a699] tabular-nums">
+                            {formatPrice(item.price * item.qty)}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.id)}
+                            className="text-muted-foreground hover:text-rose-600 transition-colors p-1 cursor-pointer"
+                            title={t.remove_item}
+                            aria-label={t.remove_item}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Catatan Pembeli Per Item (Buyer Note) */}
+                      <div className="pt-2 border-t border-border/40 text-xs">
+                        {editingNoteId === item.id ? (
+                          <div className="space-y-2 bg-muted/20 p-2.5 rounded-md border border-border/60">
+                            <div className="flex items-center justify-between text-muted-foreground text-[11px] font-medium">
+                              <span className="flex items-center gap-1">
+                                <FileText className="w-3.5 h-3.5 text-[#00a699]" />
+                                {t.buyer_note}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setEditingNoteId(null)}
+                                className="hover:text-foreground cursor-pointer"
+                              >
+                                {t.cancel_note}
+                              </button>
+                            </div>
+                            <input
+                              type="text"
+                              maxLength={200}
+                              value={noteText}
+                              onChange={(e) => setNoteText(e.target.value)}
+                              placeholder={t.note_placeholder}
+                              className="w-full text-xs bg-background border border-border rounded px-2.5 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleSaveNote(item)}
+                                disabled={isSavingNote}
+                                className="inline-flex items-center gap-1 bg-[#00a699] hover:bg-[#008f84] text-white text-[11px] font-medium px-3 py-1 rounded transition-colors cursor-pointer"
+                              >
+                                <Check className="w-3 h-3" />
+                                {isSavingNote ? t.saving : t.save_note}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-between text-muted-foreground">
+                            <div className="flex items-center gap-1.5 truncate max-w-[85%]">
+                              <FileText className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                              {item.buyerNote ? (
+                                <span className="text-foreground italic truncate">
+                                  &quot;{item.buyerNote}&quot;
+                                </span>
+                              ) : (
+                                <span className="text-muted-foreground/70">
+                                  {t.buyer_note}: -
+                                </span>
+                              )}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenNote(item)}
+                              className="text-[11px] text-[#00a699] hover:underline font-medium cursor-pointer shrink-0 ml-2"
+                            >
+                              {item.buyerNote ? t.edit_note : t.write_note}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Shop Group Summary Footer */}
+                  <div className="px-5 py-3 bg-muted/20 flex flex-wrap items-center justify-between text-xs text-muted-foreground gap-2">
+                    <div>
+                      {t.subtotal_shop}:{' '}
+                      <span className="font-semibold text-foreground">
+                        {formatPrice(group.subtotal)}
+                      </span>
+                    </div>
+                    <div>
+                      {t.flat_shipping}:{' '}
+                      <span className="font-semibold text-foreground">
+                        {group.hasPhysical
+                          ? formatPrice(group.flatShippingCost)
+                          : formatPrice(0)}
+                      </span>
+                    </div>
+                    <div className="font-medium text-foreground">
+                      Total Toko:{' '}
+                      <span className="font-bold text-[#00a699]">
+                        {formatPrice(group.subtotal + group.effectiveShippingCost)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
 
-            {/* Ringkasan Belanja / Order Summary */}
-            <div className="lg:col-span-4 bg-card border border-border/80 rounded-md p-5 sm:p-6 shadow-xs space-y-5 sticky top-24">
-              <h2 className="text-sm sm:text-base font-bold text-foreground pb-3 border-b border-border/60">
-                {t.order_summary}
-              </h2>
+            {/* Sidebar Ringkasan Belanja */}
+            <div className="lg:col-span-4 sticky top-28 space-y-4">
+              <div className="bg-card border border-border/80 rounded-md p-5 sm:p-6 shadow-xs space-y-5">
+                <h2 className="text-sm sm:text-base font-bold text-foreground pb-3 border-b border-border/80">
+                  {t.order_summary}
+                </h2>
 
-              <div className="space-y-3 text-xs sm:text-sm">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t.subtotal}</span>
-                  <span className="font-semibold text-foreground tabular-nums">
-                    {formatPrice(cartSubtotal)}
-                  </span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>{t.estimated_tax}</span>
-                  <span className="text-emerald-600 font-medium">Gratis / Rp0</span>
-                </div>
-                <div className="pt-3 border-t border-border/60 flex justify-between items-baseline">
-                  <span className="font-bold text-foreground">{t.total_payment}</span>
-                  <span className="text-base sm:text-lg font-extrabold text-[#00a699] tabular-nums">
-                    {formatPrice(cartSubtotal)}
-                  </span>
-                </div>
-              </div>
+                <div className="space-y-3 text-xs sm:text-sm">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>
+                      {t.total_items} ({cartCount})
+                    </span>
+                    <span className="font-medium text-foreground tabular-nums">
+                      {formatPrice(totalProductsPrice)}
+                    </span>
+                  </div>
 
-              {/* Checkout Action Button */}
-              <div className="pt-2 space-y-2.5">
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>
+                      {t.flat_shipping} ({shopGroups.length} Toko)
+                    </span>
+                    <span className="font-medium text-foreground tabular-nums">
+                      {formatPrice(totalShippingFee)}
+                    </span>
+                  </div>
+
+                  <div className="pt-3 border-t border-border/80 flex justify-between items-baseline">
+                    <span className="text-sm sm:text-base font-bold text-foreground">
+                      {t.total_payment}
+                    </span>
+                    <span className="text-base sm:text-xl font-extrabold text-[#00a699] tabular-nums">
+                      {formatPrice(grandTotal)}
+                    </span>
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleProceedToCheckout}
-                  disabled={isCheckingAuth}
-                  className="w-full bg-[#00a699] hover:bg-[#008f84] text-white font-semibold text-xs sm:text-sm py-3 px-4 rounded-md transition-all shadow-xs hover:shadow-sm flex items-center justify-center gap-2 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  className="w-full bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold py-3 px-4 rounded-md shadow-xs hover:shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  {isCheckingAuth ? 'Memeriksa...' : t.proceed_to_checkout}
+                  <span>{t.proceed_to_checkout}</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
 
-                <Link
-                  href="/products"
-                  className="w-full inline-flex items-center justify-center text-xs text-muted-foreground hover:text-primary transition-colors py-2"
-                >
-                  {t.continue_shopping}
-                </Link>
-              </div>
-
-              {/* Keamanan Transaksi */}
-              <div className="pt-4 border-t border-border/40 flex items-center gap-2 text-[11px] text-muted-foreground">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>
-                  {locale === 'id'
-                    ? 'Pembayaran aman & bergaransi via Midtrans'
-                    : 'Secure payment guaranteed via Midtrans'}
-                </span>
+                {/* Trust Badge */}
+                <div className="pt-2 flex items-center justify-center gap-2 text-muted-foreground text-[11px]">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                  <span>{t.secure_checkout}</span>
+                </div>
               </div>
             </div>
           </div>
