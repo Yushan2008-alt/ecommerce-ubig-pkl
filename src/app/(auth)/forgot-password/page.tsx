@@ -235,10 +235,10 @@ export default function ForgotPasswordPage() {
                   maxLength={6}
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value)}
-                  placeholder="123456"
+                  placeholder="● ● ● ● ● ●"
                   required
                   disabled={loading}
-                  className="w-full h-11 px-3.5 text-center tracking-widest text-base font-bold bg-background border border-border/90 rounded-md placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+                  className="w-full h-11 px-3.5 text-center tracking-widest text-base font-bold bg-background border border-border/90 rounded-md placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
                 />
               </div>
 

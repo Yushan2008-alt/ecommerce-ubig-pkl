@@ -130,17 +130,17 @@ function VerifyOtpForm() {
                   inputMode="numeric"
                   maxLength={6}
                   autoComplete="one-time-code"
-                  placeholder="123456"
+                  placeholder="● ● ● ● ● ●"
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                  className="h-14 text-center text-3xl font-mono tracking-[0.5em] font-bold"
+                  className="h-14 text-center text-2xl sm:text-3xl font-mono tracking-[0.35em] font-bold placeholder:tracking-[0.15em] sm:placeholder:tracking-[0.25em] placeholder:text-muted-foreground/30 focus-visible:ring-[#00a699]"
                   required
                   disabled={loading}
                   autoFocus
                 />
               </div>
 
-              <Button type="submit" className="w-full h-11 font-semibold text-sm bg-[#00a699] hover:bg-[#008f84] text-white" disabled={loading || otp.length !== 6}>
+              <Button type="submit" className="w-full h-11 font-semibold text-sm bg-[#00a699] hover:bg-[#008f84] text-white shadow-sm transition-all" disabled={loading || otp.length !== 6}>
                 {loading ? 'Memverifikasi...' : 'Verifikasi Akun & Masuk'}
               </Button>
             </form>
