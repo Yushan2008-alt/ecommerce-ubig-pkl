@@ -35,6 +35,36 @@ export async function signIn(formData: FormData) {
   redirect(safeNext)
 }
 
+/**
+ * Menghapus akun unconfirmed yang tidak menyelesaikan verifikasi OTP dalam 10 menit
+ */
+export async function cleanupUnconfirmedUsers() {
+  try {
+    const adminClient = createAdminClient()
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+
+    const { data: userList } = await adminClient.auth.admin.listUsers()
+    if (userList?.users) {
+      for (const u of userList.users) {
+        // Jika email belum dikonfirmasi dan usia akun sudah melewati 10 menit
+        if (!u.email_confirmed_at && u.created_at < tenMinutesAgo) {
+          console.log(`[Auto Cleanup] Menghapus user unconfirmed kedaluwarsa: ${u.email} (${u.id})`)
+          await adminClient.from('profiles').delete().eq('id', u.id)
+          await adminClient.auth.admin.deleteUser(u.id)
+          if (u.email) {
+            await adminClient.from('otp_codes').delete().eq('email', u.email.toLowerCase())
+          }
+        }
+      }
+    }
+
+    // Hapus juga kode OTP yang telah expired
+    await adminClient.from('otp_codes').delete().lt('expires_at', new Date().toISOString())
+  } catch (err) {
+    console.warn('[Cleanup Warning]', err)
+  }
+}
+
 export async function signUpWithOtp(formData: FormData) {
   const firstName = (formData.get('firstName') as string) || ''
   const lastName = (formData.get('lastName') as string) || ''
@@ -56,6 +86,9 @@ export async function signUpWithOtp(formData: FormData) {
 
   const adminClient = createAdminClient()
 
+  // Bersihkan akun unconfirmed kedaluwarsa sebelum mendaftarkan user baru
+  await cleanupUnconfirmedUsers()
+
   // Daftarkan akun pengguna baru ke Supabase Auth
   const { data: userData, error: createError } = await adminClient.auth.admin.createUser({
     email: cleanEmail,
@@ -72,11 +105,25 @@ export async function signUpWithOtp(formData: FormData) {
       const existingUser = userList?.users?.find((u) => u.email?.toLowerCase() === cleanEmail)
 
       if (existingUser && !existingUser.email_confirmed_at) {
-        // User belum terkonfirmasi, perbarui password & metadata, lalu izinkan kirim ulang OTP
-        await adminClient.auth.admin.updateUserById(existingUser.id, {
-          password,
-          user_metadata: { full_name: name, name },
-        })
+        const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+        if (existingUser.created_at < tenMinutesAgo) {
+          // Akun unconfirmed lama sudah kedaluwarsa, hapus dan buat ulang
+          await adminClient.from('profiles').delete().eq('id', existingUser.id)
+          await adminClient.auth.admin.deleteUser(existingUser.id)
+          const { error: retryError } = await adminClient.auth.admin.createUser({
+            email: cleanEmail,
+            password,
+            user_metadata: { full_name: name, name },
+            email_confirm: false,
+          })
+          if (retryError) return { success: false, error: retryError.message }
+        } else {
+          // User belum terkonfirmasi dalam 10 menit, perbarui password & metadata
+          await adminClient.auth.admin.updateUserById(existingUser.id, {
+            password,
+            user_metadata: { full_name: name, name },
+          })
+        }
       } else {
         return { success: false, error: 'Email ini sudah terdaftar. Silakan langsung login.' }
       }

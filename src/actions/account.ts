@@ -198,3 +198,71 @@ export async function uploadAvatarAction(
     return { success: false, error: err.message || 'Gagal mengunggah foto profil' }
   }
 }
+
+/**
+ * Menyimpan data profil dan alamat awal untuk onboarding pengguna baru
+ */
+export async function completeProfileOnboardingAction(data: {
+  displayName: string
+  phone: string
+  addressLine?: string
+  city?: string
+  province?: string
+  postalCode?: string
+}): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { user } = await getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    const trimmedName = data.displayName?.trim()
+    const trimmedPhone = data.phone?.trim()
+
+    if (!trimmedName) {
+      return { success: false, error: 'Nama lengkap wajib diisi' }
+    }
+    if (!trimmedPhone) {
+      return { success: false, error: 'Nomor telepon wajib diisi' }
+    }
+
+    const supabase = await createClient()
+
+    // 1. Update profil pengguna di tabel profiles
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({
+        display_name: trimmedName,
+        phone: trimmedPhone,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+
+    if (profileError) {
+      console.error('completeProfileOnboardingAction profileError:', profileError)
+      return { success: false, error: profileError.message }
+    }
+
+    // 2. Jika ada alamat yang diisi, simpan ke tabel addresses
+    if (data.addressLine?.trim() && data.city?.trim() && data.province?.trim()) {
+      await supabase.from('addresses').insert({
+        profile_id: user.id,
+        recipient_name: trimmedName,
+        phone: trimmedPhone,
+        address_line: data.addressLine.trim(),
+        city: data.city.trim(),
+        province: data.province.trim(),
+        postal_code: data.postalCode?.trim() || '00000',
+        is_default: true,
+      })
+    }
+
+    revalidatePath('/', 'layout')
+    revalidatePath('/account')
+    return { success: true }
+  } catch (err: unknown) {
+    const errorMsg = err instanceof Error ? err.message : 'Gagal melengkapi profil'
+    console.error('completeProfileOnboardingAction error:', errorMsg)
+    return { success: false, error: errorMsg }
+  }
+}
