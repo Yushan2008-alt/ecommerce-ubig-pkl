@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useLanguage, LanguageSwitcher } from '@/context/language-context'
 import { useCartWishlist } from '@/context/cart-wishlist-context'
+import { useAuthModal } from '@/context/auth-modal-context'
 import {
   Search,
   ShoppingCart,
@@ -48,6 +49,7 @@ export function HeaderTopRightControls({
   signOutAction: () => Promise<void>
 }) {
   const { t, locale } = useLanguage()
+  const { openLoginModal } = useAuthModal()
 
   return (
     <div className="flex items-center space-x-3 sm:space-x-4">
@@ -113,9 +115,13 @@ export function HeaderTopRightControls({
         </div>
       ) : (
         <div className="flex items-center gap-1 font-medium">
-          <Link href="/login" className="hover:text-primary transition-colors">
+          <button
+            type="button"
+            onClick={() => openLoginModal()}
+            className="hover:text-primary transition-colors cursor-pointer"
+          >
             {t.login}
-          </Link>
+          </button>
           <span>/</span>
           <Link href="/register" className="hover:text-primary transition-colors">
             {t.register}

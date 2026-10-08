@@ -38,7 +38,7 @@ export default function ResetPasswordPage() {
         </div>
         <CardTitle className="text-2xl font-bold tracking-tight">Atur Ulang Kata Sandi</CardTitle>
         <CardDescription className="text-xs">
-          Masukkan kata sandi baru untuk akun Marketplace Ubig Anda
+          Masukkan kata sandi baru untuk akun Krafita Anda
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -76,7 +76,11 @@ export default function ResetPasswordPage() {
             />
           </div>
 
-          <Button type="submit" className="w-full h-10 font-semibold" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full h-10 font-semibold bg-[#00a699] hover:bg-[#008f84] text-white"
+            disabled={loading}
+          >
             {loading ? 'Memperbarui...' : 'Simpan Kata Sandi Baru'}
           </Button>
         </form>

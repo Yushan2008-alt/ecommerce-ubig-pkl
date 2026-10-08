@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from '@/components/ui/sonner'
 import { LanguageProvider } from '@/context/language-context'
 import { CartWishlistProvider } from '@/context/cart-wishlist-context'
+import { AuthModalProvider } from '@/context/auth-modal-context'
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -34,8 +35,10 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <LanguageProvider>
           <CartWishlistProvider>
-            {children}
-            <Toaster />
+            <AuthModalProvider>
+              {children}
+              <Toaster />
+            </AuthModalProvider>
           </CartWishlistProvider>
         </LanguageProvider>
       </body>

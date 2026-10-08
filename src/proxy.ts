@@ -32,8 +32,8 @@ export async function proxy(request: NextRequest) {
 
   if (!data?.claims && PROTECTED.some((p) => path.startsWith(p))) {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    url.search = `?next=${encodeURIComponent(path + request.nextUrl.search)}`
+    url.pathname = '/'
+    url.search = `?auth=login&next=${encodeURIComponent(path + request.nextUrl.search)}`
     return NextResponse.redirect(url)
   }
 

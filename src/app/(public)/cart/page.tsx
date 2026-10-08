@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { useCartWishlist, CartItem } from '@/context/cart-wishlist-context'
 import { useLanguage } from '@/context/language-context'
+import { useAuthModal } from '@/context/auth-modal-context'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 
@@ -48,6 +49,7 @@ export default function CartPage() {
     clearCart,
     cartCount,
   } = useCartWishlist()
+  const { openLoginModal } = useAuthModal()
 
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
@@ -149,7 +151,7 @@ export default function CartPage() {
         description: t.login_required_checkout_desc,
         duration: 4000,
       })
-      router.push(`/login?next=${encodeURIComponent('/checkout')}`)
+      openLoginModal('/checkout')
     } else {
       router.push('/checkout')
     }

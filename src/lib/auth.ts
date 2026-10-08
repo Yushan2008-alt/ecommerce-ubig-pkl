@@ -28,7 +28,7 @@ export async function requireUser(nextPath = '/') {
 
   if (!user) {
     const encoded = encodeURIComponent(nextPath)
-    redirect(`/login?next=${encoded}`)
+    redirect(`/?auth=login&next=${encoded}`)
   }
 
   return { user, profile }

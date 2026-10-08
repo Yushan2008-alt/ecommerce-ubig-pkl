@@ -55,7 +55,7 @@ const slides: SlideItem[] = [
     ctaText_en: 'Shop Now',
     ctaLink: '/products?category=clothing',
     image:
-      'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&w=1920&q=85',
+      'https://qmjjgmiwictdddmenxng.supabase.co/storage/v1/object/public/product-images/banners/hero-slide-1.jpg',
     alt_id: 'Model pakaian trendi dengan tas anyaman jerami di bawah sinar matahari pantai',
     alt_en: 'Trendy fashion model with straw woven bag in natural daylight',
   },
@@ -73,7 +73,7 @@ const slides: SlideItem[] = [
     ctaText_en: 'Explore Digital Products',
     ctaLink: '/products?category=template-code',
     image:
-      'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1920&q=85',
+      'https://qmjjgmiwictdddmenxng.supabase.co/storage/v1/object/public/product-images/banners/hero-slide-2.jpg',
     alt_id: 'Meja kerja kreatif desainer modern dengan monitor dan perangkat digital',
     alt_en: 'Modern designer workstation with digital gadgets and dual screens',
   },
@@ -91,7 +91,7 @@ const slides: SlideItem[] = [
     ctaText_en: 'Browse Home & Living',
     ctaLink: '/products?category=home-living',
     image:
-      'https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=1920&q=85',
+      'https://qmjjgmiwictdddmenxng.supabase.co/storage/v1/object/public/product-images/banners/hero-slide-3.jpg',
     alt_id: 'Ruang tamu modern estetik dengan perabotan kayu dan dekorasi minimalis',
     alt_en: 'Aesthetic modern living room with natural wooden furniture and clean minimal decor',
   },

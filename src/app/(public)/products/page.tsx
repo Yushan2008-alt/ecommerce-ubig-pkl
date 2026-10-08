@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 export default async function ProductsPage() {
   const supabase = await createClient()
 
-  // Ambil produk jika sudah ada yang berstatus 'published' di Supabase
+  // Ambil produk berstatus 'published' langsung dari Supabase
   const { data: dbProducts } = await supabase
     .from('products')
     .select(`
@@ -23,10 +23,16 @@ export default async function ProductsPage() {
       price,
       compare_price,
       status,
+      type,
+      rating_avg,
+      rating_count,
       categories(name, slug),
-      shops(name)
+      shops(name),
+      brands(name),
+      product_images(path, sort_order)
     `)
     .eq('status', 'published')
+    .order('created_at', { ascending: false })
     .limit(40)
 
   // Map data database jika tersedia
@@ -37,29 +43,35 @@ export default async function ProductsPage() {
       const fallback = CATALOG_PRODUCTS[idx % CATALOG_PRODUCTS.length]
       const categoryData = Array.isArray(p.categories) ? p.categories[0] : p.categories
       const shopData = Array.isArray(p.shops) ? p.shops[0] : p.shops
+      const brandData = Array.isArray(p.brands) ? p.brands[0] : p.brands
+      
+      // Ambil path gambar cover dari tabel product_images Supabase
+      const imagesList = Array.isArray(p.product_images) ? p.product_images : []
+      const coverImage = imagesList.length > 0 ? imagesList[0]?.path : null
+      const finalImage = coverImage || fallback.imageUrl
 
       return {
         id: p.id,
         title_id: p.title,
-        title_en: fallback.title_en,
+        title_en: p.title, // Judul resmi dari database
         slug: p.slug,
         category: categoryData?.slug || fallback.category,
         subcategory: fallback.subcategory,
-        brand: fallback.brand,
+        brand: brandData?.name || fallback.brand,
         fabric: fallback.fabric,
         price: Number(p.price) || fallback.price,
         comparePrice: p.compare_price ? Number(p.compare_price) : fallback.comparePrice,
         vendor: shopData?.name || fallback.vendor,
-        rating: fallback.rating,
-        wishlistCount: fallback.wishlistCount,
-        featured: fallback.featured,
-        imageUrl: fallback.imageUrl,
-        tags_id: fallback.tags_id,
-        tags_en: fallback.tags_en,
+        rating: Number(p.rating_avg) || fallback.rating,
+        wishlistCount: 0,
+        featured: true,
+        imageUrl: finalImage,
+        tags_id: [p.title.toLowerCase(), categoryData?.name?.toLowerCase() || '', brandData?.name?.toLowerCase() || ''],
+        tags_en: [p.title.toLowerCase(), categoryData?.name?.toLowerCase() || '', brandData?.name?.toLowerCase() || ''],
       }
     })
 
-    // Gabungkan database products dengan mock catalog items
+    // Tampilkan database products di urutan utama, lalu fallback catalog items
     initialProducts = [...mappedDbProducts, ...CATALOG_PRODUCTS]
   }
 
