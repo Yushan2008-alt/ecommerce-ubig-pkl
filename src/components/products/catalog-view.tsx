@@ -154,10 +154,59 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
   // Filter dan Sort Produk (Language-Aware Searching & Filtering)
   const filteredProducts = useMemo(() => {
     return allProducts.filter((product) => {
-      // 1. Filter Kategori
+      // 1. Filter Kategori (Mendukung 12 Kategori Dashboard & Database)
       if (effectiveCategorySlug && effectiveCategorySlug !== 'all') {
-        if (product.category !== effectiveCategorySlug) {
-          // Jika pencarian kategori tidak cocok dengan kategori produk
+        const isExactCategory = product.category === effectiveCategorySlug
+        const isSubcategoryMatch = product.subcategory === effectiveCategorySlug
+
+        // Parent-child relationships antara 12 kategori
+        const isClothingChild =
+          effectiveCategorySlug === 'clothing' &&
+          (product.category === 'womens-clothing' ||
+            product.category === 'mens-clothing' ||
+            product.subcategory === 'womens-clothing' ||
+            product.subcategory === 'mens-clothing')
+
+        const isHomeLivingChild =
+          effectiveCategorySlug === 'home-living' &&
+          (product.category === 'furniture' || product.subcategory === 'furniture')
+
+        const isJewelryChild =
+          effectiveCategorySlug === 'jewelry-accessories' &&
+          (product.category === 'handbags' ||
+            product.subcategory === 'handbags' ||
+            product.subcategory === 'bags-purses')
+
+        const isWomensClothingMatch =
+          effectiveCategorySlug === 'womens-clothing' &&
+          (product.category === 'womens-clothing' || product.subcategory === 'womens-clothing')
+
+        const isMensClothingMatch =
+          effectiveCategorySlug === 'mens-clothing' &&
+          (product.category === 'mens-clothing' || product.subcategory === 'mens-clothing')
+
+        const isFurnitureMatch =
+          effectiveCategorySlug === 'furniture' &&
+          (product.category === 'furniture' || product.subcategory === 'furniture')
+
+        const isHandbagsMatch =
+          effectiveCategorySlug === 'handbags' &&
+          (product.category === 'handbags' ||
+            product.subcategory === 'handbags' ||
+            product.subcategory === 'bags-purses')
+
+        const isMatch =
+          isExactCategory ||
+          isSubcategoryMatch ||
+          isClothingChild ||
+          isHomeLivingChild ||
+          isJewelryChild ||
+          isWomensClothingMatch ||
+          isMensClothingMatch ||
+          isFurnitureMatch ||
+          isHandbagsMatch
+
+        if (!isMatch) {
           return false
         }
       }

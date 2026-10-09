@@ -220,8 +220,8 @@ const defaultRecommendedProducts: RecommendedProductItem[] = [
   },
 ]
 
-export function RecommendedProducts() {
-  const { t } = useLanguage()
+export function RecommendedProducts({ isLoggedIn = false }: { isLoggedIn?: boolean }) {
+  const { t, locale } = useLanguage()
   const products = defaultRecommendedProducts
 
   return (
@@ -316,14 +316,23 @@ export function RecommendedProducts() {
         })}
       </div>
 
-      {/* 3. Tombol Login Untuk Lihat Lainnya (Bilingual) */}
+      {/* 3. Tombol Aksi Katalog / Login */}
       <div className="pt-10 pb-6 flex justify-center">
-        <Link
-          href="/login?next=%2F#rekomendasi"
-          className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-        >
-          {t.login_for_more}
-        </Link>
+        {isLoggedIn ? (
+          <Link
+            href="/products"
+            className="inline-flex items-center justify-center px-12 py-3 bg-[#00a699] hover:bg-[#008f84] text-xs sm:text-sm font-semibold text-white rounded-xs shadow-sm transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
+            {locale === 'id' ? 'Lihat Semua Produk di Katalog' : 'Browse All Products in Catalog'}
+          </Link>
+        ) : (
+          <Link
+            href="/login?next=%2F#rekomendasi"
+            className="inline-flex items-center justify-center px-12 py-3 bg-background border border-primary/30 hover:border-primary hover:bg-primary/5 text-xs sm:text-sm font-medium text-foreground hover:text-primary rounded-xs shadow-2xs transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+          >
+            {t.login_for_more}
+          </Link>
+        )}
       </div>
     </section>
   )

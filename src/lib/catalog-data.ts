@@ -509,6 +509,123 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
       },
     ],
   },
+  {
+    id: 'womens-clothing',
+    name_id: 'Pakaian Wanita',
+    name_en: "Women's Clothing",
+    slug: 'womens-clothing',
+    subgroups: [
+      {
+        title_id: 'Koleksi Wanita',
+        title_en: "Women's Collection",
+        slug: 'womens-collection',
+        items: [
+          { name_id: 'Gaun & Dress', name_en: 'Dresses', slug: 'dresses' },
+          { name_id: 'Rok & Skirt', name_en: 'Skirts', slug: 'skirts' },
+          { name_id: 'Blouse & Atasan', name_en: 'Blouses', slug: 'blouses' },
+        ],
+      },
+    ],
+    featuredCards: [
+      {
+        title_id: 'Gaun Pesta & Kasual',
+        title_en: 'Party & Casual Dresses',
+        imageUrl: 'https://images.unsplash.com/photo-1583496661160-fb5886a0aaaa?auto=format&fit=crop&w=500&q=80',
+        link: '/products?category=womens-clothing',
+      },
+    ],
+  },
+  {
+    id: 'mens-clothing',
+    name_id: 'Pakaian Pria',
+    name_en: "Men's Clothing",
+    slug: 'mens-clothing',
+    subgroups: [
+      {
+        title_id: 'Koleksi Pria',
+        title_en: "Men's Collection",
+        slug: 'mens-collection',
+        items: [
+          { name_id: 'Kemeja & Polo', name_en: 'Shirts & Polo', slug: 'shirts-polo' },
+          { name_id: 'Kaos & T-Shirt', name_en: 'T-Shirts', slug: 't-shirts' },
+          { name_id: 'Jaket & Outer', name_en: 'Jackets & Outer', slug: 'jackets' },
+        ],
+      },
+    ],
+    featuredCards: [
+      {
+        title_id: 'Koleksi Pria Elegan',
+        title_en: "Men's Elegant Collection",
+        imageUrl: 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=500&q=80',
+        link: '/products?category=mens-clothing',
+      },
+    ],
+  },
+  {
+    id: 'furniture',
+    name_id: 'Furnitur',
+    name_en: 'Furniture',
+    slug: 'furniture',
+    subgroups: [
+      {
+        title_id: 'Perabotan Ruangan',
+        title_en: 'Room Furniture',
+        slug: 'room-furniture',
+        items: [
+          { name_id: 'Kursi & Armchair', name_en: 'Chairs & Armchairs', slug: 'chairs' },
+          { name_id: 'Sofa & Meja', name_en: 'Sofas & Tables', slug: 'sofas' },
+        ],
+      },
+    ],
+    featuredCards: [
+      {
+        title_id: 'Kursi Scandinavian',
+        title_en: 'Scandinavian Chairs',
+        imageUrl: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=500&q=80',
+        link: '/products?category=furniture',
+      },
+    ],
+  },
+  {
+    id: 'handbags',
+    name_id: 'Tas & Dompet',
+    name_en: 'Handbags & Purses',
+    slug: 'handbags',
+    subgroups: [
+      {
+        title_id: 'Koleksi Tas',
+        title_en: 'Bags Collection',
+        slug: 'bags-collection',
+        items: [
+          { name_id: 'Tas Tangan', name_en: 'Handbags', slug: 'handbags' },
+          { name_id: 'Dompet Kulit', name_en: 'Leather Wallets', slug: 'wallets' },
+        ],
+      },
+    ],
+    featuredCards: [
+      {
+        title_id: 'Tas Kulit Eksklusif',
+        title_en: 'Exclusive Leather Bags',
+        imageUrl: 'https://images.unsplash.com/photo-1548036328-c9fa89d128fa?auto=format&fit=crop&w=500&q=80',
+        link: '/products?category=handbags',
+      },
+    ],
+  },
+]
+
+export const DASHBOARD_12_CATEGORIES = [
+  { id: 'clothing', name_id: 'Pakaian', name_en: 'Clothing', slug: 'clothing' },
+  { id: 'home-living', name_id: 'Rumah & Dekorasi', name_en: 'Home & Living', slug: 'home-living' },
+  { id: 'toys-entertainment', name_id: 'Mainan & Hiburan', name_en: 'Toys & Entertainment', slug: 'toys-entertainment' },
+  { id: 'womens-clothing', name_id: 'Pakaian Wanita', name_en: "Women's Clothing", slug: 'womens-clothing' },
+  { id: 'mens-clothing', name_id: 'Pakaian Pria', name_en: "Men's Clothing", slug: 'mens-clothing' },
+  { id: 'furniture', name_id: 'Furnitur', name_en: 'Furniture', slug: 'furniture' },
+  { id: 'jewelry-accessories', name_id: 'Aksesoris & Perhiasan', name_en: 'Jewelry & Accessories', slug: 'jewelry-accessories' },
+  { id: 'graphics', name_id: 'Grafis & Foto', name_en: 'Graphics & Photos', slug: 'graphics' },
+  { id: 'video-audio', name_id: 'Video & Audio', name_en: 'Video & Audio', slug: 'video-audio' },
+  { id: 'shoes', name_id: 'Sepatu', name_en: 'Shoes', slug: 'shoes' },
+  { id: 'template-source-code', name_id: 'Template Web & Kode', name_en: 'Web Templates & Code', slug: 'template-source-code' },
+  { id: 'handbags', name_id: 'Tas & Dompet', name_en: 'Handbags & Purses', slug: 'handbags' },
 ]
 
 export const CATALOG_BRANDS = [

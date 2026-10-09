@@ -1,7 +1,7 @@
 'use client'
 
 import React from 'react'
-import { ShoppingCart, Heart, Check } from 'lucide-react'
+import { ShoppingCart, Heart, Check, Zap } from 'lucide-react'
 import { useCartWishlist, CartItem, WishlistItem } from '@/context/cart-wishlist-context'
 import { useLanguage } from '@/context/language-context'
 
@@ -78,13 +78,28 @@ export function ProductHoverActions({ product, className = '' }: ProductHoverAct
         )}
       </button>
 
-      {/* 2. Wishlist Button */}
+      {/* 2. Buy Now (Direct Checkout) Button */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          window.location.href = `/checkout?buyNow=true&productId=${encodeURIComponent(product.id)}&title=${encodeURIComponent(product.title)}&price=${product.price}`
+        }}
+        aria-label="Beli Langsung"
+        title="Beli Langsung Tanpa Keranjang"
+        className="w-8 h-8 sm:w-9 sm:h-9 bg-amber-500 hover:bg-amber-600 text-white rounded-full shadow-md flex items-center justify-center border border-amber-400 transition-all duration-300 delay-50 transform opacity-0 translate-x-3 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-110 active:scale-95 pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+      >
+        <Zap className="w-4 h-4 fill-white stroke-[2]" aria-hidden="true" />
+      </button>
+
+      {/* 3. Wishlist Button */}
       <button
         type="button"
         onClick={handleWishlistClick}
         aria-label={isFavorited ? t.removed_from_wishlist : t.added_to_wishlist}
         title={isFavorited ? t.removed_from_wishlist : t.added_to_wishlist}
-        className="w-8 h-8 sm:w-9 sm:h-9 bg-white/95 hover:bg-white text-slate-700 hover:text-rose-500 rounded-full shadow-md flex items-center justify-center border border-slate-100/80 transition-all duration-300 delay-75 transform opacity-0 translate-x-3 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-110 active:scale-95 pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
+        className="w-8 h-8 sm:w-9 sm:h-9 bg-white/95 hover:bg-white text-slate-700 hover:text-rose-500 rounded-full shadow-md flex items-center justify-center border border-slate-100/80 transition-all duration-300 delay-100 transform opacity-0 translate-x-3 group-hover:opacity-100 group-hover:translate-x-0 hover:scale-110 active:scale-95 pointer-events-auto cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
       >
         <Heart
           className={`w-4 h-4 transition-colors stroke-[1.8] ${

@@ -33,7 +33,7 @@ export default async function ProductsPage() {
     `)
     .eq('status', 'published')
     .order('created_at', { ascending: false })
-    .limit(40)
+    .limit(100)
 
   // Map data database jika tersedia
   let initialProducts: CatalogProduct[] = CATALOG_PRODUCTS
@@ -46,7 +46,9 @@ export default async function ProductsPage() {
       const brandData = Array.isArray(p.brands) ? p.brands[0] : p.brands
       
       // Ambil path gambar cover dari tabel product_images Supabase
-      const imagesList = Array.isArray(p.product_images) ? p.product_images : []
+      const imagesList = Array.isArray(p.product_images)
+        ? [...p.product_images].sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+        : []
       const coverImage = imagesList.length > 0 ? imagesList[0]?.path : null
       const finalImage = coverImage || fallback.imageUrl
 
@@ -56,7 +58,7 @@ export default async function ProductsPage() {
         title_en: p.title, // Judul resmi dari database
         slug: p.slug,
         category: categoryData?.slug || fallback.category,
-        subcategory: fallback.subcategory,
+        subcategory: categoryData?.slug || fallback.subcategory,
         brand: brandData?.name || fallback.brand,
         fabric: fallback.fabric,
         price: Number(p.price) || fallback.price,
@@ -71,8 +73,10 @@ export default async function ProductsPage() {
       }
     })
 
-    // Tampilkan database products di urutan utama, lalu fallback catalog items
-    initialProducts = [...mappedDbProducts, ...CATALOG_PRODUCTS]
+    // Tampilkan database products yang terhubung ke vendor akun, dan cegah duplikasi slug
+    const seenSlugs = new Set(mappedDbProducts.map((p) => p.slug))
+    const uniqueFallbacks = CATALOG_PRODUCTS.filter((p) => !seenSlugs.has(p.slug))
+    initialProducts = [...mappedDbProducts, ...uniqueFallbacks]
   }
 
   return (

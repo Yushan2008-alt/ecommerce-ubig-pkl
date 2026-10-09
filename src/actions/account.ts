@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
 
 export interface ProfileData {
@@ -147,18 +148,18 @@ export async function uploadAvatarAction(
       return { success: false, error: 'Ukuran foto profil maksimal 2MB' }
     }
 
-    const supabase = await createClient()
+    const adminClient = createAdminClient()
 
     // Ekstensi berkas
     const ext = file.name.split('.').pop()?.toLowerCase() || 'webp'
     const fileName = `avatar-${Date.now()}.${ext}`
-    const filePath = `${user.id}/${fileName}`
+    const filePath = `avatars/${user.id}/${fileName}`
 
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
-    // Upload ke bucket shop-assets
-    const { error: uploadErr } = await supabase.storage
+    // Upload ke bucket shop-assets menggunakan admin client untuk menjamin izin akses
+    const { error: uploadErr } = await adminClient.storage
       .from('shop-assets')
       .upload(filePath, buffer, {
         contentType: file.type,
@@ -171,14 +172,14 @@ export async function uploadAvatarAction(
     }
 
     // Ambil URL publik
-    const { data: publicUrlData } = supabase.storage
+    const { data: publicUrlData } = adminClient.storage
       .from('shop-assets')
       .getPublicUrl(filePath)
 
     const avatarUrl = publicUrlData.publicUrl
 
     // Perbarui avatar_url di tabel profiles
-    const { error: updateErr } = await supabase
+    const { error: updateErr } = await adminClient
       .from('profiles')
       .update({
         avatar_url: avatarUrl,
@@ -191,6 +192,7 @@ export async function uploadAvatarAction(
       return { success: false, error: updateErr.message }
     }
 
+    revalidatePath('/', 'layout')
     revalidatePath('/account')
     return { success: true, avatarUrl }
   } catch (err: any) {

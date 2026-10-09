@@ -70,9 +70,12 @@ export function LanguageSwitcher() {
       <DropdownMenuTrigger
         className="flex items-center gap-1.5 hover:text-foreground cursor-pointer transition-colors focus-visible:outline-none"
         aria-label="Pilih Bahasa / Select Language"
+        suppressHydrationWarning
       >
         <Globe className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-        <span className="font-medium">{locale === 'id' ? 'Indonesia' : 'English'}</span>
+        <span className="font-medium" suppressHydrationWarning>
+          {locale === 'id' ? 'Indonesia' : 'English'}
+        </span>
         <ChevronDown className="w-2.5 h-2.5 opacity-60" aria-hidden="true" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-40 text-xs shadow-md">
