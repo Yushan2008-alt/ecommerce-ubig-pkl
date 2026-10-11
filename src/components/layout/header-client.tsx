@@ -15,6 +15,7 @@ import {
   Store,
   User,
   LogOut,
+  ShieldCheck,
 } from 'lucide-react'
 import { CATALOG_CATEGORIES } from '@/lib/catalog-data'
 
@@ -86,7 +87,7 @@ export function HeaderTopRightControls({
 
           {/* Quick Menu Popover on Hover */}
           <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-50">
-            <div className="w-44 bg-card rounded-md border border-border shadow-lg p-1.5 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-48 bg-card rounded-md border border-border shadow-lg p-1.5 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
               <Link
                 href="/account"
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
@@ -94,6 +95,27 @@ export function HeaderTopRightControls({
                 <User className="w-3.5 h-3.5 text-[#00a699]" />
                 <span>{t.my_account}</span>
               </Link>
+
+              {profile?.role === 'vendor' && (
+                <Link
+                  href="/vendor"
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground font-semibold transition-colors"
+                >
+                  <Store className="w-3.5 h-3.5 text-[#00a699]" />
+                  <span>Dashboard Vendor</span>
+                </Link>
+              )}
+
+              {profile?.role === 'moderator' && (
+                <Link
+                  href="/moderator/vendors"
+                  className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground font-semibold transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#00a699]" />
+                  <span>Panel Moderator</span>
+                </Link>
+              )}
+
               <Link
                 href="/account"
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"

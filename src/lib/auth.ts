@@ -41,5 +41,31 @@ export async function requireVendor(nextPath = '/vendor') {
     redirect('/sell')
   }
 
+  // Cek apakah toko masih berstatus approved (butuh upload produk pertama) atau pending
+  const supabase = await createClient()
+  const { data: shop } = await supabase
+    .from('shops')
+    .select('id, status')
+    .eq('profile_id', user.id)
+    .maybeSingle()
+
+  if (shop?.status === 'approved') {
+    redirect('/sell?step=6')
+  }
+
+  if (shop?.status === 'pending') {
+    redirect('/sell')
+  }
+
+  return { user, profile }
+}
+
+export async function requireModerator(nextPath = '/moderator/vendors') {
+  const { user, profile } = await requireUser(nextPath)
+
+  if (profile?.role !== 'moderator') {
+    redirect('/')
+  }
+
   return { user, profile }
 }

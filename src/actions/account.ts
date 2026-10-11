@@ -4,11 +4,12 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
+import type { UserRole } from '@/types/database'
 
 export interface ProfileData {
   id: string
   email: string
-  role: 'member' | 'vendor'
+  role: UserRole
   displayName: string | null
   phone: string | null
   avatarUrl: string | null

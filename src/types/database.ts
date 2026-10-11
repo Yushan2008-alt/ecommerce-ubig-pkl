@@ -6,7 +6,21 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type UserRole = 'member' | 'vendor'
+export type UserRole = 'member' | 'vendor' | 'moderator'
+export type ShopStatus = 'pending' | 'approved' | 'active' | 'rejected'
+
+export interface ShopMetadata {
+  bio?: string
+  pickup_address?: string
+  postal_code?: string
+  couriers?: string[]
+  bank_name?: string
+  bank_account_number?: string
+  bank_account_holder?: string
+  moderator_notes?: string
+  verified_at?: string
+}
+
 export type ProductType = 'physical' | 'digital'
 export type ProductStatus = 'draft' | 'published' | 'archived'
 export type OrderStatus = 'pending_payment' | 'paid' | 'expired' | 'cancelled'

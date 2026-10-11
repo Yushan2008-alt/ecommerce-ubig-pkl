@@ -2,7 +2,9 @@ import React from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { getUser } from '@/lib/auth'
+import { createClient } from '@/lib/supabase/server'
 import { VendorOnboardingWizard } from '@/components/vendor/vendor-onboarding-wizard'
+import { parseShopMetadata } from '@/lib/shop-helper'
 import {
   Store,
   ArrowRight,
@@ -10,7 +12,6 @@ import {
   Zap,
   TrendingUp,
   CreditCard,
-  HelpCircle,
   Sparkles,
 } from 'lucide-react'
 
@@ -20,15 +21,43 @@ export const metadata = {
     'Daftarkan toko online Anda di Krafita. Jual produk fisik dan produk digital dengan komisi bersahabat, pembayaran terintegrasi Midtrans, dan jangkauan pelanggan se-Indonesia.',
 }
 
-export default async function SellOnKrafitaPage() {
+export default async function SellOnKrafitaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ step?: string }>
+}) {
   const { user, profile } = await getUser()
+  const { step } = await searchParams
 
-  // Jika user sudah berstatus vendor, langsung arahkan ke Dashboard Vendor
-  if (profile?.role === 'vendor') {
-    redirect('/vendor')
+  let userShop = null
+  let userShopMeta = null
+
+  if (user) {
+    const supabase = await createClient()
+    const { data: s } = await supabase
+      .from('shops')
+      .select('*')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    userShop = s
+    if (s) {
+      userShopMeta = parseShopMetadata(s.description)
+    }
+
+    // Jika toko sudah aktif penuh, arahkan ke dashboard vendor
+    if (s?.status === 'active' && profile?.role === 'vendor') {
+      redirect('/vendor')
+    }
   }
 
-  const isMember = Boolean(user && profile?.role === 'member')
+  const supabase = await createClient()
+  const { data: dbCategories } = await supabase
+    .from('categories')
+    .select('id, name, slug')
+    .order('sort_order', { ascending: true })
+
+  const isMemberOrVendorPending = Boolean(user)
 
   return (
     <div className="container mx-auto px-4 max-w-7xl py-6 md:py-10">
@@ -52,21 +81,31 @@ export default async function SellOnKrafitaPage() {
           Krafita Vendor Portal
         </div>
         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
-          {isMember ? 'Buka Toko Anda dalam 3 Langkah Mudah' : 'Jual Produk Fisik & Digital di Krafita'}
+          {userShop?.status === 'approved'
+            ? 'Langkah Terakhir: Unggah Produk Pertama Anda'
+            : userShop?.status === 'pending'
+            ? 'Pendaftaran Toko Sedang Ditinjau Moderator'
+            : 'Buka Toko Anda dalam 6 Langkah Mudah'}
         </h1>
         <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-          {isMember
-            ? 'Lengkapi formulir onboarding singkat di bawah ini untuk mengaktifkan toko Anda secara instan dan mulai berjualan ke ribuan pelanggan.'
-            : 'Bergabunglah dengan ribuan kreator, pengrajin, dan pelaku usaha di seluruh Indonesia. Proses pendaftaran gratis, pencairan dana aman, dan dashboard lengkap.'}
+          {userShop?.status === 'approved'
+            ? 'Pendaftaran toko Anda telah disetujui! Unggah produk pertama Anda agar toko resmi aktif dan produk Anda tampil di katalog Krafita.'
+            : userShop?.status === 'pending'
+            ? 'Pendaftaran toko Anda telah tersimpan dan saat ini menunggu verifikasi dari tim moderator kami.'
+            : 'Bergabunglah dengan ribuan kreator, pengrajin, dan pelaku usaha di seluruh Indonesia. Pendaftaran terverifikasi, ekspedisi terpadu, dan pencairan dana aman.'}
         </p>
       </div>
 
       {/* 3. WIZARD KHUSUS MEMBER ATAU HERO BANNER UNTUK GUEST */}
-      {isMember ? (
+      {isMemberOrVendorPending ? (
         <section className="mb-14">
           <VendorOnboardingWizard
             userEmail={user?.email || ''}
             userName={profile?.display_name || ''}
+            existingShop={userShop}
+            existingMetadata={userShopMeta}
+            categories={dbCategories || []}
+            initialStep={step === '6' && userShop?.status === 'approved' ? 6 : undefined}
           />
         </section>
       ) : (
@@ -78,11 +117,11 @@ export default async function SellOnKrafitaPage() {
                 Siap Memulai Perjalanan Bisnis Anda?
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground max-w-lg">
-                Masuk atau buat akun Krafita Anda sekarang untuk mengakses formulir pendaftaran toko instan.
+                Masuk atau buat akun Krafita Anda sekarang untuk mengakses alur pendaftaran toko resmi.
               </p>
             </div>
             <Link
-              href="/register?next=/sell&role=vendor"
+              href="/register?next=/sell"
               className="inline-flex items-center justify-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold px-6 py-3.5 rounded-xl transition-all shadow-md hover:shadow-lg shrink-0 cursor-pointer"
             >
               <Store className="w-4 h-4" />
@@ -100,7 +139,6 @@ export default async function SellOnKrafitaPage() {
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Card 1 */}
           <div className="p-5 rounded-xl border border-border/80 bg-card hover:border-[#00a699]/60 transition-colors space-y-2 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[#00a699]/10 text-[#00a699] flex items-center justify-center">
               <Zap className="w-5 h-5" />
@@ -113,7 +151,6 @@ export default async function SellOnKrafitaPage() {
             </p>
           </div>
 
-          {/* Card 2 */}
           <div className="p-5 rounded-xl border border-border/80 bg-card hover:border-[#00a699]/60 transition-colors space-y-2 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[#00a699]/10 text-[#00a699] flex items-center justify-center">
               <CreditCard className="w-5 h-5" />
@@ -126,7 +163,6 @@ export default async function SellOnKrafitaPage() {
             </p>
           </div>
 
-          {/* Card 3 */}
           <div className="p-5 rounded-xl border border-border/80 bg-card hover:border-[#00a699]/60 transition-colors space-y-2 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[#00a699]/10 text-[#00a699] flex items-center justify-center">
               <TrendingUp className="w-5 h-5" />
@@ -139,7 +175,6 @@ export default async function SellOnKrafitaPage() {
             </p>
           </div>
 
-          {/* Card 4 */}
           <div className="p-5 rounded-xl border border-border/80 bg-card hover:border-[#00a699]/60 transition-colors space-y-2 shadow-xs">
             <div className="w-9 h-9 rounded-lg bg-[#00a699]/10 text-[#00a699] flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
@@ -148,78 +183,7 @@ export default async function SellOnKrafitaPage() {
               Perlindungan Terpercaya
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Sistem reputasi transparan, verifikasi toko resmi, serta perlindungan penjual dari ulasan palsu tanpa transaksi.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. 4 Langkah Mudah */}
-      <section className="pt-10 space-y-4">
-        <h2 className="text-base md:text-lg font-bold text-foreground">
-          Alur Mudah Menjadi Penjual Sukses
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-5 rounded-xl bg-muted/20 border border-border/60 space-y-2">
-            <span className="text-2xl font-black text-[#00a699]">01</span>
-            <h3 className="font-bold text-xs sm:text-sm text-foreground">Daftar Akun & Toko</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Isi data toko Anda melalui wizard 3 langkah untuk aktivasi instan tanpa ribet.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl bg-muted/20 border border-border/60 space-y-2">
-            <span className="text-2xl font-black text-[#00a699]">02</span>
-            <h3 className="font-bold text-xs sm:text-sm text-foreground">Unggah Produk</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Lengkapi foto WebP, harga, stok fisik, atau unggah berkas file digital privat Anda.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl bg-muted/20 border border-border/60 space-y-2">
-            <span className="text-2xl font-black text-[#00a699]">03</span>
-            <h3 className="font-bold text-xs sm:text-sm text-foreground">Kirim Pesanan</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Kemas produk fisik & input nomor resi kurir, atau biarkan sistem mengirim berkas digital otomatis.
-            </p>
-          </div>
-
-          <div className="p-5 rounded-xl bg-muted/20 border border-border/60 space-y-2">
-            <span className="text-2xl font-black text-[#00a699]">04</span>
-            <h3 className="font-bold text-xs sm:text-sm text-foreground">Tarik Penghasilan</h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Tarik saldo bersih hasil penjualan langsung ke rekening bank lokal Anda kapan saja.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* 6. FAQ */}
-      <section className="pt-10 pb-12 space-y-4 border-t border-border/60 mt-10">
-        <div className="flex items-center gap-2">
-          <HelpCircle className="w-5 h-5 text-[#00a699]" />
-          <h2 className="text-base md:text-lg font-bold text-foreground">
-            Pertanyaan yang Sering Diajukan (FAQ)
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="p-4 rounded-xl border border-border/70 bg-card space-y-1.5 shadow-xs">
-            <h3 className="text-xs sm:text-sm font-bold text-foreground">
-              Berapa biaya untuk mulai berjualan di Krafita?
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Pendaftaran toko di Krafita 100% gratis tanpa biaya langganan bulanan. Anda hanya dikenakan potongan komisi platform transparan sebesar 5% ketika transaksi berhasil dan selesai.
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl border border-border/70 bg-card space-y-1.5 shadow-xs">
-            <h3 className="text-xs sm:text-sm font-bold text-foreground">
-              Apakah saya bisa menjual produk digital seperti software atau template?
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Ya, Krafita dirancang khusus mendukung produk fisik dan produk digital dengan penyimpanan cloud terenkripsi dan unduhan otomatis instan bagi pembeli setelah pembayaran terkonfirmasi.
+              Verifikasi toko oleh moderator resmi untuk menjaga standar kualitas ekosistem belanja Krafita.
             </p>
           </div>
         </div>

@@ -5,9 +5,332 @@ import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
-import type { Database, FulfilmentStatus, ProductStatus, ProductType } from '@/types/database'
+import { parseShopMetadata, serializeShopMetadata } from '@/lib/shop-helper'
+import type { Database, FulfilmentStatus, ProductStatus, ProductType, ShopMetadata } from '@/types/database'
 
 type Shop = Database['public']['Tables']['shops']['Row']
+
+export const VendorApplicationSchema = z.object({
+  name: z.string().min(2, 'Nama toko minimal 2 karakter').max(60, 'Nama toko maksimal 60 karakter'),
+  slug: z
+    .string()
+    .min(2, 'Slug toko minimal 2 karakter')
+    .max(60, 'Slug toko maksimal 60 karakter')
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh huruf kecil, angka, dan strip (-)'),
+  phone: z.string().min(8, 'Nomor telepon minimal 8 digit').max(20, 'Nomor telepon maksimal 20 digit'),
+  pickup_address: z.string().min(5, 'Alamat pengambilan minimal 5 karakter'),
+  city: z.string().min(2, 'Kota wajib diisi'),
+  province: z.string().min(2, 'Provinsi wajib diisi'),
+  postal_code: z.string().min(3, 'Kode pos minimal 3 digit'),
+  couriers: z.array(z.string()).min(1, 'Pilih minimal 1 jasa kirim ekspedisi'),
+  bank_name: z.string().min(2, 'Nama bank wajib dipilih'),
+  bank_account_number: z.string().min(4, 'Nomor rekening minimal 4 digit').max(30),
+  bank_account_holder: z.string().min(2, 'Nama pemilik rekening minimal 2 karakter'),
+})
+
+export type VendorApplicationInput = z.infer<typeof VendorApplicationSchema>
+
+export const FirstProductSchema = z.object({
+  title: z.string().min(3, 'Nama produk minimal 3 karakter').max(120),
+  slug: z.string().min(3, 'Slug minimal 3 karakter').max(120),
+  categoryId: z.string().min(1, 'Kategori wajib dipilih'),
+  price: z.number().min(1000, 'Harga minimal Rp 1.000'),
+  stock: z.number().int().min(1, 'Stok minimal 1 item'),
+  description: z.string().min(10, 'Deskripsi minimal 10 karakter'),
+  images: z.array(z.string()).min(1, 'Unggah minimal 1 foto produk'),
+})
+
+export type FirstProductInput = z.infer<typeof FirstProductSchema>
+
+/**
+ * 1A. SUBMIT VENDOR APPLICATION (Langkah 2, 3, 4 -> Status Pending)
+ */
+export async function submitVendorApplicationAction(payload: VendorApplicationInput): Promise<{
+  success: boolean
+  shop?: Shop
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user || !profile) {
+      return { success: false, error: 'Silakan login terlebih dahulu.' }
+    }
+
+    const parsed = VendorApplicationSchema.safeParse(payload)
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message || 'Data pendaftaran tidak valid' }
+    }
+
+    const admin = createAdminClient()
+
+    // Cek apakah user sudah memiliki toko
+    const { data: existingUserShop } = await admin
+      .from('shops')
+      .select('*')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (existingUserShop?.status === 'active') {
+      return { success: false, error: 'Toko Anda sudah berstatus aktif.' }
+    }
+
+    // Cek keunikan slug jika toko baru atau slug diubah
+    const { data: slugTaken } = await admin
+      .from('shops')
+      .select('id, profile_id')
+      .eq('slug', parsed.data.slug)
+      .maybeSingle()
+
+    if (slugTaken && slugTaken.profile_id !== user.id) {
+      return { success: false, error: 'Slug toko sudah digunakan oleh toko lain. Silakan ubah nama atau slug.' }
+    }
+
+    const metadata: ShopMetadata = {
+      pickup_address: parsed.data.pickup_address,
+      postal_code: parsed.data.postal_code,
+      couriers: parsed.data.couriers,
+      bank_name: parsed.data.bank_name,
+      bank_account_number: parsed.data.bank_account_number,
+      bank_account_holder: parsed.data.bank_account_holder,
+    }
+
+    const shopPayload = {
+      profile_id: user.id,
+      name: parsed.data.name,
+      slug: parsed.data.slug,
+      phone: parsed.data.phone,
+      whatsapp: parsed.data.phone,
+      email: user.email || null,
+      city: parsed.data.city,
+      province: parsed.data.province,
+      status: 'pending',
+      description: serializeShopMetadata(metadata),
+      updated_at: new Date().toISOString(),
+    }
+
+    let savedShop: Shop
+
+    if (existingUserShop) {
+      const { data: updated, error: updateErr } = await admin
+        .from('shops')
+        .update(shopPayload)
+        .eq('id', existingUserShop.id)
+        .select()
+        .single()
+
+      if (updateErr || !updated) {
+        return { success: false, error: updateErr?.message || 'Gagal memperbarui data pendaftaran toko' }
+      }
+      savedShop = updated
+    } else {
+      const { data: inserted, error: insertErr } = await admin
+        .from('shops')
+        .insert({
+          ...shopPayload,
+          flat_shipping_cost: 15000,
+        })
+        .select()
+        .single()
+
+      if (insertErr || !inserted) {
+        return { success: false, error: insertErr?.message || 'Gagal menyimpan pendaftaran toko' }
+      }
+      savedShop = inserted
+    }
+
+    // Simpan alamat gudang ke tabel addresses
+    await admin.from('addresses').upsert({
+      profile_id: user.id,
+      recipient_name: parsed.data.name,
+      phone: parsed.data.phone,
+      address_line: parsed.data.pickup_address,
+      city: parsed.data.city,
+      province: parsed.data.province,
+      postal_code: parsed.data.postal_code,
+      is_default: false,
+    }, { onConflict: 'profile_id,address_line' })
+
+    revalidatePath('/')
+    revalidatePath('/sell')
+    revalidatePath('/moderator/vendors')
+
+    return { success: true, shop: savedShop }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem'
+    return { success: false, error: msg }
+  }
+}
+
+/**
+ * 1B. GET VENDOR APPLICATION STATUS
+ */
+export async function getVendorApplicationStatusAction(): Promise<{
+  success: boolean
+  hasShop: boolean
+  shop?: Shop
+  metadata?: ShopMetadata
+  error?: string
+}> {
+  try {
+    const { user } = await getUser()
+    if (!user) {
+      return { success: true, hasShop: false }
+    }
+
+    const admin = createAdminClient()
+    const { data: shop } = await admin
+      .from('shops')
+      .select('*')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (!shop) {
+      return { success: true, hasShop: false }
+    }
+
+    return {
+      success: true,
+      hasShop: true,
+      shop,
+      metadata: parseShopMetadata(shop.description),
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memuat status pendaftaran'
+    return { success: false, hasShop: false, error: msg }
+  }
+}
+
+/**
+ * 1C. SUBMIT FIRST PRODUCT (Langkah 6 -> Aktivasi Toko Penuh)
+ */
+export async function submitFirstProductAction(payload: FirstProductInput): Promise<{
+  success: boolean
+  productId?: string
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user || !profile) {
+      return { success: false, error: 'Silakan login terlebih dahulu.' }
+    }
+
+    const parsed = FirstProductSchema.safeParse(payload)
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0]?.message || 'Data produk tidak valid' }
+    }
+
+    const admin = createAdminClient()
+
+    // Ambil data toko user
+    const { data: shop } = await admin
+      .from('shops')
+      .select('*')
+      .eq('profile_id', user.id)
+      .single()
+
+    if (!shop) {
+      return { success: false, error: 'Toko belum terdaftar.' }
+    }
+
+    // Pastikan slug produk unik
+    let productSlug = parsed.data.slug
+    const { data: existingSlug } = await admin
+      .from('products')
+      .select('id')
+      .eq('slug', productSlug)
+      .maybeSingle()
+
+    if (existingSlug) {
+      productSlug = `${productSlug}-${Math.floor(1000 + Math.random() * 9000)}`
+    }
+
+    // Pastikan category_id berupa UUID valid, jika berupa slug cari id dari tabel categories
+    let finalCategoryId = parsed.data.categoryId
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(finalCategoryId)
+    if (!isUuid) {
+      const { data: catRow } = await admin
+        .from('categories')
+        .select('id')
+        .eq('slug', finalCategoryId)
+        .maybeSingle()
+
+      if (catRow?.id) {
+        finalCategoryId = catRow.id
+      } else {
+        const { data: fallbackCat } = await admin
+          .from('categories')
+          .select('id')
+          .limit(1)
+          .maybeSingle()
+        if (fallbackCat?.id) {
+          finalCategoryId = fallbackCat.id
+        }
+      }
+    }
+
+    // Buat produk baru
+    const { data: newProd, error: prodErr } = await admin
+      .from('products')
+      .insert({
+        shop_id: shop.id,
+        category_id: finalCategoryId,
+        title: parsed.data.title,
+        slug: productSlug,
+        description: parsed.data.description,
+        type: 'physical',
+        price: parsed.data.price,
+        stock: parsed.data.stock,
+        status: 'published',
+        attributes: { Kondisi: 'Baru' },
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (prodErr || !newProd) {
+      return { success: false, error: prodErr?.message || 'Gagal menerbitkan produk pertama' }
+    }
+
+    // Masukkan gambar produk
+    if (parsed.data.images && parsed.data.images.length > 0) {
+      const imgRows = parsed.data.images.map((imgPath, idx) => ({
+        product_id: newProd.id,
+        path: imgPath,
+        sort_order: idx,
+      }))
+      await admin.from('product_images').insert(imgRows)
+    }
+
+    // Aktifkan toko secara penuh (status: 'active')
+    await admin
+      .from('shops')
+      .update({
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', shop.id)
+
+    // Pastikan role profil adalah 'vendor'
+    await admin
+      .from('profiles')
+      .update({
+        role: 'vendor',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+
+    revalidatePath('/')
+    revalidatePath('/sell')
+    revalidatePath('/vendor')
+    revalidatePath('/products')
+    revalidatePath(`/products/${productSlug}`)
+
+    return { success: true, productId: newProd.id }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal menyelesaikan pendaftaran produk pertama'
+    return { success: false, error: msg }
+  }
+}
 
 const BecomeVendorSchema = z.object({
   name: z.string().min(2, 'Nama toko minimal 2 karakter').max(60, 'Nama toko maksimal 60 karakter'),
