@@ -1,7 +1,6 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { X, AlertCircle, Loader2 } from 'lucide-react'
 import { signIn } from '@/actions/auth'
@@ -23,9 +22,11 @@ export function LoginModal({ isOpen, onClose, next = '/' }: LoginModalProps) {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen)
 
   // Reset form when modal opens or closes
-  useEffect(() => {
+  if (prevIsOpen !== isOpen) {
+    setPrevIsOpen(isOpen)
     if (isOpen) {
       setErrorMessage(null)
     } else {
@@ -35,7 +36,7 @@ export function LoginModal({ isOpen, onClose, next = '/' }: LoginModalProps) {
       setLoading(false)
       setGoogleLoading(false)
     }
-  }, [isOpen])
+  }
 
   // Handle ESC key to close modal
   useEffect(() => {

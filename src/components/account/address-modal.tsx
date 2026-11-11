@@ -5,11 +5,10 @@ import { X, Loader2, MapPin, Check } from 'lucide-react'
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import {
-  AddressItem,
-  AddressFormData,
   addAddressAction,
   updateAddressAction,
 } from '@/actions/address'
+import type { AddressItem, AddressFormData } from '@/types/address'
 
 interface AddressModalProps {
   isOpen: boolean
@@ -38,8 +37,12 @@ export function AddressModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [prevAddressToEdit, setPrevAddressToEdit] = useState(addressToEdit)
+  const [prevIsOpen, setPrevIsOpen] = useState(isOpen)
 
-  useEffect(() => {
+  if (prevAddressToEdit !== addressToEdit || prevIsOpen !== isOpen) {
+    setPrevAddressToEdit(addressToEdit)
+    setPrevIsOpen(isOpen)
     if (addressToEdit) {
       setFormData({
         recipientName: addressToEdit.recipientName,
@@ -62,7 +65,7 @@ export function AddressModal({
       })
     }
     setErrorMessage(null)
-  }, [addressToEdit, isOpen])
+  }
 
   if (!isOpen) return null
 

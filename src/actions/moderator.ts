@@ -1,24 +1,11 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
 import { parseShopMetadata, serializeShopMetadata } from '@/lib/shop-helper'
-import type { Database, ShopMetadata, ShopStatus } from '@/types/database'
-
-type Shop = Database['public']['Tables']['shops']['Row']
-
-export interface VendorApplicationItem {
-  shop: Shop
-  metadata: ShopMetadata
-  applicant: {
-    id: string
-    displayName: string
-    email: string | null
-    role: string
-  }
-}
+import type { ShopMetadata } from '@/types/database'
+import type { VendorApplicationItem } from '@/types/moderator'
 
 /**
  * 1. GET ALL VENDOR APPLICATIONS (FOR MODERATOR)

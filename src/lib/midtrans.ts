@@ -308,16 +308,18 @@ export function mapMidtransStatus(transactionStatus?: string, fraudStatus?: stri
 }
 
 export function verifyMidtransSignature(n: {
-  order_id: string
-  status_code: string
-  gross_amount: string
-  signature_key: string
+  order_id?: string
+  status_code?: string | number
+  gross_amount?: string | number
+  signature_key?: string
 }): boolean {
   const serverKey = process.env.MIDTRANS_SERVER_KEY || ''
+  if (!serverKey || !n.signature_key) return false
+  const rawPayload = `${n.order_id ?? ''}${n.status_code ?? ''}${n.gross_amount ?? ''}${serverKey}`
   const expected = createHash('sha512')
-    .update(n.order_id + n.status_code + n.gross_amount + serverKey)
+    .update(rawPayload)
     .digest('hex')
   const a = Buffer.from(expected)
-  const b = Buffer.from(n.signature_key ?? '')
+  const b = Buffer.from(n.signature_key)
   return a.length === b.length && timingSafeEqual(a, b)
 }

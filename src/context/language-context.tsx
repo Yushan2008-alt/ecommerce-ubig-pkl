@@ -19,16 +19,19 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined)
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('id')
+  const [locale, setLocaleState] = useState<Locale>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('krafita_lang') as Locale | null
+      if (saved === 'id' || saved === 'en') {
+        return saved
+      }
+    }
+    return 'id'
+  })
 
   useEffect(() => {
-    // Baca preferensi tersimpan di localStorage atau cookie
-    const saved = localStorage.getItem('krafita_lang') as Locale | null
-    if (saved === 'id' || saved === 'en') {
-      setLocaleState(saved)
-    } else {
-      // Default: Indonesia
-      setLocaleState('id')
+    const saved = localStorage.getItem('krafita_lang')
+    if (!saved) {
       localStorage.setItem('krafita_lang', 'id')
       document.cookie = 'krafita_lang=id; path=/; max-age=31536000'
     }

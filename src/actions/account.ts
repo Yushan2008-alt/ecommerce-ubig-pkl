@@ -4,18 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
-import type { UserRole } from '@/types/database'
-
-export interface ProfileData {
-  id: string
-  email: string
-  role: UserRole
-  displayName: string | null
-  phone: string | null
-  avatarUrl: string | null
-  createdAt: string
-  updatedAt: string
-}
+import type { ProfileData } from '@/types/account'
 
 /**
  * Mengambil data profil user terautentikasi

@@ -12,32 +12,13 @@ import {
   type SupportedBank,
   type MidtransChargeVAResponse,
 } from '@/lib/midtrans'
-
-export interface CheckoutItemPayload {
-  productId: string
-  title: string
-  slug?: string
-  price: number
-  qty: number
-  imageUrl?: string
-  shopId?: string
-}
-
-export interface ShippingAddressPayload {
-  recipientName: string
-  phone: string
-  addressLine: string
-  city: string
-  province: string
-  postalCode: string
-}
-
-export interface ShippingOptionPayload {
-  name: string
-  courier: string
-  cost: number
-  estimatedDays: string
-}
+import type {
+  CheckoutItemPayload,
+  ShippingAddressPayload,
+  ShippingOptionPayload,
+  ServiceOrderPayload,
+  MarketplaceOrderPayload,
+} from '@/types/order'
 
 export async function createOrderAction(data: {
   items: CheckoutItemPayload[]
@@ -107,13 +88,38 @@ export async function createOrderAction(data: {
       return { success: false, error: orderError?.message || 'Gagal membuat pesanan' }
     }
 
-    // 4. Simpan item ke tabel order_items
+    // 4. Simpan item ke tabel order_items dengan validasi shop_id riil
     const trackingNumber = `KRFEXP-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+    const productIds = data.items.map((i) => i.productId).filter((id) => UUID_REGEX.test(id))
+    const { data: dbProducts } = await adminClient
+      .from('products')
+      .select('id, shop_id, type')
+      .in('id', productIds)
+
+    const productMap = new Map((dbProducts || []).map((p) => [p.id, p]))
+
+    let defaultShopId = '06f642de-654a-4c48-87c0-aaee352d8ad4'
+    const { data: activeShop } = await adminClient
+      .from('shops')
+      .select('id')
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+    if (activeShop?.id) defaultShopId = activeShop.id
+
     const orderItems = data.items.map((item) => {
+      const dbProd = productMap.get(item.productId)
+      let resolvedShopId = dbProd?.shop_id || item.shopId
+      if (!resolvedShopId || !UUID_REGEX.test(resolvedShopId)) {
+        resolvedShopId = defaultShopId
+      }
+
       const commission = Math.round(item.price * 0.05)
       return {
         order_id: newOrder.id,
-        shop_id: item.shopId || user.id,
+        shop_id: resolvedShopId,
         product_id: item.productId,
         title: item.title,
         price: item.price,
@@ -129,7 +135,9 @@ export async function createOrderAction(data: {
 
     const { error: itemsError } = await adminClient.from('order_items').insert(orderItems)
     if (itemsError) {
-      console.warn('[Order Items Warning]', itemsError)
+      console.error('[Order Items Insert Error]', itemsError)
+      await adminClient.from('orders').delete().eq('id', newOrder.id)
+      return { success: false, error: 'Gagal memproses item pesanan: ' + itemsError.message }
     }
 
     // 5. Kosongkan keranjang belanja pengguna
@@ -208,28 +216,30 @@ export async function confirmOrderPaymentAction(orderId: string): Promise<{
 
     const adminClient = createAdminClient()
 
-    // Update status order menjadi 'paid'
-    const { error: updateOrderError } = await adminClient
+    // Ambil order code & total
+    const { data: order, error: fetchOrderError } = await adminClient
       .from('orders')
-      .update({
-        status: 'paid',
-        paid_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .select('id, code, total')
       .eq('id', orderId)
+      .single()
 
-    if (updateOrderError) {
-      return { success: false, error: updateOrderError.message }
+    if (fetchOrderError || !order) {
+      return { success: false, error: fetchOrderError?.message || 'Pesanan tidak ditemukan' }
     }
 
-    // Update fulfilment_status item menjadi 'processing' (Sedang Dikemas)
-    await adminClient
-      .from('order_items')
-      .update({
-        fulfilment_status: 'processing',
-        updated_at: new Date().toISOString(),
-      })
-      .eq('order_id', orderId)
+    // Panggil RPC apply_payment_status secara atomik
+    const { error: rpcError } = await adminClient.rpc('apply_payment_status', {
+      p_code: order.code,
+      p_status: 'paid',
+      p_gross: Math.round(Number(order.total || 0)),
+      p_type: 'manual_simulation',
+      p_raw: { source: 'confirmOrderPaymentAction', simulated_by: user.id },
+    })
+
+    if (rpcError) {
+      console.error('[Confirm Payment RPC Error]', rpcError.message)
+      return { success: false, error: rpcError.message }
+    }
 
     revalidatePath('/orders')
     revalidatePath(`/orders/${orderId}`)
@@ -350,24 +360,6 @@ export async function getOrderDetailsAction(orderId: string) {
     const msg = err instanceof Error ? err.message : 'Gagal mengambil detail pesanan'
     return { success: false, error: msg, data: null }
   }
-}
-
-export interface ServiceOrderPayload {
-  customerName: string
-  customerPhone: string
-  customerEmail: string
-  division: string
-  serviceName: string
-  complexity?: string
-  projectTitle: string
-  deadline: string
-  description?: string
-  basePrice: number
-  taxAmount: number
-  serviceFee: number
-  totalAmount: number
-  productId?: string
-  items?: CheckoutItemPayload[]
 }
 
 /**
@@ -599,7 +591,7 @@ export async function checkAndSyncPaymentStatusAction(orderCode: string): Promis
 
     const { data: order } = await adminClient
       .from('orders')
-      .select('id, code, status, paid_at')
+      .select('id, code, status, paid_at, total')
       .eq('code', orderCode)
       .maybeSingle()
 
@@ -622,31 +614,34 @@ export async function checkAndSyncPaymentStatusAction(orderCode: string): Promis
     }
 
     const mapped = mapMidtransStatus(midtransRes.transactionStatus, midtransRes.fraudStatus)
-    if (mapped === 'paid') {
+    if (mapped === 'paid' || mapped === 'cancelled' || mapped === 'expired') {
       const paidTime = midtransRes.settlementTime || new Date().toISOString()
-      await adminClient
-        .from('orders')
-        .update({
-          status: 'paid',
-          paid_at: paidTime,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id)
+      const { error: rpcError } = await adminClient.rpc('apply_payment_status', {
+        p_code: orderCode,
+        p_status: mapped,
+        p_gross: Math.round(Number(midtransRes.grossAmount || order.total || 0)),
+        p_type: midtransRes.paymentType || 'midtrans',
+        p_raw: midtransRes.raw || {},
+      })
 
-      await adminClient
-        .from('order_items')
-        .update({
-          fulfilment_status: 'processing',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', order.id)
+      if (rpcError) {
+        console.warn('[Sync Payment RPC Warning]', rpcError.message)
+      }
 
       revalidatePath(`/orders/${order.id}`)
+      if (mapped === 'paid') {
+        return {
+          success: true,
+          isPaid: true,
+          status: 'paid',
+          paidAt: paidTime,
+        }
+      }
+
       return {
         success: true,
-        isPaid: true,
-        status: 'paid',
-        paidAt: paidTime,
+        isPaid: false,
+        status: mapped,
       }
     }
 
@@ -659,38 +654,6 @@ export async function checkAndSyncPaymentStatusAction(orderCode: string): Promis
     const msg = err instanceof Error ? err.message : 'Gagal memeriksa status pembayaran'
     return { success: false, isPaid: false, error: msg }
   }
-}
-
-export interface MarketplaceOrderItemPayload {
-  productId: string
-  title: string
-  price: number
-  qty: number
-  imageUrl?: string
-  shopId?: string
-  shopName?: string
-  type: 'physical' | 'digital'
-  buyerNote?: string
-}
-
-export interface MarketplaceOrderPayload {
-  items: MarketplaceOrderItemPayload[]
-  shippingAddress?: {
-    recipientName: string
-    phone: string
-    addressLine: string
-    city: string
-    province: string
-    postalCode: string
-  } | null
-  shippingOption?: {
-    name: string
-    courier: string
-    cost: number
-    estimatedDays: string
-  } | null
-  hasPhysicalItems: boolean
-  customerEmail?: string
 }
 
 /**
@@ -769,15 +732,41 @@ export async function createMarketplaceOrderAction(data: MarketplaceOrderPayload
       return { success: false, error: orderError?.message || 'Gagal membuat pesanan' }
     }
 
-    // 4. Simpan ke tabel order_items
+    // 4. Simpan ke tabel order_items dengan resolusi shop_id riil
     const trackingNumber = `KRFEXP-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`
     const downloadExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 hari
+    const UUID_REGEX_MP = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+    const productIds = data.items.map((i) => i.productId).filter((id) => UUID_REGEX_MP.test(id))
+    const { data: dbProducts } = await adminClient
+      .from('products')
+      .select('id, shop_id, type')
+      .in('id', productIds)
+
+    const productMap = new Map((dbProducts || []).map((p) => [p.id, p]))
+
+    let defaultShopId = '06f642de-654a-4c48-87c0-aaee352d8ad4'
+    const { data: activeShop } = await adminClient
+      .from('shops')
+      .select('id')
+      .eq('status', 'active')
+      .limit(1)
+      .maybeSingle()
+    if (activeShop?.id) defaultShopId = activeShop.id
 
     const orderItems = data.items.map((item) => {
+      const dbProd = productMap.get(item.productId)
+      let resolvedShopId = dbProd?.shop_id || item.shopId
+      if (!resolvedShopId || !UUID_REGEX_MP.test(resolvedShopId)) {
+        resolvedShopId = defaultShopId
+      }
+
+      const itemType = dbProd?.type || item.type || 'physical'
       const commission = Math.round(item.price * 0.05)
+
       return {
         order_id: newOrder.id,
-        shop_id: item.shopId || user.id,
+        shop_id: resolvedShopId,
         product_id: item.productId,
         title: item.title,
         price: item.price,
@@ -787,15 +776,17 @@ export async function createMarketplaceOrderAction(data: MarketplaceOrderPayload
         net_amount: item.price - commission,
         buyer_note: item.buyerNote || null,
         fulfilment_status: 'waiting' as const,
-        tracking_number: item.type === 'physical' ? trackingNumber : null,
+        tracking_number: itemType === 'physical' ? trackingNumber : null,
         downloads_count: 0,
-        download_expires_at: item.type === 'digital' ? downloadExpiresAt : null,
+        download_expires_at: itemType === 'digital' ? downloadExpiresAt : null,
       }
     })
 
     const { error: itemsError } = await adminClient.from('order_items').insert(orderItems)
     if (itemsError) {
-      console.warn('[Order Items Insert Warning]', itemsError)
+      console.error('[Marketplace Order Items Insert Error]', itemsError)
+      await adminClient.from('orders').delete().eq('id', newOrder.id)
+      return { success: false, error: 'Gagal memproses rincian pesanan: ' + itemsError.message }
     }
 
     // 5. Kosongkan keranjang belanja pengguna

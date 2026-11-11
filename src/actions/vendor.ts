@@ -1,7 +1,6 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
@@ -10,37 +9,20 @@ import type { Database, FulfilmentStatus, ProductStatus, ProductType, ShopMetada
 
 type Shop = Database['public']['Tables']['shops']['Row']
 
-export const VendorApplicationSchema = z.object({
-  name: z.string().min(2, 'Nama toko minimal 2 karakter').max(60, 'Nama toko maksimal 60 karakter'),
-  slug: z
-    .string()
-    .min(2, 'Slug toko minimal 2 karakter')
-    .max(60, 'Slug toko maksimal 60 karakter')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh huruf kecil, angka, dan strip (-)'),
-  phone: z.string().min(8, 'Nomor telepon minimal 8 digit').max(20, 'Nomor telepon maksimal 20 digit'),
-  pickup_address: z.string().min(5, 'Alamat pengambilan minimal 5 karakter'),
-  city: z.string().min(2, 'Kota wajib diisi'),
-  province: z.string().min(2, 'Provinsi wajib diisi'),
-  postal_code: z.string().min(3, 'Kode pos minimal 3 digit'),
-  couriers: z.array(z.string()).min(1, 'Pilih minimal 1 jasa kirim ekspedisi'),
-  bank_name: z.string().min(2, 'Nama bank wajib dipilih'),
-  bank_account_number: z.string().min(4, 'Nomor rekening minimal 4 digit').max(30),
-  bank_account_holder: z.string().min(2, 'Nama pemilik rekening minimal 2 karakter'),
-})
-
-export type VendorApplicationInput = z.infer<typeof VendorApplicationSchema>
-
-export const FirstProductSchema = z.object({
-  title: z.string().min(3, 'Nama produk minimal 3 karakter').max(120),
-  slug: z.string().min(3, 'Slug minimal 3 karakter').max(120),
-  categoryId: z.string().min(1, 'Kategori wajib dipilih'),
-  price: z.number().min(1000, 'Harga minimal Rp 1.000'),
-  stock: z.number().int().min(1, 'Stok minimal 1 item'),
-  description: z.string().min(10, 'Deskripsi minimal 10 karakter'),
-  images: z.array(z.string()).min(1, 'Unggah minimal 1 foto produk'),
-})
-
-export type FirstProductInput = z.infer<typeof FirstProductSchema>
+import {
+  VendorApplicationSchema,
+  FirstProductSchema,
+  BecomeVendorSchema,
+  ProductFormSchema,
+  PayoutSchema,
+  ShopSettingsSchema,
+  type VendorApplicationInput,
+  type FirstProductInput,
+  type BecomeVendorInput,
+  type ProductFormInput,
+  type PayoutInput,
+  type ShopSettingsInput,
+} from '@/lib/validators'
 
 /**
  * 1A. SUBMIT VENDOR APPLICATION (Langkah 2, 3, 4 -> Status Pending)
@@ -331,26 +313,6 @@ export async function submitFirstProductAction(payload: FirstProductInput): Prom
     return { success: false, error: msg }
   }
 }
-
-const BecomeVendorSchema = z.object({
-  name: z.string().min(2, 'Nama toko minimal 2 karakter').max(60, 'Nama toko maksimal 60 karakter'),
-  slug: z
-    .string()
-    .min(2, 'Slug toko minimal 2 karakter')
-    .max(60, 'Slug toko maksimal 60 karakter')
-    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh huruf kecil, angka, dan strip (-)'),
-  category: z.string().optional().nullable(),
-  description: z.string().max(1000, 'Deskripsi maksimal 1000 karakter').optional().nullable(),
-  logo_url: z.string().url('URL logo tidak valid').optional().nullable(),
-  flat_shipping_cost: z.number().min(0, 'Ongkir tidak boleh negatif').default(0),
-  whatsapp: z.string().max(20, 'Nomor WhatsApp terlalu panjang').optional().nullable(),
-  phone: z.string().max(20, 'Nomor telepon terlalu panjang').optional().nullable(),
-  email: z.string().email('Email tidak valid').optional().nullable(),
-  city: z.string().max(100, 'Nama kota terlalu panjang').optional().nullable(),
-  province: z.string().max(100, 'Nama provinsi terlalu panjang').optional().nullable(),
-})
-
-export type BecomeVendorInput = z.infer<typeof BecomeVendorSchema>
 
 /**
  * 1. BECOME VENDOR ACTION (Onboarding Toko & Role Escalation)
@@ -662,40 +624,6 @@ export async function getVendorProductsAction(statusFilter?: string): Promise<{
     return { success: false, error: msg }
   }
 }
-
-const ProductFormSchema = z.object({
-  id: z.string().optional(),
-  type: z.enum(['physical', 'digital']),
-  title: z.string().min(3, 'Judul minimal 3 karakter').max(120, 'Judul maksimal 120 karakter'),
-  slug: z.string().min(3, 'Slug minimal 3 karakter').max(120),
-  description: z.string().min(5, 'Deskripsi minimal 5 karakter'),
-  categoryId: z.string().min(1, 'Kategori wajib dipilih'),
-  brandId: z.string().optional().nullable(),
-  price: z.number().min(0, 'Harga tidak boleh negatif'),
-  comparePrice: z.number().min(0).optional().nullable(),
-  status: z.enum(['draft', 'published', 'archived']).default('published'),
-  // Khusus Fisik
-  sku: z.string().max(50).optional().nullable(),
-  stock: z.number().int().min(0).default(0),
-  weight: z.number().min(0).default(0),
-  flatShippingCost: z.number().min(0).default(0),
-  productLocation: z.string().max(100).optional().nullable(),
-  attributes: z.record(z.string(), z.string()).optional().default({}),
-  // Khusus Digital
-  digitalFile: z
-    .object({
-      path: z.string(),
-      fileName: z.string(),
-      fileSize: z.number(),
-      format: z.string().optional().nullable(),
-    })
-    .optional()
-    .nullable(),
-  // Galeri Gambar
-  images: z.array(z.string()).default([]),
-})
-
-export type ProductFormInput = z.infer<typeof ProductFormSchema>
 
 /**
  * 4. SAVE PRODUCT (CREATE / UPDATE)
@@ -1122,15 +1050,6 @@ export async function getVendorBalanceDataAction(): Promise<{
   }
 }
 
-const PayoutSchema = z.object({
-  amount: z.number().min(10000, 'Minimal penarikan dana adalah Rp 10.000'),
-  bankName: z.string().min(2, 'Nama bank wajib dipilih'),
-  accountNo: z.string().min(5, 'Nomor rekening minimal 5 digit'),
-  accountHolder: z.string().min(3, 'Nama pemilik rekening minimal 3 karakter'),
-})
-
-export type PayoutInput = z.infer<typeof PayoutSchema>
-
 /**
  * 10. REQUEST PAYOUT ACTION
  */
@@ -1174,19 +1093,6 @@ export async function requestPayoutAction(payload: PayoutInput): Promise<{
     return { success: false, error: msg }
   }
 }
-
-const ShopSettingsSchema = z.object({
-  name: z.string().min(2).max(60),
-  description: z.string().max(1000).optional().nullable(),
-  logoUrl: z.string().url().optional().nullable(),
-  flatShippingCost: z.number().min(0).default(0),
-  whatsapp: z.string().max(20).optional().nullable(),
-  phone: z.string().max(20).optional().nullable(),
-  city: z.string().max(100).optional().nullable(),
-  province: z.string().max(100).optional().nullable(),
-})
-
-export type ShopSettingsInput = z.infer<typeof ShopSettingsSchema>
 
 /**
  * 11. UPDATE SHOP SETTINGS

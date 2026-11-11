@@ -4,7 +4,8 @@ import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ImageUploader } from './image-uploader'
 import { DigitalFileUploader } from './digital-file-uploader'
-import { saveProductAction, type ProductFormInput } from '@/actions/vendor'
+import { saveProductAction } from '@/actions/vendor'
+import type { ProductFormInput } from '@/lib/validators'
 import {
   Package,
   FileCode,

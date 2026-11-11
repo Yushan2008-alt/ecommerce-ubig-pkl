@@ -10,7 +10,7 @@ import {
   AlertCircle,
   Sparkles,
 } from 'lucide-react'
-import { submitReviewAction, type ReviewInput } from '@/actions/social'
+import { submitReviewAction } from '@/actions/social'
 import { toast } from 'sonner'
 
 interface ReviewItem {

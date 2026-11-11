@@ -15,11 +15,11 @@ import {
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import {
-  AddressItem,
   getAddressesAction,
   deleteAddressAction,
   setDefaultAddressAction,
 } from '@/actions/address'
+import type { AddressItem } from '@/types/address'
 import { AddressModal } from '@/components/account/address-modal'
 
 interface AddressTabProps {

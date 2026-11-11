@@ -1,6 +1,6 @@
 'use client'
 
-import React, { createContext, useContext, useState, useEffect, Suspense } from 'react'
+import React, { createContext, useContext, useState, Suspense } from 'react'
 import { useSearchParams, useRouter, usePathname } from 'next/navigation'
 import { LoginModal } from '@/components/auth/login-modal'
 
@@ -21,33 +21,28 @@ const defaultAuthModalContext: AuthModalContextType = {
 const AuthModalContext = createContext<AuthModalContextType>(defaultAuthModalContext)
 
 function AuthModalInner({ children }: { children: React.ReactNode }) {
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false)
-  const [nextUrl, setNextUrl] = useState('/')
+  const [manualOpen, setManualOpen] = useState(false)
+  const [manualNextUrl, setManualNextUrl] = useState<string | null>(null)
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
 
-  // Buka modal secara otomatis jika URL memiliki query parameter ?auth=login
-  useEffect(() => {
-    if (searchParams.get('auth') === 'login') {
-      const next = searchParams.get('next') || '/'
-      setNextUrl(next)
-      setIsLoginModalOpen(true)
-    }
-  }, [searchParams])
+  const isQueryLogin = searchParams.get('auth') === 'login'
+  const isLoginModalOpen = manualOpen || isQueryLogin
+  const nextUrl = manualNextUrl ?? searchParams.get('next') ?? '/'
 
   const openLoginModal = (next?: string) => {
     if (next) {
-      setNextUrl(next)
+      setManualNextUrl(next)
     } else {
-      setNextUrl(pathname || '/')
+      setManualNextUrl(pathname || '/')
     }
-    setIsLoginModalOpen(true)
+    setManualOpen(true)
   }
 
   const closeLoginModal = () => {
-    setIsLoginModalOpen(false)
-    // Jika URL memiliki parameter auth=login, bersihkan dari URL tanpa reload
+    setManualOpen(false)
+    setManualNextUrl(null)
     if (searchParams.get('auth') === 'login') {
       const params = new URLSearchParams(searchParams.toString())
       params.delete('auth')

@@ -16,10 +16,10 @@ import {
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import {
-  ProfileData,
   updateProfileAction,
   uploadAvatarAction,
 } from '@/actions/account'
+import type { ProfileData } from '@/types/account'
 
 interface ProfileTabProps {
   initialProfile: ProfileData

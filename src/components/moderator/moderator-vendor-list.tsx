@@ -6,8 +6,8 @@ import {
   approveVendorAction,
   rejectVendorAction,
   toggleModeratorRoleAction,
-  type VendorApplicationItem,
 } from '@/actions/moderator'
+import type { VendorApplicationItem } from '@/types/moderator'
 import {
   Store,
   CheckCircle2,

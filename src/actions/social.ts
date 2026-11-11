@@ -1,18 +1,16 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
-import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
-
-const ReviewSchema = z.object({
-  orderItemId: z.string().uuid(),
-  productId: z.string().uuid(),
-  rating: z.number().int().min(1).max(5),
-  body: z.string().max(1000).optional().nullable(),
-})
-
-export type ReviewInput = z.infer<typeof ReviewSchema>
+import {
+  ReviewSchema,
+  CommentSchema,
+  ReportSchema,
+  type ReviewInput,
+  type CommentInput,
+  type ReportInput,
+} from '@/lib/validators'
 
 /**
  * 1. SUBMIT REVIEW ACTION (Verified Buyer)
@@ -143,14 +141,6 @@ export async function getProductReviewsAction(productId: string): Promise<{
     return { success: false, error: msg }
   }
 }
-
-const CommentSchema = z.object({
-  productId: z.string().uuid(),
-  parentId: z.string().uuid().optional().nullable(),
-  body: z.string().min(2, 'Pertanyaan minimal 2 karakter').max(1000, 'Maksimal 1000 karakter'),
-})
-
-export type CommentInput = z.infer<typeof CommentSchema>
 
 /**
  * 3. SUBMIT COMMENT ACTION (Member / Vendor Reply)
@@ -284,14 +274,6 @@ export async function getProductCommentsAction(
     return { success: false, error: msg }
   }
 }
-
-const ReportSchema = z.object({
-  targetType: z.enum(['product', 'comment']),
-  targetId: z.string().uuid(),
-  reason: z.string().min(5, 'Alasan pelaporan minimal 5 karakter').max(500, 'Alasan maksimal 500 karakter'),
-})
-
-export type ReportInput = z.infer<typeof ReportSchema>
 
 /**
  * 5. SUBMIT REPORT ACTION

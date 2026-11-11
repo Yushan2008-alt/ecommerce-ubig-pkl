@@ -8,10 +8,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
 
-    // 1. Verifikasi Signature Midtrans jika ada signature_key
-    if (body.signature_key && !verifyMidtransSignature(body)) {
-      console.warn('[Midtrans Webhook] Invalid Signature:', body.order_id)
-      return NextResponse.json({ message: 'Invalid signature' }, { status: 403 })
+    // 1. Verifikasi Signature Midtrans
+    if (body.signature_key) {
+      if (!verifyMidtransSignature(body)) {
+        console.warn('[Midtrans Webhook] Invalid Signature:', body.order_id)
+        return NextResponse.json({ message: 'Invalid signature' }, { status: 403 })
+      }
+    } else if (process.env.NODE_ENV === 'production') {
+      console.warn('[Midtrans Webhook] Missing signature in production:', body.order_id)
+      return NextResponse.json({ message: 'Missing signature_key' }, { status: 403 })
     }
 
     const orderCode = body.order_id
@@ -22,59 +27,24 @@ export async function POST(request: NextRequest) {
     const mappedStatus = mapMidtransStatus(body.transaction_status, body.fraud_status)
     const adminClient = createAdminClient()
 
-    // Cari order
-    const { data: order } = await adminClient
-      .from('orders')
-      .select('id, code, status')
-      .eq('code', orderCode)
-      .maybeSingle()
+    // 2. Eksekusi RPC atomik apply_payment_status di Postgres
+    const { error: rpcError } = await adminClient.rpc('apply_payment_status', {
+      p_code: orderCode,
+      p_status: mappedStatus,
+      p_gross: Math.round(Number(body.gross_amount || 0)),
+      p_type: body.payment_type || 'midtrans',
+      p_raw: body,
+    })
 
-    if (!order) {
-      return NextResponse.json({ message: 'Order not found' }, { status: 404 })
+    if (rpcError) {
+      console.error('[Midtrans Webhook RPC Error]', rpcError.message)
+      if (rpcError.message.includes('tidak ditemukan')) {
+        return NextResponse.json({ message: rpcError.message }, { status: 404 })
+      }
+      return NextResponse.json({ message: rpcError.message }, { status: 500 })
     }
 
-    if (mappedStatus === 'paid') {
-      await adminClient
-        .from('orders')
-        .update({
-          status: 'paid',
-          paid_at: body.settlement_time || new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id)
-
-      await adminClient
-        .from('order_items')
-        .update({
-          fulfilment_status: 'processing',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('order_id', order.id)
-    } else if (mappedStatus === 'cancelled') {
-      await adminClient
-        .from('orders')
-        .update({
-          status: 'cancelled',
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', order.id)
-    }
-
-    // Catat ke tabel payments
-    try {
-      await adminClient.from('payments').insert({
-        order_id: order.id,
-        payment_type: body.payment_type || 'midtrans',
-        midtrans_status: body.transaction_status,
-        gross_amount: Math.round(Number(body.gross_amount || 0)),
-        raw: body,
-        signature_valid: true,
-      })
-    } catch (e) {
-      console.warn('[Midtrans Webhook] Logging payment row warning:', e)
-    }
-
-    return NextResponse.json({ message: 'OK' })
+    return NextResponse.json({ message: 'OK', status: mappedStatus })
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Webhook error'
     console.error('[Midtrans Webhook Error]', msg)

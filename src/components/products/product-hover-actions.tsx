@@ -1,8 +1,9 @@
 'use client'
 
 import React from 'react'
+import { useRouter } from 'next/navigation'
 import { ShoppingCart, Heart, Check, Zap } from 'lucide-react'
-import { useCartWishlist, CartItem, WishlistItem } from '@/context/cart-wishlist-context'
+import { useCartWishlist } from '@/context/cart-wishlist-context'
 import { useLanguage } from '@/context/language-context'
 
 interface ProductHoverActionsProps {
@@ -22,6 +23,7 @@ interface ProductHoverActionsProps {
 }
 
 export function ProductHoverActions({ product, className = '' }: ProductHoverActionsProps) {
+  const router = useRouter()
   const { addToCart, toggleWishlist, isInWishlist, isInCart } = useCartWishlist()
   const { t } = useLanguage()
 
@@ -84,7 +86,8 @@ export function ProductHoverActions({ product, className = '' }: ProductHoverAct
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
-          window.location.href = `/checkout?buyNow=true&productId=${encodeURIComponent(product.id)}&title=${encodeURIComponent(product.title)}&price=${product.price}`
+          const productType = product.isDigital ? 'digital' : 'physical'
+          router.push(`/checkout?buyNow=true&productId=${encodeURIComponent(product.id)}&title=${encodeURIComponent(product.title)}&price=${product.price}&type=${productType}`)
         }}
         aria-label="Beli Langsung"
         title="Beli Langsung Tanpa Keranjang"

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react'
 import { ImageUploader } from './image-uploader'
-import { updateShopSettingsAction, type ShopSettingsInput } from '@/actions/vendor'
+import { updateShopSettingsAction } from '@/actions/vendor'
+import type { ShopSettingsInput } from '@/lib/validators'
 import {
   Store,
   Truck,

@@ -1,17 +1,8 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
-
-export interface ConsumeDownloadResult {
-  success: boolean
-  downloadUrl?: string
-  fileName?: string
-  remainingDownloads?: number
-  expiresAt?: string
-  error?: string
-}
+import type { ConsumeDownloadResult } from '@/types/download'
 
 /**
  * Server Action: Mengonsumsi jatah unduhan produk digital

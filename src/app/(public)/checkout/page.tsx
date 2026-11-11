@@ -36,8 +36,11 @@ import {
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import { useCartWishlist } from '@/context/cart-wishlist-context'
-import { getAddressesAction, AddressItem } from '@/actions/address'
-import { getCartWithDetails, ShopCartGroup } from '@/actions/cart'
+import { getAddressesAction } from '@/actions/address'
+import type { AddressItem } from '@/types/address'
+import { getCartWithDetails } from '@/actions/cart'
+import type { ShopCartGroup } from '@/types/cart'
+import type { MarketplaceOrderItemPayload } from '@/types/order'
 import {
   createMarketplaceOrderAction,
   requestBankVaPaymentAction,
@@ -45,7 +48,6 @@ import {
   confirmOrderPaymentAction,
   getOrderDetailsAction,
   getOrCreateSnapTokenAction,
-  MarketplaceOrderItemPayload,
 } from '@/actions/order'
 import { consumeDownloadAction } from '@/actions/download'
 import { AddressModal } from '@/components/account/address-modal'
@@ -117,24 +119,24 @@ const BANK_OPTIONS = [
 // Fallback items untuk demo marketplace jika keranjang kosong
 const DEMO_ITEMS: MarketplaceOrderItemPayload[] = [
   {
-    productId: 'demo-phys-1',
-    title: 'Kemeja Katun Linen Premium Pria (Navy Blue, L)',
-    price: 185000,
+    productId: 'e1000000-0000-4000-a000-000000000005',
+    title: 'Kemeja Oxford Pria Slim Fit Breathable',
+    price: 349000,
     qty: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=400&q=80',
-    shopId: 'shop-1',
-    shopName: 'Krafita Official Apparel',
+    imageUrl: 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=600&q=80',
+    shopId: '06f642de-654a-4c48-87c0-aaee352d8ad4',
+    shopName: 'Krafita Official Store',
     type: 'physical',
     buyerNote: 'Tolong pastikan ukuran L tidak kekecilan ya kak.',
   },
   {
-    productId: 'demo-digi-1',
-    title: 'Template UI/UX E-Commerce Mobile App (Figma + Asset Kit)',
-    price: 120000,
+    productId: 'e1000000-0000-4000-a000-000000000016',
+    title: 'Design System & UI Kit Figma Modern 2026',
+    price: 349000,
     qty: 1,
-    imageUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?w=400&q=80',
-    shopId: 'shop-2',
-    shopName: 'DesignPro Digital Hub',
+    imageUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=600&q=80',
+    shopId: '06f642de-654a-4c48-87c0-aaee352d8ad4',
+    shopName: 'Krafita Official Store',
     type: 'digital',
     buyerNote: 'Kirimkan lisensi komersial ke email terdaftar.',
   },
@@ -246,8 +248,8 @@ function CheckoutWizard() {
               price: queryPrice,
               qty: 1,
               imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
-              shopId: 'shop-direct',
-              shopName: 'Official Merchant Krafita',
+              shopId: '06f642de-654a-4c48-87c0-aaee352d8ad4',
+              shopName: 'Krafita Official Store',
               type: queryType,
               buyerNote: '',
             },
@@ -318,6 +320,29 @@ function CheckoutWizard() {
       if (pollingRef.current) clearInterval(pollingRef.current)
     }
   }, [step, orderCode, orderId])
+
+  // Handler Manual Cek Status Pembayaran
+  const handleManualCheckStatus = async () => {
+    setIsSyncingPayment(true)
+    try {
+      const res = await checkAndSyncPaymentStatusAction(orderCode)
+      if (res.success && res.isPaid) {
+        setPaymentConfirmedAt(res.paidAt || new Date().toISOString())
+        toast.success('Pembayaran Terverifikasi! Membuka Nota...')
+        if (orderId) {
+          const det = await getOrderDetailsAction(orderId)
+          if (det.success) setOrderDetailData(det.data)
+        }
+        setStep(4)
+      } else {
+        toast.info('Status pembayaran masih MENUNGGU di Midtrans Simulator. Silakan bayar terlebih dahulu di simulator!')
+      }
+    } catch {
+      toast.error('Gagal mengecek status pembayaran')
+    } finally {
+      setIsSyncingPayment(false)
+    }
+  }
 
   // Effect untuk Embed Midtrans Snap langsung di halaman (tanpa popup modal)
   useEffect(() => {
@@ -490,29 +515,6 @@ function CheckoutWizard() {
   const handleCopy = (text: string, label = 'Nomor') => {
     navigator.clipboard.writeText(text)
     toast.success(`${label} disalin ke papan klip!`)
-  }
-
-  // Handler Manual Cek Status Pembayaran
-  const handleManualCheckStatus = async () => {
-    setIsSyncingPayment(true)
-    try {
-      const res = await checkAndSyncPaymentStatusAction(orderCode)
-      if (res.success && res.isPaid) {
-        setPaymentConfirmedAt(res.paidAt || new Date().toISOString())
-        toast.success('Pembayaran Terverifikasi! Membuka Nota...')
-        if (orderId) {
-          const det = await getOrderDetailsAction(orderId)
-          if (det.success) setOrderDetailData(det.data)
-        }
-        setStep(4)
-      } else {
-        toast.info('Status pembayaran masih MENUNGGU di Midtrans Simulator. Silakan bayar terlebih dahulu di simulator!')
-      }
-    } catch {
-      toast.error('Gagal mengecek status pembayaran')
-    } finally {
-      setIsSyncingPayment(false)
-    }
   }
 
   // Handler Simulasi Berhasil Instan (Helper Developer & Tester)
@@ -1293,7 +1295,7 @@ function CheckoutWizard() {
                       </a>
                     </div>
                     <p className="text-[10px] text-slate-500 italic">
-                      * Klik kanan gambar untuk memilih "Salin alamat gambar" (Copy image address) atau unduh gambar.
+                      * Klik kanan gambar untuk memilih &quot;Salin alamat gambar&quot; (Copy image address) atau unduh gambar.
                     </p>
                   </div>
                 </div>

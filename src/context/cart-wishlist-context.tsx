@@ -1,6 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import { createClient } from '@/lib/supabase/client'
@@ -75,6 +76,7 @@ const WISHLIST_STORAGE_KEY = 'krafita_wishlist_v1'
 const CartWishlistContext = createContext<CartWishlistContextType | null>(null)
 
 export function CartWishlistProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter()
   const { t, locale } = useLanguage()
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
@@ -381,7 +383,7 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
       action: {
         label: t.view_cart,
         onClick: () => {
-          window.location.href = '/cart'
+          router.push('/cart')
         },
       },
     })

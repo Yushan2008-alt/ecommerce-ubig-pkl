@@ -10,7 +10,8 @@ import {
   ShieldCheck,
   CreditCard,
 } from 'lucide-react'
-import { requestPayoutAction, getVendorBalanceDataAction, type PayoutInput } from '@/actions/vendor'
+import { requestPayoutAction, getVendorBalanceDataAction } from '@/actions/vendor'
+import type { PayoutInput } from '@/lib/validators'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 

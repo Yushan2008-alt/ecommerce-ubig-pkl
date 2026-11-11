@@ -11,7 +11,7 @@ import {
   Flag,
   User,
 } from 'lucide-react'
-import { submitCommentAction, type CommentInput } from '@/actions/social'
+import { submitCommentAction } from '@/actions/social'
 import { ReportModal } from './report-modal'
 import { toast } from 'sonner'
 

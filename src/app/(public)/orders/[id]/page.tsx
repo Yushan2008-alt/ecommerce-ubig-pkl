@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, use } from 'react'
+import React, { useState, useEffect, useCallback, use } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
@@ -44,7 +44,7 @@ export default function OrderDetailsPage({
   const [reviewBody, setReviewBody] = useState('')
   const [submittingReview, setSubmittingReview] = useState(false)
 
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       const res = await getOrderDetailsAction(orderId)
       if (res.success && res.data) {
@@ -57,11 +57,20 @@ export default function OrderDetailsPage({
     } finally {
       setLoading(false)
     }
-  }
+  }, [orderId])
 
   useEffect(() => {
-    fetchOrder()
-  }, [orderId])
+    let isMounted = true
+    const load = async () => {
+      if (isMounted) {
+        await fetchOrder()
+      }
+    }
+    load()
+    return () => {
+      isMounted = false
+    }
+  }, [fetchOrder])
 
   const handlePayNow = async () => {
     setConfirming(true)

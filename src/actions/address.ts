@@ -3,29 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
-
-export interface AddressItem {
-  id: string
-  profileId: string
-  recipientName: string
-  phone: string
-  addressLine: string
-  city: string
-  province: string
-  postalCode: string
-  isDefault: boolean
-  createdAt: string
-}
-
-export interface AddressFormData {
-  recipientName: string
-  phone: string
-  addressLine: string
-  city: string
-  province: string
-  postalCode: string
-  isDefault?: boolean
-}
+import type { AddressItem, AddressFormData } from '@/types/address'
 
 /**
  * Mengambil seluruh daftar alamat pengiriman user
