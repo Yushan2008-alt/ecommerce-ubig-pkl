@@ -25,28 +25,18 @@ interface ProfileTabProps {
   initialProfile: ProfileData
 }
 
-function formatIndonesianPhone(value: string): string{
+function formatPhoneNumber(value: string): string{
   let digits = value.replace(/\D/g, '')
-  if (!digits) return ''
 
   if (digits.startsWith('0')) {
-    digits = '62' + digits.slice(1)
-  } else if (!digits.startsWith('62')) {
-    digits = '62' + digits
+    digits = digits.slice(1)
   }
 
-  digits = digits.slice(0, 15)
-  const prefix = '+62'
-  const rest = digits.slice(2)
-  if (!rest) return prefix
+  digits = digits.slice(0, 13)
 
-  if (rest.length <= 3) {
-    return `${prefix} ${rest}`
-  }
-  if (rest.length <= 7) {
-    return `${prefix} ${rest.slice(0,3)}-${rest.slice(3)}`
-  }
-  return `${prefix} ${rest.slice(0,3)}-${rest.slice(3, 7)}-${rest.slice(7)}`
+  if (digits.length <= 3) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
 }
 
 export function ProfileTab({ initialProfile }: ProfileTabProps) {
@@ -55,7 +45,13 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
   const [displayName, setDisplayName] = useState(
     initialProfile.displayName || ''
   )
-  const [phone, setPhone] = useState(initialProfile.phone || '')
+  const [countryCode, setCountryCode] = useState('+62')
+  const [phone, setPhone] = useState(() => {
+    const raw = initialProfile.phone || ''
+    const clean = raw.replace('+62', '').trim()
+    return formatPhoneNumber(clean)
+  })
+
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     initialProfile.avatarUrl
   )
@@ -123,23 +119,22 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
     }
   }
 
-  const handleSubmitProfile = async (e: React.FormEvent) => {
+    const handleSubmitProfile = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!displayName.trim()) {
-      toast.error(
-        locale === 'id'
-          ? 'Nama lengkap wajib diisi'
-          : 'Full name is required'
-      )
+      toast.error(locale === 'id' ? 'Nama lengkap wajib diisi' : 'Full name is required')
       return
     }
 
     setIsSavingProfile(true)
     try {
+      // Gabungkan kode negara + nomor HP (misal: "+62 812-3456-7890")
+      const formattedPhone = phone.trim() ? `${countryCode} ${phone.trim()}` : ''
+
       const res = await updateProfileAction({
         displayName: displayName.trim(),
-        phone: phone.trim(),
+        phone: formattedPhone,
       })
 
       if (res.success) {
@@ -260,19 +255,31 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
           </div>
           </div>
 
-          {/* Nomor HP */}
+                    {/* Nomor HP dengan Dropdown Default +62 */}
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1.5">
               {t.phone_number}
             </label>
-            <div className="relative">
-              <input type="tel"
-              value={phone}
-              onChange={(e) => setPhone(formatIndonesianPhone(e.target.value))}
-              placeholder='+62 --- --- ---'
-              className="w-full h-10 px-3 pl-9 text-xs bg-background border border-border rounded-md focus:outline-none
-              focus:ring-1 focus:ring-primary" />
-              <Phone className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <div className="flex rounded-md border border-border bg-background focus-within:ring-1 focus-within:ring-primary focus-within:border-primary overflow-hidden h-10 transition-all">
+              {/* Dropdown Kode Negara (Default +62) */}
+              <select
+                value={countryCode}
+                onChange={(e) => setCountryCode(e.target.value)}
+                className="bg-muted/40 px-2.5 text-xs text-foreground font-semibold border-r border-border focus:outline-none cursor-pointer"
+              >
+                <option value="+62">🇮🇩 +62</option>
+                <option value="+60">🇲🇾 +60</option>
+                <option value="+65">🇸🇬 +65</option>
+              </select>
+
+              {/* Input Nomor Telepon dengan otomatis tanda '-' */}
+              <input
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
+                placeholder="812-3456-7890"
+                className="w-full px-3 text-xs bg-transparent focus:outline-none placeholder:text-muted-foreground/60"
+              />
             </div>
           </div>
 

@@ -172,15 +172,9 @@ export default function CartPage() {
         {/* Page Title */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-6 border-b border-border/80 gap-3 mb-6">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
-              <ShoppingCart className="w-6 h-6 text-[#00a699]" />
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight">
               {t.cart_page_title}
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              {cartCount > 0
-                ? `${cartCount} ${t.items_count} • ${shopGroups.length} ${t.shop_badge}`
-                : t.cart_empty_title}
-            </p>
           </div>
 
           {cartItems.length > 0 && (
