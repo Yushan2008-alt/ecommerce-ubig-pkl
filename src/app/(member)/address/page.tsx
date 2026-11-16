@@ -6,7 +6,7 @@ import Link from 'next/link';
 import React from "react";
 
 export const metadata: Metadata = {
-    title: 'Alamat Saya',
+    title: 'Alamat Saya | Krafita',
     description: 'Kelola alamat anda',
 }
 

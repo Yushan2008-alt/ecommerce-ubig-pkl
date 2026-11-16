@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Krafita — Tempatnya Segala Kebutuhan',
+  title: 'Tempatnya Segala Kebutuhan | Krafita',
   description:
     'Marketplace multi-vendor terpadu untuk produk fisik berkualitas dan aset digital resmi dengan pembayaran Midtrans.',
 }

@@ -5,7 +5,7 @@ import { getAddressesAction } from '@/actions/address'
 import { AccountView } from '@/components/account/account-view'
 
 export const metadata: Metadata = {
-  title: 'Akun Saya — Krafita',
+  title: 'Akun Saya | Krafita',
   description: 'Kelola profil akun dan buku alamat pengiriman Anda di Krafita.',
 }
 
