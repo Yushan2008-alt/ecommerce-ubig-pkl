@@ -211,18 +211,11 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
 
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-muted-foreground pt-1">
             <span className="flex items-center gap-1.5">
-              <Mail className="w-3.5 h-3.5" />
-              {initialProfile.email}
-            </span>
-            <span className="flex items-center gap-1.5">
               <Calendar className="w-3.5 h-3.5" />
               {t.member_since}: {memberSinceFormatted}
             </span>
           </div>
 
-          <p className="text-[11px] text-muted-foreground/80 pt-1">
-            {t.avatar_upload_hint}
-          </p>
         </div>
       </div>
 
