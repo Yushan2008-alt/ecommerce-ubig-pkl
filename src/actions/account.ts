@@ -82,15 +82,13 @@ export async function updateProfileAction(data: {
       return { success: false, error: 'Nama tampilan tidak boleh kosong' }
     }
 
-    const supabase = await createClient()
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        display_name: trimmedName,
-        phone: trimmedPhone || null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
+    const admin = createAdminClient()
+    const { error } = await admin.from('profiles').update({
+      display_name: trimmedName,
+      phone: trimmedPhone || null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', user.id)
 
     if (error) {
       console.error('updateProfileAction error:', error)
