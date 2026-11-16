@@ -219,13 +219,13 @@ export const translations = {
 
     // Cart & Wishlist Pages & Interactions
     cart_page_title: 'Keranjang Saya',
-    wishlist_page_title: 'Daftar Favorit Saya',
+    wishlist_page_title: 'Daftar Favorit',
     cart_empty_title: 'Keranjang Belanja Anda Kosong',
     cart_empty_desc:
       'Temukan apa yang Anda butuhkan.',
     wishlist_empty_title: 'Belum Ada Produk di Wishlist',
     wishlist_empty_desc:
-      'Simpan produk favorit Anda dengan mengklik ikon hati pada produk kapan saja.',
+      'Simpan produk favorit Anda di sini.',
     shop_now: 'Mulai Belanja',
     continue_shopping: 'Lanjutkan Belanja',
     proceed_to_checkout: 'Lanjut ke Pembayaran',

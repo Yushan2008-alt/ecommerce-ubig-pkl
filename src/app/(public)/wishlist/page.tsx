@@ -38,14 +38,8 @@ export default function WishlistPage() {
         <div className="flex items-center justify-between pb-6 border-b border-border/80 mb-6">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
-              <Heart className="w-6 h-6 text-rose-500 fill-rose-500" />
               {t.wishlist_page_title}
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-              {wishlistCount > 0
-                ? `${wishlistCount} ${t.items_count}`
-                : t.wishlist_empty_title}
-            </p>
           </div>
         </div>
 
