@@ -19,6 +19,7 @@ import {
   deleteAddressAction,
   setDefaultAddressAction,
 } from '@/actions/address'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import type { AddressItem } from '@/types/address'
 import { AddressModal } from '@/components/account/address-modal'
 
@@ -32,6 +33,7 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingAddress, setEditingAddress] = useState<AddressItem | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
 
   const reloadAddresses = async () => {
     const res = await getAddressesAction()
@@ -89,26 +91,18 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
 
   return (
     <div className="space-y-6">
-      {/* Top Banner & Add Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-4 border-b border-border/80 gap-3">
-        <div>
-          <h2 className="text-base sm:text-lg font-bold text-foreground flex items-center gap-2">
-            <Home className="w-5 h-5 text-[#00a699]" />
-            {t.address_book}
-          </h2>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
-            {t.address_book_desc}
-          </p>
-        </div>
+      <div className="flex items-center justify-between pb-4 border-b border-border/80 gap-3">
+      <h2 className="text-base sm:text-lg font-bold text-foreground">
+        Alamat Saya
+      </h2>
 
-        <button
-          type="button"
-          onClick={handleAddNew}
-          className="inline-flex items-center justify-center gap-1.5 bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-md shadow-xs transition-colors cursor-pointer self-start sm:self-auto"
-        >
-          <Plus className="w-4 h-4" />
-          <span>{t.add_new_address}</span>
-        </button>
+      <button type="button" onClick={handleAddNew}
+      className="inline-flex items-center justify-center gap-1.5 bg-[#00a699] hover:bg-[#008f84] 
+      text-white text-xs sm:text-sm font-semibold px-4 py-2 
+      rounded-md shadow-xs transition-colors cursor-pointer">
+      <Plus className='w-4 h-4'/>
+      <span>Tambah</span>
+      </button>
       </div>
 
       {/* Address List */}
@@ -179,19 +173,7 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
 
                 {/* Card Action Buttons */}
                 <div className="pt-4 mt-4 border-t border-border/60 flex items-center justify-between text-xs">
-                  <div>
-                    {!addr.isDefault && (
-                      <button
-                        type="button"
-                        onClick={() => handleSetDefault(addr.id)}
-                        disabled={isLoadingCurrent}
-                        className="text-[#00a699] hover:underline font-medium inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                      >
-                        <Star className="w-3 h-3" />
-                        <span>{t.set_as_default}</span>
-                      </button>
-                    )}
-                  </div>
+                  <div />
 
                   <div className="flex items-center gap-3">
                     <button
@@ -206,7 +188,7 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
 
                     <button
                       type="button"
-                      onClick={() => handleDelete(addr.id)}
+                      onClick={() => setDeleteTargetId(addr.id)}
                       disabled={isLoadingCurrent}
                       className="text-muted-foreground hover:text-rose-600 font-medium inline-flex items-center gap-1 cursor-pointer disabled:opacity-50"
                     >
@@ -217,6 +199,7 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
                       )}
                       <span>{t.delete_address}</span>
                     </button>
+
                   </div>
                 </div>
               </div>
@@ -232,6 +215,52 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
         addressToEdit={editingAddress}
         onSuccess={reloadAddresses}
       />
+
+      <Dialog open={!!deleteTargetId} onOpenChange={(open) => !open && setDeleteTargetId(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Hapus Alamat</DialogTitle>
+            <DialogDescription>
+              Apakah Anda yakin ingin menghapus alamat ini? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end mt-4">
+            <button
+              type="button"
+              onClick={() => setDeleteTargetId(null)}
+              className="px-4 py-2 text-xs font-medium rounded-md border border-border hover:bg-muted text-foreground transition-colors cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={async () => {
+                if (deleteTargetId) {
+                  const id = deleteTargetId
+                  setDeleteTargetId(null)
+                  setActionLoadingId(id)
+                  try {
+                    const res = await deleteAddressAction(id)
+                    if (res.success) {
+                      toast.success('Alamat berhasil dihapus')
+                      await reloadAddresses()
+                    } else {
+                      toast.error(res.error || 'Gagal menghapus alamat')
+                    }
+                  } catch (err: any) {
+                    toast.error(err.message || 'Terjadi kesalahan sistem')
+                  } finally {
+                    setActionLoadingId(null)
+                  }
+                }
+              }}
+              className="px-4 py-2 text-xs font-medium rounded-md bg-rose-600 hover:bg-rose-700 text-white transition-colors cursor-pointer"
+            >
+              Hapus Alamat
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

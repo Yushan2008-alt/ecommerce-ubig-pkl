@@ -117,11 +117,11 @@ export function HeaderTopRightControls({
               )}
 
               <Link
-                href="/account"
+                href="/address"
                 className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
               >
                 <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>{t.address_book}</span>
+                <span>Alamat Saya</span>
               </Link>
               <hr className="my-1 border-border" />
               <button

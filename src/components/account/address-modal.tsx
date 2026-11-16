@@ -69,6 +69,14 @@ export function AddressModal({
 
   if (!isOpen) return null
 
+  const handleCancel = () => {
+    if (addressToEdit) {
+      const isConfirmed = window.confirm("Apakah anda yakin?")
+      if (!isConfirmed) return
+    }
+    onClose()
+  }
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -167,7 +175,7 @@ export function AddressModal({
 
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleCancel}
             className="w-8 h-8 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center transition-colors cursor-pointer"
             aria-label="Tutup"
           >
@@ -300,7 +308,7 @@ export function AddressModal({
           <div className="pt-4 border-t border-border flex items-center justify-end gap-2.5">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleCancel}
               disabled={isSubmitting}
               className="px-4 py-2 text-xs font-medium rounded-md border border-border hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
             >
