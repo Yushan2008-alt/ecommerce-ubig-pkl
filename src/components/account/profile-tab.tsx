@@ -51,7 +51,8 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
     const clean = raw.replace('+62', '').trim()
     return formatPhoneNumber(clean)
   })
-
+  
+  const [gender, setGender] = useState(initialProfile.gender || '')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(
     initialProfile.avatarUrl
   )
@@ -135,6 +136,7 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
       const res = await updateProfileAction({
         displayName: displayName.trim(),
         phone: formattedPhone,
+        gender: gender || undefined,
       })
 
       if (res.success) {
@@ -230,7 +232,7 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Nama Lengkap */}
-          <div>
+          <div className='md:col-span-2'>
             <label className="block text-xs font-semibold text-foreground mb-1.5">
               {t.full_name} <span className="text-rose-500">*</span>
             </label>
@@ -245,7 +247,6 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
               />
               <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-          </div>
           </div>
 
                     {/* Nomor HP dengan Dropdown Default +62 */}
@@ -277,7 +278,7 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
           </div>
 
           {/* Email (Readonly) */}
-          <div className="md:col-span-2">
+          <div>
             <div className="flex items-center justify-between mb-1.5">
               <label className="text-xs font-semibold text-foreground">
                 {t.email_address}
@@ -292,6 +293,37 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
                 className="w-full h-10 px-3 pl-9 text-xs bg-muted/40 border border-border/80 rounded-md text-muted-foreground cursor-not-allowed select-none"
               />
               <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            </div>
+          </div>
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-xs font-semibold text-foreground mb-2">
+              Jenis Kelamin
+            </label>
+            <div className="flex items-center gap-6 pt-1">
+              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="male"
+                  checked={gender === 'male'}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-4 h-4 text-[#00a699] accent-[#00a699] cursor-pointer"
+                />
+                <span>Laki-laki</span>
+              </label>
+              <label className="flex items-center gap-2 text-xs text-foreground cursor-pointer select-none">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="female"
+                  checked={gender === 'female'}
+                  onChange={(e) => setGender(e.target.value)}
+                  className="w-4 h-4 text-[#00a699] accent-[#00a699] cursor-pointer"
+                />
+                <span>Perempuan</span>
+              </label>
             </div>
           </div>
 

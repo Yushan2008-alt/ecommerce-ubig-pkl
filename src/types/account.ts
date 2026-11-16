@@ -6,6 +6,7 @@ export interface ProfileData {
   role: UserRole
   displayName: string | null
   phone: string | null
+  gender?: string | null
   avatarUrl: string | null
   createdAt: string
   updatedAt: string

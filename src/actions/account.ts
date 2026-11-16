@@ -36,6 +36,7 @@ export async function getProfileAction(): Promise<{
           role: (profile?.role as any) || 'member',
           displayName: profile?.display_name || user.user_metadata?.full_name || null,
           phone: profile?.phone || null,
+          gender: (profile as any)?.gender || null,
           avatarUrl: profile?.avatar_url || user.user_metadata?.avatar_url || null,
           createdAt: profile?.created_at || new Date().toISOString(),
           updatedAt: profile?.updated_at || new Date().toISOString(),
@@ -51,6 +52,7 @@ export async function getProfileAction(): Promise<{
         role: currentProfile.role,
         displayName: currentProfile.display_name,
         phone: currentProfile.phone,
+        gender: (currentProfile as any)?.gender || null,
         avatarUrl: currentProfile.avatar_url,
         createdAt: currentProfile.created_at,
         updatedAt: currentProfile.updated_at,
@@ -68,6 +70,7 @@ export async function getProfileAction(): Promise<{
 export async function updateProfileAction(data: {
   displayName: string
   phone: string
+  gender?: string
 }): Promise<{ success: boolean; error?: string }> {
   try {
     const { user } = await getUser()
@@ -86,6 +89,7 @@ export async function updateProfileAction(data: {
     const { error } = await admin.from('profiles').update({
       display_name: trimmedName,
       phone: trimmedPhone || null,
+      gender: data.gender || null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', user.id)

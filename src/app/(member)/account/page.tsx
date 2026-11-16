@@ -23,6 +23,7 @@ export default async function AccountPage() {
     role: 'member',
     displayName: null,
     phone: null,
+    gender: null,
     avatarUrl: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

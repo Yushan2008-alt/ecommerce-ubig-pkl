@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   title: 'Tempatnya Segala Kebutuhan | Krafita',
   description:
     'Marketplace multi-vendor terpadu untuk produk fisik berkualitas dan aset digital resmi dengan pembayaran Midtrans.',
+    icons: {
+      icon: '/icon.png',
+      apple: '/icon.png',
+    },
 }
 
 export default function RootLayout({
