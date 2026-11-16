@@ -25,6 +25,30 @@ interface ProfileTabProps {
   initialProfile: ProfileData
 }
 
+function formatIndonesianPhone(value: string): string{
+  let digits = value.replace(/\D/g, '')
+  if (!digits) return ''
+
+  if (digits.startsWith('0')) {
+    digits = '62' + digits.slice(1)
+  } else if (!digits.startsWith('62')) {
+    digits = '62' + digits
+  }
+
+  digits = digits.slice(0, 15)
+  const prefix = '+62'
+  const rest = digits.slice(2)
+  if (!rest) return prefix
+
+  if (rest.length <= 3) {
+    return `${prefix} ${rest}`
+  }
+  if (rest.length <= 7) {
+    return `${prefix} ${rest.slice(0,3)}-${rest.slice(3)}`
+  }
+  return `${prefix} ${rest.slice(0,3)}-${rest.slice(3, 7)}-${rest.slice(7)}`
+}
+
 export function ProfileTab({ initialProfile }: ProfileTabProps) {
   const { t, locale } = useLanguage()
 
@@ -234,6 +258,7 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
               <User className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
+          </div>
 
           {/* Nomor HP */}
           <div>
@@ -241,13 +266,12 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
               {t.phone_number}
             </label>
             <div className="relative">
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Misal: 08123456789"
-                className="w-full h-10 px-3 pl-9 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-              />
+              <input type="tel"
+              value={phone}
+              onChange={(e) => setPhone(formatIndonesianPhone(e.target.value))}
+              placeholder='+62 --- --- ---'
+              className="w-full h-10 px-3 pl-9 text-xs bg-background border border-border rounded-md focus:outline-none
+              focus:ring-1 focus:ring-primary" />
               <Phone className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
@@ -258,11 +282,8 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
               <label className="text-xs font-semibold text-foreground">
                 {t.email_address}
               </label>
-              <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-                <Lock className="w-3 h-3" />
-                {t.email_readonly}
-              </span>
-            </div>
+              <Lock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
+              </div>
             <div className="relative">
               <input
                 type="email"
@@ -273,7 +294,6 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
               <Mail className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
           </div>
-        </div>
 
         {/* Tombol Simpan */}
         <div className="pt-4 border-t border-border flex justify-end">

@@ -218,7 +218,7 @@ export const translations = {
     faq_title: 'Pertanyaan yang Sering Diajukan (FAQ)',
 
     // Cart & Wishlist Pages & Interactions
-    cart_page_title: 'Keranjang Belanja',
+    cart_page_title: 'Keranjang Saya',
     wishlist_page_title: 'Daftar Favorit Saya',
     cart_empty_title: 'Keranjang Belanja Anda Masih Kosong',
     cart_empty_desc:
