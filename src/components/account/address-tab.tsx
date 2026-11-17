@@ -34,6 +34,7 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
   const [editingAddress, setEditingAddress] = useState<AddressItem | null>(null)
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null)
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
 
   const reloadAddresses = async () => {
     const res = await getAddressesAction()
@@ -72,6 +73,16 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
     }
   }
 
+  const filteredAddresses = addresses.filter((addr) => {
+    const query = searchQuery.toLowerCase().trim()
+    if (!query) return true
+
+    const matchRecipient = addr.recipientName.toLowerCase().includes(query)
+    const matchCity = addr.city.toLowerCase().includes(query)
+
+    return matchRecipient || matchCity
+  })
+
   const handleSetDefault = async (id: string) => {
     setActionLoadingId(id)
     try {
@@ -105,6 +116,16 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
       </button>
       </div>
 
+      <div className='relative'>
+        <input type='text'
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        placeholder='Cari kota atau penerima...'
+        className='w-full text-xs sm:text-sm px-3.5 py-2 rounded-lg 
+        border border-border bg-background placeholder:text-muted-foreground focus:outline-none 
+        focus:ring-1 focus:ring-[#00a699] transition-all'/>
+      </div>
+
       {/* Address List */}
       {addresses.length === 0 ? (
         <div className="bg-card border border-border/80 rounded-xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-xs">
@@ -128,7 +149,12 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {addresses.map((addr) => {
+          {filteredAddresses.length === 0 ? (
+      <div className="col-span-full py-8 text-center text-xs text-muted-foreground">
+        Tidak ada alamat yang cocok dengan "{searchQuery}".
+      </div>
+    ) : (
+          filteredAddresses.map((addr) => {
             const isLoadingCurrent = actionLoadingId === addr.id
 
             return (
@@ -204,7 +230,8 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
                 </div>
               </div>
             )
-          })}
+          })
+    )}
         </div>
       )}
 

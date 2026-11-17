@@ -10,6 +10,7 @@ import {
 } from '@/actions/address'
 import type { AddressItem, AddressFormData } from '@/types/address'
 import { INDONESIA_PROVINCES, getCitiesByProvinceName, getPostalCodeByCityName } from '@/data/indonesia-regions'
+import { SearchableSelect } from '@/components/ui/searchSelect'
 
 interface AddressModalProps {
   isOpen: boolean
@@ -110,8 +111,7 @@ export function AddressModal({
     }
   }
   
-  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedProv = e.target.value
+    const handleProvinceSelect = (selectedProv: string) => {
     setFormData((prev) => ({
       ...prev,
       province: selectedProv,
@@ -119,9 +119,8 @@ export function AddressModal({
       postalCode: '',
     }))
   }
- 
-  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedCity = e.target.value
+
+  const handleCitySelect = (selectedCity: string) => {
     const autoPostalCode = getPostalCodeByCityName(selectedCity)
     setFormData((prev) => ({
       ...prev,
@@ -204,12 +203,12 @@ export function AddressModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-lg bg-card rounded-xl border border-border shadow-xl overflow-hidden animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-lg bg-card rounded-xl border border-border shadow-xl animate-in zoom-in-95 duration-200"
         role="dialog"
         aria-modal="true"
       >
         {/* Header Modal */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/20">
+        <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/20 rounded-t-xl">
           <div className="flex items-center gap-2">
             <div>
               <h2 className="text-base font-semibold text-foreground">
@@ -304,49 +303,40 @@ export function AddressModal({
 
           {/* Kota, Provinsi, Kode Pos */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {/* 1. Dropdown Provinsi Searchable */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
                 Provinsi <span className="text-rose-500">*</span>
               </label>
-              <select
-                name="province"
+              <SearchableSelect
+                options={INDONESIA_PROVINCES.map((prov) => ({
+                  value: prov.name,
+                  label: prov.name,
+                }))}
                 value={formData.province}
-                onChange={handleProvinceChange}
-                className="w-full h-10 px-2.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer text-foreground"
-                required
-              >
-                <option value="">Pilih Provinsi</option>
-                {INDONESIA_PROVINCES.map((prov) => (
-                  <option key={prov.id} value={prov.name}>
-                    {prov.name}
-                  </option>
-                ))}
-              </select>
+                onChange={handleProvinceSelect}
+                placeholder="Pilih Provinsi"
+                searchPlaceholder="Cari provinsi..."
+              />
             </div>
-            {/* 2. Dropdown Kota / Kabupaten (Terfilter Otomatis) */}
+            {/* 2. Dropdown Kota / Kabupaten Searchable (Otomatis Terfilter) */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
                 Kota / Kabupaten <span className="text-rose-500">*</span>
               </label>
-              <select
-                name="city"
+              <SearchableSelect
+                options={getCitiesByProvinceName(formData.province).map((city) => ({
+                  value: city.name,
+                  label: city.name,
+                }))}
                 value={formData.city}
-                onChange={handleCityChange}
+                onChange={handleCitySelect}
                 disabled={!formData.province}
-                className="w-full h-10 px-2.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-foreground"
-                required
-              >
-                <option value="">
-                  {formData.province ? 'Pilih Kota / Kabupaten' : 'Pilih Provinsi Dulu'}
-                </option>
-                {getCitiesByProvinceName(formData.province).map((city) => (
-                  <option key={city.id} value={city.name}>
-                    {city.name}
-                  </option>
-                ))}
-              </select>
+                placeholder={formData.province ? 'Pilih Kota / Kabupaten' : 'Pilih Provinsi Dulu'}
+                searchPlaceholder="Cari kota/kabupaten..."
+              />
             </div>
-            {/* 3. Input Kode Pos (Otomatis Terisi saat Kota Dipilih) */}
+            {/* 3. Input Kode Pos */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
                 Kode Pos <span className="text-rose-500">*</span>
@@ -356,8 +346,8 @@ export function AddressModal({
                 name="postalCode"
                 value={formData.postalCode}
                 onChange={handleChange}
-                placeholder="Auto terisi"
-                className="w-full h-10 px-3 text-xs bg-muted/40 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="60111"
+                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
                 required
               />
             </div>
