@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useLanguage, LanguageSwitcher } from '@/context/language-context'
 import { useCartWishlist } from '@/context/cart-wishlist-context'
@@ -47,10 +48,12 @@ export function HeaderTopRightControls({
 }: {
   user: any
   profile: any
-  signOutAction: () => Promise<void>
+  signOutAction: () => void
 }) {
-  const { t, locale } = useLanguage()
+  const { t, locale, setLocale } = useLanguage()
   const { openLoginModal } = useAuthModal()
+  const [isLangOpen, setIsLangOpen] = useState(false)
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
 
   return (
     <div className="flex items-center space-x-3 sm:space-x-4">
@@ -71,69 +74,92 @@ export function HeaderTopRightControls({
         |
       </span>
 
-      {/* User Login/Register State */}
       {user ? (
-        <div className="relative group">
-          <Link
-            href="/account"
-            className="flex items-center gap-1.5 font-semibold text-foreground text-xs hover:text-primary transition-colors py-1 cursor-pointer"
+        <div className="relative">
+          {/* Tombol Avatar Bundar (Hanya Foto / Inisial) */}
+          <button
+            type="button"
+            onClick={() => setIsUserMenuOpen((prev) => !prev)}
+            className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-border hover:border-[#00a699] transition-all cursor-pointer flex items-center justify-center bg-muted/60 shadow-xs focus:outline-none"
+            title={profile?.display_name || 'Akun Saya'}
+            aria-label="Menu Profil"
           >
-            <User className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary" />
-            <span className="max-w-[120px] truncate">
-              {profile?.display_name || user.email?.split('@')[0]}
-            </span>
-            <ChevronDown className="w-2.5 h-2.5 opacity-60" />
-          </Link>
-
-          {/* Quick Menu Popover on Hover */}
-          <div className="absolute right-0 top-full pt-1 hidden group-hover:block z-50">
-            <div className="w-48 bg-card rounded-md border border-border shadow-lg p-1.5 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
-              <Link
-                href="/account"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
-              >
-                <User className="w-3.5 h-3.5 text-[#00a699]" />
-                <span>{t.my_account}</span>
-              </Link>
-
-              {profile?.role === 'vendor' && (
-                <Link
-                  href="/vendor"
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground font-semibold transition-colors"
-                >
-                  <Store className="w-3.5 h-3.5 text-[#00a699]" />
-                  <span>Dashboard Vendor</span>
-                </Link>
-              )}
-
-              {profile?.role === 'moderator' && (
-                <Link
-                  href="/moderator/vendors"
-                  className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground font-semibold transition-colors"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#00a699]" />
-                  <span>Panel Moderator</span>
-                </Link>
-              )}
-
-              <Link
-                href="/address"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
-              >
-                <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
-                <span>Alamat Saya</span>
-              </Link>
-              <hr className="my-1 border-border" />
-              <button
-                type="button"
-                onClick={() => signOutAction()}
-                className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer text-left"
-              >
-                <LogOut className="w-3.5 h-3.5" />
-                <span>{locale === 'id' ? 'Keluar' : 'Sign Out'}</span>
-              </button>
-            </div>
-          </div>
+            {profile?.avatar_url ? (
+              <Image
+                src={profile.avatar_url}
+                alt={profile.display_name || 'Avatar'}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <span className="text-xs font-bold text-[#00a699]">
+                {(profile?.display_name || user.email || 'U').slice(0, 1).toUpperCase()}
+              </span>
+            )}
+          </button>
+          {/* Dropdown Menu Saat Avatar Diklik */}
+          {isUserMenuOpen && (
+            <>
+              {/* Overlay penutup saat klik di luar dropdown */}
+              <div
+                className="fixed inset-0 z-40"
+                onClick={() => setIsUserMenuOpen(false)}
+              />
+              {/* Menu Popover */}
+              <div className="absolute right-0 top-full pt-1.5 z-50">
+                <div className="w-48 bg-card rounded-md border border-border shadow-lg p-1.5 text-xs space-y-0.5 animate-in fade-in zoom-in-95 duration-150">
+                  <Link
+                    href="/account"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
+                  >
+                    <User className="w-3.5 h-3.5 text-[#00a699]" />
+                    <span>{t.my_account}</span>
+                  </Link>
+                  {profile?.role === 'vendor' && (
+                    <Link
+                      href="/vendor"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground font-semibold transition-colors"
+                    >
+                      <Store className="w-3.5 h-3.5 text-[#00a699]" />
+                      <span>Dashboard Vendor</span>
+                    </Link>
+                  )}
+                  {profile?.role === 'moderator' && (
+                    <Link
+                      href="/moderator/vendors"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground font-semibold transition-colors"
+                    >
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#00a699]" />
+                      <span>Panel Moderator</span>
+                    </Link>
+                  )}
+                  <Link
+                    href="/address"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-muted-foreground" />
+                    <span>Alamat Saya</span>
+                  </Link>
+                  <hr className="my-1 border-border" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsUserMenuOpen(false)
+                      signOutAction()
+                    }}
+                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-rose-500/10 text-rose-600 dark:text-rose-400 transition-colors cursor-pointer text-left"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{locale === 'id' ? 'Keluar' : 'Sign Out'}</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         <div className="flex items-center gap-1 font-medium">

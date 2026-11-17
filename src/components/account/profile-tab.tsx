@@ -20,6 +20,7 @@ import {
   uploadAvatarAction,
 } from '@/actions/account'
 import type { ProfileData } from '@/types/account'
+import { AvatarCropDialog } from './avatar-crop-dialog'
 
 interface ProfileTabProps {
   initialProfile: ProfileData
@@ -61,6 +62,9 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
   const [isSavingProfile, setIsSavingProfile] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const [imageToCrop, setImageToCrop] = useState<string | null>(null)
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false)
+
   // Format tanggal bergabung
   const memberSinceFormatted = initialProfile.createdAt
     ? new Date(initialProfile.createdAt).toLocaleDateString(
@@ -73,12 +77,9 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
       )
     : '-'
 
-  const handleAvatarFileSelect = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleAvatarFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
     // Validasi tipe berkas
     const validTypes = ['image/jpeg', 'image/png', 'image/webp']
     if (!validTypes.includes(file.type)) {
@@ -89,21 +90,29 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
       )
       return
     }
-
-    // Validasi ukuran < 2MB
-    if (file.size > 2 * 1024 * 1024) {
+    // Validasi ukuran maksimal (maks 5 MB)
+    if (file.size > 5 * 1024 * 1024) {
       toast.error(
         locale === 'id'
-          ? 'Ukuran foto maksimal 2 MB'
-          : 'Max photo size is 2 MB'
+          ? 'Ukuran foto maksimal 5 MB'
+          : 'Max photo size is 5 MB'
       )
       return
     }
-
+    // Baca file sebagai Data URL lalu buka popup crop
+    const reader = new FileReader()
+    reader.onload = () => {
+      setImageToCrop(reader.result as string)
+      setIsCropModalOpen(true)
+    }
+    reader.readAsDataURL(file)
+  }
+  // 2. Saat user menekan "Terapkan Foto" di dalam dialog -> Simpan hasil potong ke Supabase
+  const handleCropConfirm = async (croppedBlob: Blob) => {
     setIsUploadingAvatar(true)
     const formData = new FormData()
+    const file = new File([croppedBlob], 'avatar.jpg', { type: 'image/jpeg' })
     formData.append('avatar', file)
-
     try {
       const res = await uploadAvatarAction(formData)
       if (res.success && res.avatarUrl) {
@@ -116,6 +125,7 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
       toast.error(err.message || 'Terjadi kesalahan sistem')
     } finally {
       setIsUploadingAvatar(false)
+      setImageToCrop(null)
       if (fileInputRef.current) fileInputRef.current.value = ''
     }
   }
@@ -348,6 +358,16 @@ export function ProfileTab({ initialProfile }: ProfileTabProps) {
           </button>
         </div>
       </form>
+      <AvatarCropDialog isOpen={isCropModalOpen}
+      imageSrc={imageToCrop}
+      onClose={() => {
+        setIsCropModalOpen(false)
+        setImageToCrop(null)
+        if (fileInputRef.current)
+          fileInputRef.current.value = ''
+      }}
+      onCropCompleteConfirm={handleCropConfirm}
+      />
     </div>
   )
 }
