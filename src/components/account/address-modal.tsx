@@ -9,6 +9,7 @@ import {
   updateAddressAction,
 } from '@/actions/address'
 import type { AddressItem, AddressFormData } from '@/types/address'
+import { INDONESIA_PROVINCES, getCitiesByProvinceName, getPostalCodeByCityName } from '@/data/indonesia-regions'
 
 interface AddressModalProps {
   isOpen: boolean
@@ -107,6 +108,26 @@ export function AddressModal({
     } else {
       setFormData((prev) => ({ ...prev, [name]: value }))
     }
+  }
+  
+  const handleProvinceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedProv = e.target.value
+    setFormData((prev) => ({
+      ...prev,
+      province: selectedProv,
+      city: '',
+      postalCode: '',
+    }))
+  }
+ 
+  const handleCityChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedCity = e.target.value
+    const autoPostalCode = getPostalCodeByCityName(selectedCity)
+    setFormData((prev) => ({
+      ...prev,
+      city: selectedCity,
+      postalCode: autoPostalCode || prev.postalCode,
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -285,45 +306,58 @@ export function AddressModal({
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                {t.city} <span className="text-rose-500">*</span>
+                Provinsi <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
-                name="city"
-                value={formData.city}
-                onChange={handleChange}
-                placeholder="Misal: Surabaya"
-                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                required
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                {t.province} <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
+              <select
                 name="province"
                 value={formData.province}
-                onChange={handleChange}
-                placeholder="Misal: Jawa Timur"
-                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                onChange={handleProvinceChange}
+                className="w-full h-10 px-2.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer text-foreground"
                 required
-              />
+              >
+                <option value="">Pilih Provinsi</option>
+                {INDONESIA_PROVINCES.map((prov) => (
+                  <option key={prov.id} value={prov.name}>
+                    {prov.name}
+                  </option>
+                ))}
+              </select>
             </div>
-
+            {/* 2. Dropdown Kota / Kabupaten (Terfilter Otomatis) */}
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                {t.postal_code} <span className="text-rose-500">*</span>
+                Kota / Kabupaten <span className="text-rose-500">*</span>
+              </label>
+              <select
+                name="city"
+                value={formData.city}
+                onChange={handleCityChange}
+                disabled={!formData.province}
+                className="w-full h-10 px-2.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-foreground"
+                required
+              >
+                <option value="">
+                  {formData.province ? 'Pilih Kota / Kabupaten' : 'Pilih Provinsi Dulu'}
+                </option>
+                {getCitiesByProvinceName(formData.province).map((city) => (
+                  <option key={city.id} value={city.name}>
+                    {city.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* 3. Input Kode Pos (Otomatis Terisi saat Kota Dipilih) */}
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                Kode Pos <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
                 name="postalCode"
                 value={formData.postalCode}
                 onChange={handleChange}
-                placeholder="Misal: 60119"
-                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
+                placeholder="Auto terisi"
+                className="w-full h-10 px-3 text-xs bg-muted/40 border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
                 required
               />
             </div>
