@@ -17,6 +17,21 @@ interface AddressModalProps {
   onSuccess: () => void
 }
 
+function formatPhoneNumber(value: string): string {
+  let digits = value.replace(/\D/g, '')
+
+  if (digits.startsWith('0')) {
+    digits = digits.slice(1)
+  }
+
+  digits = digits.slice(0, 15)
+
+  if (digits.length <= 3) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  if (digits.length <= 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}-${digits.slice(11)}`
+}
+
 export function AddressModal({
   isOpen,
   onClose,
@@ -35,6 +50,7 @@ export function AddressModal({
     isDefault: false,
   })
 
+  const [countryCode, setCountryCode] = useState('+62')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [prevAddressToEdit, setPrevAddressToEdit] = useState(addressToEdit)
@@ -44,9 +60,12 @@ export function AddressModal({
     setPrevAddressToEdit(addressToEdit)
     setPrevIsOpen(isOpen)
     if (addressToEdit) {
+      const rawPhone = addressToEdit.phone || ''
+      const cleanPhone = rawPhone.replace(/^\+62\s*/, '').replace(/^\+60\s*/, '').replace(/^\+65\s*/, '')
+
       setFormData({
         recipientName: addressToEdit.recipientName,
-        phone: addressToEdit.phone,
+        phone: formatPhoneNumber(cleanPhone),
         addressLine: addressToEdit.addressLine,
         city: addressToEdit.city,
         province: addressToEdit.province,
@@ -54,6 +73,7 @@ export function AddressModal({
         isDefault: addressToEdit.isDefault,
       })
     } else {
+      setCountryCode('+62')
       setFormData({
         recipientName: '',
         phone: '',
@@ -95,11 +115,16 @@ export function AddressModal({
 
     // Validasi sederhana
     if (!formData.recipientName.trim()) {
-      setErrorMessage(locale === 'id' ? 'Nama penerima wajib diisi' : 'Recipient name is required')
+      setErrorMessage(locale === 'id' ? 'Nama wajib diisi' : 'Recipient name is required')
       return
     }
+    const cleanPhone = formData.phone.replace(/\D/g, '')
     if (!formData.phone.trim()) {
-      setErrorMessage(locale === 'id' ? 'Nomor telepon wajib diisi' : 'Phone number is required')
+      setErrorMessage('Nomor Wajib diisi')
+      return
+    }
+    if (cleanPhone.length < 10 || cleanPhone.length > 15) {
+      setErrorMessage('Nomor tidak valid (10-15 digit)')
       return
     }
     if (!formData.addressLine.trim()) {
@@ -119,10 +144,17 @@ export function AddressModal({
       return
     }
 
+    const payload = {
+      ...formData,
+      phone: `${
+        countryCode
+      } ${formData.phone.trim()}`
+    }
+
     setIsSubmitting(true)
     try {
       if (addressToEdit) {
-        const res = await updateAddressAction(addressToEdit.id, formData)
+        const res = await updateAddressAction(addressToEdit.id, payload)
         if (!res.success) {
           setErrorMessage(res.error || 'Gagal memperbarui alamat')
           setIsSubmitting(false)
@@ -130,7 +162,7 @@ export function AddressModal({
         }
         toast.success(t.address_saved_success)
       } else {
-        const res = await addAddressAction(formData)
+        const res = await addAddressAction(payload)
         if (!res.success) {
           setErrorMessage(res.error || 'Gagal menambahkan alamat')
           setIsSubmitting(false)
@@ -158,18 +190,10 @@ export function AddressModal({
         {/* Header Modal */}
         <div className="px-6 py-4 border-b border-border flex items-center justify-between bg-muted/20">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-full bg-[#00a699]/10 text-[#00a699] flex items-center justify-center">
-              <MapPin className="w-4 h-4" />
-            </div>
             <div>
-              <h2 className="text-base font-bold text-foreground">
+              <h2 className="text-base font-semibold text-foreground">
                 {addressToEdit ? t.edit_address : t.add_new_address}
               </h2>
-              <p className="text-xs text-muted-foreground">
-                {locale === 'id'
-                  ? 'Pastikan alamat tujuan dan nomor kontak akurat'
-                  : 'Ensure delivery address and contact number are accurate'}
-              </p>
             </div>
           </div>
 
@@ -193,7 +217,7 @@ export function AddressModal({
 
           {/* Penerima & No HP */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
+             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
                 {t.recipient_name} <span className="text-rose-500">*</span>
               </label>
@@ -207,20 +231,37 @@ export function AddressModal({
                 required
               />
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-foreground mb-1">
-                {t.recipient_phone} <span className="text-rose-500">*</span>
+                Nomor HP <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleChange}
-                placeholder="Misal: 08123456789"
-                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                required
-              />
+              <div className="flex rounded-md border border-border bg-background focus-within:ring-1 focus-within:ring-primary focus-within:border-primary overflow-hidden h-10 transition-all">
+                {/* Dropdown Kode Negara (Default +62) */}
+                <select
+                  value={countryCode}
+                  onChange={(e) => setCountryCode(e.target.value)}
+                  className="bg-muted/40 px-2.5 text-xs text-foreground font-semibold border-r border-border focus:outline-none cursor-pointer"
+                >
+                  <option value="+62">🇮🇩 +62</option>
+                  <option value="+60">🇲🇾 +60</option>
+                  <option value="+65">🇸🇬 +65</option>
+                </select>
+                {/* Input Nomor Telepon dengan otomatis tanda '-' & maks 15 digit */}
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      phone: formatPhoneNumber(e.target.value),
+                    }))
+                  }
+                  placeholder="812-3456-7890"
+                  className="w-full px-3 text-xs bg-transparent focus:outline-none placeholder:text-muted-foreground/60"
+                  required
+                />
+              </div>
             </div>
           </div>
 
