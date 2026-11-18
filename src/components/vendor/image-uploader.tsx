@@ -4,7 +4,7 @@ import React, { useState, useRef } from 'react'
 import Image from 'next/image'
 import imageCompression from 'browser-image-compression'
 import { createClient } from '@/lib/supabase/client'
-import { UploadCloud, X, Loader2, Image as ImageIcon } from 'lucide-react'
+import { UploadCloud, X, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface ImageUploaderProps {
@@ -25,7 +25,7 @@ export function ImageUploader({
   multiple = false,
   maxFiles = 5,
   label = 'Unggah Gambar',
-  description = 'Format WebP/JPG/PNG maks. 2MB. Otomatis dikompresi ≤ 1600px.',
+  description = 'Format JPG/PNG maks. 2MB.',
   aspectRatio = 'square',
 }: ImageUploaderProps) {
   const [uploading, setUploading] = useState(false)
@@ -114,7 +114,7 @@ export function ImageUploader({
         onChange(uploadedUrls[0] || '')
       }
 
-      toast.success('Gambar berhasil diunggah dan dikompresi!')
+      toast.success('Gambar berhasil diunggah!')
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Gagal mengunggah gambar'
       toast.error(`Gagal unggah: ${msg}`)
@@ -184,7 +184,7 @@ export function ImageUploader({
             {uploading ? (
               <div className="flex flex-col items-center gap-2 text-[#00a699]">
                 <Loader2 className="w-7 h-7 animate-spin" />
-                <span className="text-xs font-semibold">Mengompresi & mengunggah WebP...</span>
+                <span className="text-xs font-semibold">Mengunggah gambar...</span>
               </div>
             ) : (
               <>

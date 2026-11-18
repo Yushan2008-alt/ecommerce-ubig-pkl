@@ -305,11 +305,11 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
                       <td className="py-3 px-4 text-center whitespace-nowrap">
                         {prod.status === 'published' ? (
                           <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
-                            Aktif
+                            Publikasi
                           </span>
                         ) : prod.status === 'archived' ? (
                           <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-muted text-muted-foreground border border-border">
-                            Nonaktif
+                            Arsip
                           </span>
                         ) : (
                           <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
@@ -360,7 +360,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
                                 className="flex items-center gap-2 cursor-pointer text-emerald-600 px-2.5 py-1.5"
                               >
                                 <RotateCcw className="w-3.5 h-3.5" />
-                                <span>Aktifkan</span>
+                                <span>Tampilkan</span>
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
@@ -396,7 +396,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
           <DialogHeader>
             <DialogTitle>Hapus Produk</DialogTitle>
             <DialogDescription>
-              Apakah Anda yakin ingin menghapus produk <strong>"{deleteTarget?.title}"</strong> secara permanen? Tindakan ini tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus produk <strong>"{deleteTarget?.title}"</strong> secara permanen?.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 sm:justify-end mt-4">

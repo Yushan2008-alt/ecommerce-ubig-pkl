@@ -6,19 +6,20 @@ import { ImageUploader } from './image-uploader'
 import { DigitalFileUploader } from './digital-file-uploader'
 import { saveProductAction } from '@/actions/vendor'
 import type { ProductFormInput } from '@/lib/validators'
+import { SearchableSelect } from '@/components/ui/searchSelect'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Package,
   FileCode,
-  ArrowLeft,
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Tag,
-  Layers,
-  HelpCircle,
-  Info,
-  DollarSign,
-  Plus,
   Trash2,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -32,13 +33,13 @@ interface ProductFormState {
   description: string
   categoryId: string
   brandId: string | null
-  price: number
-  comparePrice: number | null
+  price: string
+  comparePrice: string
   status: 'draft' | 'published' | 'archived'
   sku: string
-  stock: number
-  weight: number
-  flatShippingCost: number
+  stock: string
+  weight: string
+  flatShippingCost: string
   productLocation: string
   attributes: Record<string, string>
   digitalFile: {
@@ -55,6 +56,12 @@ interface ProductFormProps {
   categories: { id: string; name: string; slug: string }[]
 }
 
+const STATUS_OPTIONS: Record<string, string> = {
+  published: 'Publikasi',
+  draft: 'Draf',
+  archived: 'Arsip',
+}
+
 export function ProductForm({ initialData, categories }: ProductFormProps) {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
@@ -67,21 +74,24 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     title: initialData?.title || '',
     slug: initialData?.slug || '',
     description: initialData?.description || '',
-    categoryId: initialData?.category_id || categories[0]?.id || '',
+    categoryId: initialData?.category_id || '',
     brandId: initialData?.brand_id || null,
-    price: initialData?.price ? Number(initialData.price) : 50000,
-    comparePrice: initialData?.compare_price ? Number(initialData.compare_price) : null,
+    price: initialData?.price !== undefined && initialData?.price !== null ? String(initialData.price) : '',
+    comparePrice:
+      initialData?.compare_price !== undefined && initialData?.compare_price !== null
+        ? String(initialData.compare_price)
+        : '',
     status: (initialData?.status || 'published') as 'draft' | 'published' | 'archived',
     // Khusus Fisik
     sku: initialData?.sku || '',
-    stock: initialData?.stock !== undefined ? Number(initialData.stock) : 10,
-    weight: initialData?.weight !== undefined ? Number(initialData.weight) : 500,
-    flatShippingCost: initialData?.flat_shipping_cost !== undefined ? Number(initialData.flatShippingCost) : 0,
+    stock: initialData?.stock !== undefined && initialData?.stock !== null ? String(initialData.stock) : '',
+    weight: initialData?.weight !== undefined && initialData?.weight !== null ? String(initialData.weight) : '',
+    flatShippingCost:
+      initialData?.flat_shipping_cost !== undefined && initialData?.flat_shipping_cost !== null
+        ? String(initialData.flat_shipping_cost)
+        : '',
     productLocation: initialData?.product_location || '',
-    attributes: (initialData?.attributes as Record<string, string>) || {
-      Bahan: '',
-      Warna: '',
-    },
+    attributes: (initialData?.attributes as Record<string, string>) || {},
     // Khusus Digital
     digitalFile: initialData?.digital_files?.[0]
       ? {
@@ -153,8 +163,27 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       return
     }
 
-    if (formData.price < 0) {
+    if (!formData.price.trim()) {
+      toast.error('Harga wajib diisi.')
+      return
+    }
+
+    const parsedPrice = Number(formData.price) || 0
+    const parsedComparePrice =
+      formData.comparePrice.trim() && Number(formData.comparePrice) > 0
+        ? Number(formData.comparePrice)
+        : null
+    const parsedStock = formData.stock.trim() ? Number(formData.stock) : 0
+    const parsedWeight = formData.weight.trim() ? Number(formData.weight) : 0
+    const parsedFlatShippingCost = formData.flatShippingCost.trim() ? Number(formData.flatShippingCost) : 0
+
+    if (parsedPrice < 0) {
       toast.error('Harga tidak boleh kurang dari 0.')
+      return
+    }
+
+    if (formData.type === 'physical' && !formData.stock.trim()) {
+      toast.error('Stok produk wajib diisi.')
       return
     }
 
@@ -179,13 +208,13 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         description: formData.description.trim(),
         categoryId: formData.categoryId,
         brandId: formData.brandId,
-        price: Number(formData.price),
-        comparePrice: formData.comparePrice ? Number(formData.comparePrice) : null,
+        price: parsedPrice,
+        comparePrice: parsedComparePrice,
         status: formData.status,
         sku: formData.type === 'physical' ? formData.sku.trim() || null : null,
-        stock: formData.type === 'physical' ? Number(formData.stock) : 0,
-        weight: formData.type === 'physical' ? Number(formData.weight) : 0,
-        flatShippingCost: formData.type === 'physical' ? Number(formData.flatShippingCost) : 0,
+        stock: formData.type === 'physical' ? parsedStock : 0,
+        weight: formData.type === 'physical' ? parsedWeight : 0,
+        flatShippingCost: formData.type === 'physical' ? parsedFlatShippingCost : 0,
         productLocation: formData.productLocation.trim() || null,
         attributes: formData.type === 'physical' ? formData.attributes : {},
         digitalFile: formData.type === 'digital' ? formData.digitalFile : null,
@@ -217,7 +246,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/80">
         <div className="space-y-1">
           <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-            {initialData ? `Edit Produk: ${initialData.title}` : 'Tambah Produk Baru'}
+            {initialData ? `Edit Produk: ${initialData.title}` : 'Tambah Produk'}
           </h1>
         </div>
       </div>
@@ -229,83 +258,15 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         </div>
       )}
 
-      {/* 2. PILIHAN TIPE PRODUK (FISIK VS DIGITAL) */}
-      <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3">
-        <div className="space-y-0.5">
-          <label className="text-xs font-extrabold text-foreground uppercase tracking-wider">
-            Tipe Produk <span className="text-rose-500">*</span>
-          </label>
-          <p className="text-[11px] text-muted-foreground">
-            Pilih jenis produk yang ingin Anda pasarkan.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-          {/* Opsi Fisik */}
-          <button
-            type="button"
-            onClick={() => setFormData((prev) => ({ ...prev, type: 'physical' }))}
-            className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
-              formData.type === 'physical'
-                ? 'border-[#00a699] bg-[#00a699]/5 ring-2 ring-[#00a699]/20'
-                : 'border-border hover:border-foreground/40 bg-muted/20'
-            }`}
-          >
-            <div
-              className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                formData.type === 'physical'
-                  ? 'bg-[#00a699] text-white'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              <Package className="w-5 h-5" />
-            </div>
-            <div className="space-y-1 min-w-0">
-              <span className="text-xs font-bold text-foreground block">Produk Fisik</span>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Barang berwujud yang dikemas dan dikirimkan via kurir (pakaian, kerajinan, sepatu, dll).
-              </p>
-            </div>
-          </button>
-
-          {/* Opsi Digital */}
-          <button
-            type="button"
-            onClick={() => setFormData((prev) => ({ ...prev, type: 'digital' }))}
-            className={`p-4 rounded-xl border text-left flex items-start gap-3 transition-all cursor-pointer ${
-              formData.type === 'digital'
-                ? 'border-[#00a699] bg-[#00a699]/5 ring-2 ring-[#00a699]/20'
-                : 'border-border hover:border-foreground/40 bg-muted/20'
-            }`}
-          >
-            <div
-              className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
-                formData.type === 'digital'
-                  ? 'bg-[#00a699] text-white'
-                  : 'bg-muted text-muted-foreground'
-              }`}
-            >
-              <FileCode className="w-5 h-5" />
-            </div>
-            <div className="space-y-1 min-w-0">
-              <span className="text-xs font-bold text-foreground block">Produk Digital (Download)</span>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Berkas unduhan instan (source code, ebook, desain, audio) tanpa ongkir & tanpa stok fisik.
-              </p>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* 3. INFORMASI UTAMA PRODUK */}
+      {/* 2. INFORMASI UTAMA PRODUK */}
       <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5">
-          Informasi Utama
+          Informasi Produk
         </h2>
 
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-foreground">
-            Judul Produk <span className="text-rose-500">*</span>
+            Judul <span className="text-rose-500">*</span>
           </label>
           <input
             type="text"
@@ -320,7 +281,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">
-              Slug URL Produk <span className="text-rose-500">*</span>
+              Slug <span className="text-rose-500">*</span>
             </label>
             <input
               type="text"
@@ -341,82 +302,78 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
             <label className="text-xs font-bold text-foreground">
               Kategori <span className="text-rose-500">*</span>
             </label>
-            <select
-              required
+            <SearchableSelect
+              options={categories.map((c) => ({
+                value: c.id,
+                label: c.name,
+              }))}
               value={formData.categoryId}
-              onChange={(e) => setFormData((prev) => ({ ...prev, categoryId: e.target.value }))}
-              className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] cursor-pointer"
-            >
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFormData((prev) => ({ ...prev, categoryId: val }))}
+              placeholder="Pilih Kategori"
+              searchPlaceholder="Cari kategori..."
+            />
           </div>
         </div>
 
         <div className="space-y-1.5">
           <label className="text-xs font-bold text-foreground">
-            Deskripsi Lengkap <span className="text-rose-500">*</span>
+            Deskripsi <span className="text-rose-500">*</span>
           </label>
           <textarea
             required
             rows={5}
             value={formData.description}
             onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-            placeholder="Jelaskan detail spesifikasi produk, kelebihan, bahan, petunjuk pemakaian/unduhan..."
+            placeholder="Tuliskan deskripsi lengkap produk..."
             className="w-full p-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] resize-none leading-relaxed"
           />
         </div>
       </div>
 
-      {/* 4. HARGA & STATUS */}
+      {/* 3. HARGA & STATUS */}
       <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5">
-          Harga & Status Publikasi
+          Harga & Status
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">
-              Harga Jual (Rp) <span className="text-rose-500">*</span>
+              Harga <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
               <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground">
                 Rp
               </span>
               <input
-                type="number"
-                min={0}
-                step={500}
+                type="text"
+                inputMode="numeric"
                 required
                 value={formData.price}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, price: Number(e.target.value) || 0 }))
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '')
+                  setFormData((prev) => ({ ...prev, price: val }))
+                }}
+                placeholder="0"
                 className="w-full h-10 pl-10 pr-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Harga Coret / Diskon (Rp)</label>
+            <label className="text-xs font-bold text-foreground">Diskon</label>
             <div className="relative">
               <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground">
                 Rp
               </span>
               <input
-                type="number"
-                min={0}
-                step={500}
-                value={formData.comparePrice ?? ''}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    comparePrice: e.target.value ? Number(e.target.value) : null,
-                  }))
-                }
+                type="text"
+                inputMode="numeric"
+                value={formData.comparePrice}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '')
+                  setFormData((prev) => ({ ...prev, comparePrice: val }))
+                }}
                 placeholder="Kosongkan jika tidak diskon"
                 className="w-full h-10 pl-10 pr-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
               />
@@ -424,36 +381,43 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Status Etalase</label>
-            <select
+            <label className="text-xs font-bold text-foreground">Status</label>
+            <Select
+              items={STATUS_OPTIONS}
               value={formData.status}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  status: e.target.value as 'draft' | 'published' | 'archived',
-                }))
-              }
-              className="w-full h-10 px-3 text-xs font-semibold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] cursor-pointer"
+              onValueChange={(val) => {
+                if (val) {
+                  setFormData((prev) => ({
+                    ...prev,
+                    status: val as 'draft' | 'published' | 'archived',
+                  }))
+                }
+              }}
             >
-              <option value="published">Tayang Langsung (Published)</option>
-              <option value="draft">Draf (Hanya Vendor yang melihat)</option>
-              <option value="archived">Diarsipkan (Archived)</option>
-            </select>
+              <SelectTrigger className="w-full data-[size=default]:h-10 !h-10 px-3 text-xs font-semibold bg-background border border-border rounded-lg">
+                <SelectValue placeholder="Pilih status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="published">Publikasi</SelectItem>
+                <SelectItem value="draft">Draf</SelectItem>
+                <SelectItem value="archived">Arsip</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
 
-      {/* 5. KHUSUS PRODUK FISIK */}
+      {/* 4. KHUSUS PRODUK FISIK */}
       {formData.type === 'physical' && (
         <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 animate-in fade-in duration-200">
           <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5 flex items-center gap-2">
             <Package className="w-4 h-4 text-[#00a699]" />
-            Inventaris & Pengiriman Fisik (Single-SKU)
+            Inventaris
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Kode SKU Toko</label>
+              <label className="text-xs font-bold text-foreground">SKU</label>
               <input
                 type="text"
                 value={formData.sku}
@@ -465,30 +429,33 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-foreground">
-                Stok Barang (Unit) <span className="text-rose-500">*</span>
+                Stok <span className="text-rose-500">*</span>
               </label>
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
                 required
                 value={formData.stock}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, stock: Number(e.target.value) || 0 }))
-                }
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '')
+                  setFormData((prev) => ({ ...prev, stock: val }))
+                }}
+                placeholder="0"
                 className="w-full h-10 px-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">Berat Barang (Gram)</label>
+              <label className="text-xs font-bold text-foreground">Berat (Gram)</label>
               <input
-                type="number"
-                min={0}
+                type="text"
+                inputMode="numeric"
                 value={formData.weight}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, weight: Number(e.target.value) || 0 }))
-                }
-                placeholder="500"
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '')
+                  setFormData((prev) => ({ ...prev, weight: val }))
+                }}
+                placeholder="0"
                 className="w-full h-10 px-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
               />
             </div>
@@ -497,39 +464,41 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           {/* Atribut Spesifikasi Tambahan (Key-Value) */}
           <div className="pt-2 space-y-3">
             <label className="text-xs font-bold text-foreground block">
-              Spesifikasi Tambahan (Bahan, Warna, Garansi, dll)
+              Spesifikasi Tambahan
             </label>
 
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(formData.attributes).map(([k, v]) => (
-                <div
-                  key={k}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 border border-border text-xs"
-                >
-                  <span className="font-bold text-foreground">{k}:</span>
-                  <span className="text-muted-foreground">{v}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveAttribute(k)}
-                    className="ml-1 text-muted-foreground hover:text-rose-600 cursor-pointer"
+            {Object.keys(formData.attributes).length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(formData.attributes).map(([k, v]) => (
+                  <div
+                    key={k}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-muted/60 border border-border text-xs"
                   >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
+                    <span className="font-bold text-foreground">{k}:</span>
+                    <span className="text-muted-foreground">{v}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttribute(k)}
+                      className="ml-1 text-muted-foreground hover:text-rose-600 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="flex items-center gap-2 max-w-md">
               <input
                 type="text"
-                placeholder="Label (mis: Bahan)"
+                placeholder="Label"
                 value={attrKey}
                 onChange={(e) => setAttrKey(e.target.value)}
                 className="w-1/2 h-9 px-3 text-xs bg-background border border-border rounded-lg"
               />
               <input
                 type="text"
-                placeholder="Nilai (mis: Katun 100%)"
+                placeholder="Nilai"
                 value={attrVal}
                 onChange={(e) => setAttrVal(e.target.value)}
                 className="w-1/2 h-9 px-3 text-xs bg-background border border-border rounded-lg"
@@ -546,7 +515,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         </div>
       )}
 
-      {/* 6. KHUSUS PRODUK DIGITAL */}
+      {/* 5. KHUSUS PRODUK DIGITAL */}
       {formData.type === 'digital' && (
         <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 animate-in fade-in duration-200">
           <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5 flex items-center gap-2">
@@ -561,10 +530,10 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
         </div>
       )}
 
-      {/* 7. GALERI GAMBAR PRODUK */}
+      {/* 6. GALERI PRODUK */}
       <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
         <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5">
-          Galeri Foto Produk
+          Galeri Produk
         </h2>
 
         <ImageUploader
@@ -575,12 +544,12 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           onChange={(imgs) =>
             setFormData((prev) => ({ ...prev, images: Array.isArray(imgs) ? imgs : [imgs] }))
           }
-          label="Foto Produk (Maks. 5 Foto)"
-          description="Foto pertama akan menjadi foto sampul utama. WebP otomatis dikompresi ≤ 1600px."
+          label=""
+          description="Foto pertama menjadi sampul utama."
         />
       </div>
 
-      {/* 8. Bottom Submit Bar */}
+      {/* 7. Bottom Submit Bar */}
       <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/80">
         <Link
           href="/vendor/products"
@@ -601,7 +570,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           ) : (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              Simpan Perubahan
+              Simpan
             </>
           )}
         </button>
