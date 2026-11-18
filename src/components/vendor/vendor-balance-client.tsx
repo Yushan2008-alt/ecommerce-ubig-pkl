@@ -16,6 +16,12 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
+import { SearchableSelect } from '@/components/ui/searchSelect'
+import {
+  INDONESIA_BANKS,
+  getBankLabel,
+  resolveBankValue,
+} from '@/lib/shop-helper'
 
 export interface PayoutHistoryItem {
   id: string
@@ -42,17 +48,7 @@ interface VendorBalanceClientProps {
   vendorDisplayName?: string
 }
 
-const SUPPORTED_BANKS = [
-  'Bank Central Asia (BCA)',
-  'Bank Mandiri',
-  'Bank Rakyat Indonesia (BRI)',
-  'Bank Negara Indonesia (BNI)',
-  'Bank Syariah Indonesia (BSI)',
-  'CIMB Niaga',
-  'Permata Bank',
-  'SeaBank',
-  'Bank Jago',
-]
+export const SUPPORTED_BANKS = INDONESIA_BANKS.map((b) => b.label)
 
 export function VendorBalanceClient({
   initialData,
@@ -67,7 +63,7 @@ export function VendorBalanceClient({
 
   const [payoutForm, setPayoutForm] = useState({
     amount: formatNumberWithDots(Math.min(initialData.availableBalance, 100000)),
-    bankName: lastPayout?.bank_name || SUPPORTED_BANKS[0],
+    bankName: resolveBankValue(lastPayout?.bank_name) || '',
     accountNo: lastPayout?.account_no || '',
     accountHolder: lastPayout?.account_holder || vendorDisplayName || '',
   })
@@ -127,6 +123,11 @@ export function VendorBalanceClient({
       return
     }
 
+    if (!payoutForm.bankName || !payoutForm.bankName.trim() || payoutForm.bankName.trim().length < 2) {
+      toast.error('Silakan pilih bank tujuan penarikan dana.')
+      return
+    }
+
     if (!payoutForm.accountNo.trim() || payoutForm.accountNo.length < 5) {
       toast.error('Nomor rekening bank tidak valid (minimal 5 digit).')
       return
@@ -152,9 +153,10 @@ export function VendorBalanceClient({
       if (res.success) {
         toast.success('Pengajuan penarikan dana berhasil dikirim! Menunggu verifikasi admin.')
         // Kurangi saldo di state lokal dan tambahkan ke riwayat
+        const newAvailable = Math.max(0, balanceData.availableBalance - payload.amount)
         setBalanceData((prev) => ({
           ...prev,
-          availableBalance: prev.availableBalance - payload.amount,
+          availableBalance: newAvailable,
           pendingPaidPayouts: prev.pendingPaidPayouts + payload.amount,
           payoutHistory: [
             {
@@ -168,6 +170,10 @@ export function VendorBalanceClient({
             },
             ...prev.payoutHistory,
           ],
+        }))
+        setPayoutForm((prev) => ({
+          ...prev,
+          amount: formatNumberWithDots(Math.min(newAvailable, 100000)),
         }))
       } else {
         setErrorMsg(res.error || 'Gagal mengajukan penarikan dana.')
@@ -311,18 +317,13 @@ export function VendorBalanceClient({
               <label className="text-xs font-bold text-foreground">
                 Bank Tujuan <span className="text-rose-500">*</span>
               </label>
-              <select
-                required
+              <SearchableSelect
+                options={INDONESIA_BANKS}
                 value={payoutForm.bankName}
-                onChange={(e) => setPayoutForm((prev) => ({ ...prev, bankName: e.target.value }))}
-                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] cursor-pointer"
-              >
-                {SUPPORTED_BANKS.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setPayoutForm((prev) => ({ ...prev, bankName: val }))}
+                placeholder="Pilih Bank Tujuan..."
+                searchPlaceholder="Cari nama bank (BCA, Mandiri, BRI, BSI, dll)..."
+              />
             </div>
           </div>
 
@@ -421,7 +422,7 @@ export function VendorBalanceClient({
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-foreground">
-                      {req.bank_name} • {req.account_no}
+                      {getBankLabel(req.bank_name) || req.bank_name || 'Bank'} • {req.account_no}
                     </span>
                     <span className="text-muted-foreground">({req.account_holder})</span>
                   </div>
