@@ -4,7 +4,7 @@ import { ProductForm } from '@/components/vendor/product-form'
 import { DASHBOARD_12_CATEGORIES } from '@/lib/catalog-data'
 
 export const metadata = {
-  title: 'Tambah Produk Baru — Krafita Vendor Center',
+  title: 'Tambah Produk Baru | Krafita',
 }
 
 export default async function NewProductPage() {

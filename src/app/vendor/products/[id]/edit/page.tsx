@@ -5,7 +5,7 @@ import { ProductForm } from '@/components/vendor/product-form'
 import { DASHBOARD_12_CATEGORIES } from '@/lib/catalog-data'
 
 export const metadata = {
-  title: 'Edit Produk — Krafita Vendor Center',
+  title: 'Edit Produk | Krafita',
 }
 
 export default async function EditProductPage({

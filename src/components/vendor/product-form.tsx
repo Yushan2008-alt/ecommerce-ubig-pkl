@@ -216,45 +216,9 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       {/* 1. Header & Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/80">
         <div className="space-y-1">
-          <Link
-            href="/vendor/products"
-            className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Kembali ke Daftar Produk
-          </Link>
           <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
             {initialData ? `Edit Produk: ${initialData.title}` : 'Tambah Produk Baru'}
           </h1>
-          <p className="text-xs text-muted-foreground">
-            Sistem Single-SKU terpadu untuk produk fisik dan karya digital siap unduh.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-2.5">
-          <Link
-            href="/vendor/products"
-            className="px-4 py-2 rounded-xl border border-border text-xs font-semibold text-foreground hover:bg-muted transition-colors"
-          >
-            Batal
-          </Link>
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Menyimpan...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4" />
-                {initialData ? 'Simpan Perubahan' : 'Terbitkan Produk'}
-              </>
-            )}
-          </button>
         </div>
       </div>
 
@@ -637,7 +601,7 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           ) : (
             <>
               <CheckCircle2 className="w-4 h-4" />
-              {initialData ? 'Simpan Perubahan' : 'Terbitkan Produk'}
+              Simpan Perubahan
             </>
           )}
         </button>
