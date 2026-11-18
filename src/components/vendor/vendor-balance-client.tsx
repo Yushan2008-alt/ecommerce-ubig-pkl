@@ -14,6 +14,8 @@ import { requestPayoutAction, getVendorBalanceDataAction } from '@/actions/vendo
 import type { PayoutInput } from '@/lib/validators'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
+import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 
 export interface PayoutHistoryItem {
   id: string
@@ -64,7 +66,7 @@ export function VendorBalanceClient({
   const lastPayout = initialData.payoutHistory[0]
 
   const [payoutForm, setPayoutForm] = useState({
-    amount: Math.min(initialData.availableBalance, 100000),
+    amount: formatNumberWithDots(Math.min(initialData.availableBalance, 100000)),
     bankName: lastPayout?.bank_name || SUPPORTED_BANKS[0],
     accountNo: lastPayout?.account_no || '',
     accountHolder: lastPayout?.account_holder || vendorDisplayName || '',
@@ -113,12 +115,14 @@ export function VendorBalanceClient({
     e.preventDefault()
     setErrorMsg(null)
 
-    if (payoutForm.amount < 10000) {
+    const parsedAmount = unformatNumber(payoutForm.amount)
+
+    if (parsedAmount < 10000) {
       toast.error('Minimal penarikan dana adalah Rp 10.000.')
       return
     }
 
-    if (payoutForm.amount > balanceData.availableBalance) {
+    if (parsedAmount > balanceData.availableBalance) {
       toast.error('Nominal penarikan melebihi saldo bersih yang tersedia.')
       return
     }
@@ -137,7 +141,7 @@ export function VendorBalanceClient({
 
     try {
       const payload: PayoutInput = {
-        amount: Number(payoutForm.amount),
+        amount: parsedAmount,
         bankName: payoutForm.bankName,
         accountNo: payoutForm.accountNo.trim(),
         accountHolder: payoutForm.accountHolder.trim(),
@@ -183,15 +187,12 @@ export function VendorBalanceClient({
       <div className="space-y-1">
         <div className="flex items-center gap-2.5">
           <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-            Saldo & Penarikan Dana (Payout)
+            Saldo
           </h1>
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Real-time
-          </span>
+
         </div>
         <p className="text-xs text-muted-foreground">
-          Kelola saldo bersih hasil penjualan produk toko dan ajukan pencairan ke rekening bank Anda.
+          Kelola saldo bersih.
         </p>
       </div>
 
@@ -278,7 +279,10 @@ export function VendorBalanceClient({
                 <button
                   type="button"
                   onClick={() =>
-                    setPayoutForm((prev) => ({ ...prev, amount: balanceData.availableBalance }))
+                    setPayoutForm((prev) => ({
+                      ...prev,
+                      amount: formatNumberWithDots(balanceData.availableBalance),
+                    }))
                   }
                   className="text-[11px] text-[#00a699] font-bold hover:underline"
                 >
@@ -286,18 +290,16 @@ export function VendorBalanceClient({
                 </button>
               </div>
               <div className="relative">
-                <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground">
+                <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground z-10">
                   Rp
                 </span>
-                <input
-                  type="number"
-                  min={10000}
-                  step={5000}
+                <NumberInput
                   required
                   value={payoutForm.amount}
                   onChange={(e) =>
-                    setPayoutForm((prev) => ({ ...prev, amount: Number(e.target.value) || 0 }))
+                    setPayoutForm((prev) => ({ ...prev, amount: e.target.value }))
                   }
+                  placeholder="0"
                   className="w-full h-10 pl-10 pr-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
                 />
               </div>

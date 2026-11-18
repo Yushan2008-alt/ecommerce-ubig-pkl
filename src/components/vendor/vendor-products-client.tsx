@@ -396,7 +396,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
           <DialogHeader>
             <DialogTitle>Hapus Produk</DialogTitle>
             <DialogDescription>
-              Apakah Anda yakin ingin menghapus produk <strong>"{deleteTarget?.title}"</strong> secara permanen?.
+              Apakah Anda yakin ingin menghapus produk <strong>"{deleteTarget?.title}"</strong>.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 sm:justify-end mt-4">

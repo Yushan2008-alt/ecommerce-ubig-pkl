@@ -32,6 +32,8 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 import type { Database, ShopMetadata, ShopStatus } from '@/types/database'
 
 type Shop = Database['public']['Tables']['shops']['Row']
@@ -110,8 +112,8 @@ export function VendorOnboardingWizard({
     title: '',
     slug: '',
     categoryId: effectiveCategories[0]?.id || effectiveCategories[0]?.slug || 'clothing',
-    price: 150000,
-    stock: 20,
+    price: formatNumberWithDots(150000),
+    stock: formatNumberWithDots(20),
     description: '',
     images: [] as string[],
   })
@@ -302,11 +304,14 @@ export function VendorOnboardingWizard({
       toast.error('Slug produk wajib diisi.')
       return
     }
-    if (productForm.price < 1000) {
+    const parsedPrice = unformatNumber(productForm.price)
+    const parsedStock = unformatNumber(productForm.stock)
+
+    if (parsedPrice < 1000) {
       toast.error('Harga produk minimal Rp 1.000.')
       return
     }
-    if (productForm.stock < 1) {
+    if (parsedStock < 1) {
       toast.error('Stok produk minimal 1 unit.')
       return
     }
@@ -327,8 +332,8 @@ export function VendorOnboardingWizard({
         title: productForm.title.trim(),
         slug: productForm.slug.trim(),
         categoryId: productForm.categoryId,
-        price: Number(productForm.price),
-        stock: Number(productForm.stock),
+        price: parsedPrice,
+        stock: parsedStock,
         description: productForm.description.trim(),
         images: productForm.images,
       })
@@ -1028,27 +1033,30 @@ export function VendorOnboardingWizard({
                   <label className="text-xs font-bold text-foreground">
                     Harga Jual (Rp) <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="number"
-                    required
-                    min={1000}
-                    value={productForm.price}
-                    onChange={(e) => setProductForm((prev) => ({ ...prev, price: Number(e.target.value) }))}
-                    className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-                  />
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-xs font-semibold text-muted-foreground z-10">
+                      Rp
+                    </span>
+                    <NumberInput
+                      required
+                      value={productForm.price}
+                      onChange={(e) => setProductForm((prev) => ({ ...prev, price: e.target.value }))}
+                      placeholder="0"
+                      className="w-full h-10 pl-9 pr-3 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+                    />
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-foreground">
                     Stok Awal <span className="text-rose-500">*</span>
                   </label>
-                  <input
-                    type="number"
+                  <NumberInput
                     required
-                    min={1}
                     value={productForm.stock}
-                    onChange={(e) => setProductForm((prev) => ({ ...prev, stock: Number(e.target.value) }))}
-                    className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+                    onChange={(e) => setProductForm((prev) => ({ ...prev, stock: e.target.value }))}
+                    placeholder="0"
+                    className="w-full h-10 px-3 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
                   />
                 </div>
               </div>

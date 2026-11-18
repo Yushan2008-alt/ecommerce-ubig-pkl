@@ -13,6 +13,8 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 
 export interface ShopSettingsData {
   name: string
@@ -40,7 +42,7 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
     slug: initialShop.slug || '',
     description: initialShop.description || '',
     logoUrl: initialShop.logo_url || '',
-    flatShippingCost: Number(initialShop.flat_shipping_cost) || 0,
+    flatShippingCost: formatNumberWithDots(initialShop.flat_shipping_cost),
     whatsapp: initialShop.whatsapp || '',
     phone: initialShop.phone || '',
     city: initialShop.city || '',
@@ -63,7 +65,7 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
         name: formData.name.trim(),
         description: formData.description.trim() || null,
         logoUrl: formData.logoUrl || null,
-        flatShippingCost: Number(formData.flatShippingCost) || 0,
+        flatShippingCost: unformatNumber(formData.flatShippingCost),
         whatsapp: formData.whatsapp.trim() || null,
         phone: formData.phone.trim() || null,
         city: formData.city.trim() || null,
@@ -200,21 +202,19 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
               Tarif Flat Ongkir Toko (Rp) <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground">
+              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground z-10">
                 Rp
               </span>
-              <input
-                type="number"
-                min={0}
-                step={1000}
+              <NumberInput
                 required
                 value={formData.flatShippingCost}
-                onChange={(e) =>
+                onChange={(e) => {
                   setFormData((prev) => ({
                     ...prev,
-                    flatShippingCost: Number(e.target.value) || 0,
+                    flatShippingCost: e.target.value,
                   }))
-                }
+                }}
+                placeholder="0"
                 className="w-full h-10 pl-10 pr-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
               />
             </div>

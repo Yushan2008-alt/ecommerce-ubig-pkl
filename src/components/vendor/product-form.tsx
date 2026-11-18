@@ -24,6 +24,8 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 
 interface ProductFormState {
   id?: string
@@ -76,19 +78,28 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
     description: initialData?.description || '',
     categoryId: initialData?.category_id || '',
     brandId: initialData?.brand_id || null,
-    price: initialData?.price !== undefined && initialData?.price !== null ? String(initialData.price) : '',
+    price:
+      initialData?.price !== undefined && initialData?.price !== null
+        ? formatNumberWithDots(initialData.price)
+        : '',
     comparePrice:
       initialData?.compare_price !== undefined && initialData?.compare_price !== null
-        ? String(initialData.compare_price)
+        ? formatNumberWithDots(initialData.compare_price)
         : '',
     status: (initialData?.status || 'published') as 'draft' | 'published' | 'archived',
     // Khusus Fisik
     sku: initialData?.sku || '',
-    stock: initialData?.stock !== undefined && initialData?.stock !== null ? String(initialData.stock) : '',
-    weight: initialData?.weight !== undefined && initialData?.weight !== null ? String(initialData.weight) : '',
+    stock:
+      initialData?.stock !== undefined && initialData?.stock !== null
+        ? formatNumberWithDots(initialData.stock)
+        : '',
+    weight:
+      initialData?.weight !== undefined && initialData?.weight !== null
+        ? formatNumberWithDots(initialData.weight)
+        : '',
     flatShippingCost:
       initialData?.flat_shipping_cost !== undefined && initialData?.flat_shipping_cost !== null
-        ? String(initialData.flat_shipping_cost)
+        ? formatNumberWithDots(initialData.flat_shipping_cost)
         : '',
     productLocation: initialData?.product_location || '',
     attributes: (initialData?.attributes as Record<string, string>) || {},
@@ -168,14 +179,14 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
       return
     }
 
-    const parsedPrice = Number(formData.price) || 0
-    const parsedComparePrice =
-      formData.comparePrice.trim() && Number(formData.comparePrice) > 0
-        ? Number(formData.comparePrice)
-        : null
-    const parsedStock = formData.stock.trim() ? Number(formData.stock) : 0
-    const parsedWeight = formData.weight.trim() ? Number(formData.weight) : 0
-    const parsedFlatShippingCost = formData.flatShippingCost.trim() ? Number(formData.flatShippingCost) : 0
+    const parsedPrice = unformatNumber(formData.price)
+    const rawComparePrice = unformatNumber(formData.comparePrice)
+    const parsedComparePrice = rawComparePrice > 0 ? rawComparePrice : null
+    const parsedStock = formData.stock.trim() ? unformatNumber(formData.stock) : 0
+    const parsedWeight = formData.weight.trim() ? unformatNumber(formData.weight) : 0
+    const parsedFlatShippingCost = formData.flatShippingCost.trim()
+      ? unformatNumber(formData.flatShippingCost)
+      : 0
 
     if (parsedPrice < 0) {
       toast.error('Harga tidak boleh kurang dari 0.')
@@ -342,17 +353,14 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
               Harga <span className="text-rose-500">*</span>
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground">
+              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground z-10">
                 Rp
               </span>
-              <input
-                type="text"
-                inputMode="numeric"
+              <NumberInput
                 required
                 value={formData.price}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '')
-                  setFormData((prev) => ({ ...prev, price: val }))
+                  setFormData((prev) => ({ ...prev, price: e.target.value }))
                 }}
                 placeholder="0"
                 className="w-full h-10 pl-10 pr-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
@@ -363,16 +371,13 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">Diskon</label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground">
+              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground z-10">
                 Rp
               </span>
-              <input
-                type="text"
-                inputMode="numeric"
+              <NumberInput
                 value={formData.comparePrice}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '')
-                  setFormData((prev) => ({ ...prev, comparePrice: val }))
+                  setFormData((prev) => ({ ...prev, comparePrice: e.target.value }))
                 }}
                 placeholder="Kosongkan jika tidak diskon"
                 className="w-full h-10 pl-10 pr-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
@@ -431,14 +436,11 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
               <label className="text-xs font-bold text-foreground">
                 Stok <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
-                inputMode="numeric"
+              <NumberInput
                 required
                 value={formData.stock}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '')
-                  setFormData((prev) => ({ ...prev, stock: val }))
+                  setFormData((prev) => ({ ...prev, stock: e.target.value }))
                 }}
                 placeholder="0"
                 className="w-full h-10 px-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
@@ -447,13 +449,10 @@ export function ProductForm({ initialData, categories }: ProductFormProps) {
 
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-foreground">Berat (Gram)</label>
-              <input
-                type="text"
-                inputMode="numeric"
+              <NumberInput
                 value={formData.weight}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, '')
-                  setFormData((prev) => ({ ...prev, weight: val }))
+                  setFormData((prev) => ({ ...prev, weight: e.target.value }))
                 }}
                 placeholder="0"
                 className="w-full h-10 px-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"

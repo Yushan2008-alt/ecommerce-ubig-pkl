@@ -25,6 +25,8 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react'
+import { unformatNumber } from '@/lib/utils'
+import { NumberInput } from '@/components/ui/number-input'
 
 interface CatalogViewProps {
   initialProducts?: CatalogProduct[]
@@ -264,14 +266,14 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
 
       // 6. Filter Min Price
       if (priceMin && !product.isQuote) {
-        const min = Number(priceMin)
-        if (!isNaN(min) && product.price < min) return false
+        const min = unformatNumber(priceMin)
+        if (min > 0 && product.price < min) return false
       }
 
       // 7. Filter Max Price
       if (priceMax && !product.isQuote) {
-        const max = Number(priceMax)
-        if (!isNaN(max) && product.price > max) return false
+        const max = unformatNumber(priceMax)
+        if (max > 0 && product.price > max) return false
       }
 
       return true
@@ -596,8 +598,7 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                     <label className="text-[10px] text-muted-foreground block mb-1">
                       {t.min_price}
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       placeholder="0"
                       value={priceMin}
                       onChange={(e) => setPriceMin(e.target.value)}
@@ -608,8 +609,7 @@ export function CatalogView({ initialProducts }: CatalogViewProps) {
                     <label className="text-[10px] text-muted-foreground block mb-1">
                       {t.max_price}
                     </label>
-                    <input
-                      type="number"
+                    <NumberInput
                       placeholder="Maks"
                       value={priceMax}
                       onChange={(e) => setPriceMax(e.target.value)}
