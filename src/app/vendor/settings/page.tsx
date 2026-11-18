@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
 import { VendorSettingsClient } from '@/components/vendor/vendor-settings-client'
 import { AlertCircle } from 'lucide-react'
+import { parseShopMetadata } from '@/lib/shop-helper'
 
 export const metadata = {
   title: 'Pengaturan Toko | Krafita',
@@ -30,5 +31,20 @@ export default async function VendorSettingsPage() {
     )
   }
 
-  return <VendorSettingsClient initialShop={shop} />
+  const meta = parseShopMetadata(shop.description)
+
+  return (
+    <VendorSettingsClient
+      initialShop={{
+        ...shop,
+        description:
+          meta.bio ||
+          (shop.description && !shop.description.trim().startsWith('{') ? shop.description : '') ||
+          '',
+        bank_name: (shop as any).bank_name || meta.bank_name || '',
+        bank_account_number: (shop as any).bank_account_number || meta.bank_account_number || '',
+        bank_account_holder: (shop as any).bank_account_holder || meta.bank_account_holder || '',
+      }}
+    />
+  )
 }

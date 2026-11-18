@@ -16,6 +16,7 @@ import {
   X,
   ChevronRight,
   LogOut,
+  Loader2,
 } from 'lucide-react'
 import { signOut } from '@/actions/auth'
 
@@ -71,10 +72,15 @@ const NAV_ITEMS = [
 export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [navigatingHref, setNavigatingHref] = useState<string | null>(null)
+
+  // Jika navigasi ke target href telah selesai, hapus status pending secara murni tanpa effect
+  const pendingHref = navigatingHref !== pathname ? navigatingHref : null
 
   const isActive = (href: string, exact: boolean) => {
-    if (exact) return pathname === href
-    return pathname.startsWith(href)
+    const current = pendingHref || pathname
+    if (exact) return current === href
+    return current.startsWith(href)
   }
 
   const navContent = (
@@ -125,12 +131,19 @@ export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href, item.exact)
+          const isPendingItem = navigatingHref === item.href && pathname !== item.href
 
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={() => setMobileOpen(false)}
+              prefetch={true}
+              onClick={() => {
+                if (pathname !== item.href) {
+                  setNavigatingHref(item.href)
+                }
+                setMobileOpen(false)
+              }}
               className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                 active
                   ? 'bg-[#00a699] text-white shadow-xs'
@@ -141,7 +154,11 @@ export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
                 <Icon className={`w-4 h-4 ${active ? 'text-white' : 'text-muted-foreground'}`} />
                 <span>{item.label}</span>
               </div>
-              {active && <ChevronRight className="w-3.5 h-3.5 text-white/80" />}
+              {isPendingItem ? (
+                <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
+              ) : (
+                active && <ChevronRight className="w-3.5 h-3.5 text-white/80" />
+              )}
             </Link>
           )
         })}

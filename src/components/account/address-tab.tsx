@@ -151,7 +151,7 @@ export function AddressTab({ initialAddresses }: AddressTabProps) {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredAddresses.length === 0 ? (
       <div className="col-span-full py-8 text-center text-xs text-muted-foreground">
-        Tidak ada alamat yang cocok dengan "{searchQuery}".
+        Tidak ada alamat yang cocok dengan &quot;{searchQuery}&quot;.
       </div>
     ) : (
           filteredAddresses.map((addr) => {

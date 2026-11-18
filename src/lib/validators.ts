@@ -127,6 +127,9 @@ export const ShopSettingsSchema = z.object({
   phone: z.string().max(20).optional().nullable(),
   city: z.string().max(100).optional().nullable(),
   province: z.string().max(100).optional().nullable(),
+  bankName: z.string().max(100).optional().nullable(),
+  bankAccountNumber: z.string().max(50).optional().nullable(),
+  bankAccountHolder: z.string().max(100).optional().nullable(),
 })
 
 export const ReviewSchema = z.object({

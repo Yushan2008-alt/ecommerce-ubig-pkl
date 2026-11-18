@@ -43,7 +43,7 @@ export default function RootLayout({
           <CartWishlistProvider>
             <AuthModalProvider>
               {children}
-              <Toaster />
+              <Toaster position="top-right" />
             </AuthModalProvider>
           </CartWishlistProvider>
         </LanguageProvider>

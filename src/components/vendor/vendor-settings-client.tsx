@@ -11,10 +11,14 @@ import {
   Save,
   Loader2,
   AlertCircle,
+  Building,
+  ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
+import { SearchableSelect } from '@/components/ui/searchSelect'
+import { INDONESIA_BANKS, resolveBankValue } from '@/lib/shop-helper'
 
 export interface ShopSettingsData {
   name: string
@@ -27,6 +31,9 @@ export interface ShopSettingsData {
   whatsapp?: string | null
   phone?: string | null
   email?: string | null
+  bank_name?: string | null
+  bank_account_number?: string | null
+  bank_account_holder?: string | null
 }
 
 interface VendorSettingsClientProps {
@@ -47,6 +54,9 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
     phone: initialShop.phone || '',
     city: initialShop.city || '',
     province: initialShop.province || '',
+    bankName: resolveBankValue(initialShop.bank_name) || initialShop.bank_name || '',
+    bankAccountNumber: initialShop.bank_account_number || '',
+    bankAccountHolder: initialShop.bank_account_holder || '',
   })
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -70,6 +80,9 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
         phone: formData.phone.trim() || null,
         city: formData.city.trim() || null,
         province: formData.province.trim() || null,
+        bankName: formData.bankName.trim() || null,
+        bankAccountNumber: formData.bankAccountNumber.trim() || null,
+        bankAccountHolder: formData.bankAccountHolder.trim() || null,
       }
 
       const res = await updateShopSettingsAction(payload)
@@ -263,6 +276,74 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
               className="w-full h-10 px-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
             />
           </div>
+        </div>
+      </div>
+
+      {/* 4. Rekening Bank Penarikan Saldo */}
+      <div id="bank" className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 scroll-mt-6">
+        <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <Building className="w-4 h-4 text-[#00a699]" />
+            Rekening Bank Penarikan Saldo
+          </h2>
+          <span className="text-[10px] text-muted-foreground font-medium">
+            Untuk pencairan dana toko
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">
+              Bank Tujuan
+            </label>
+            <SearchableSelect
+              options={INDONESIA_BANKS}
+              value={formData.bankName}
+              onChange={(val) => setFormData((prev) => ({ ...prev, bankName: val }))}
+              placeholder="Pilih Bank..."
+              searchPlaceholder="Cari nama bank (BCA, Mandiri, BRI, BSI, dll)..."
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">
+              Nomor Rekening
+            </label>
+            <input
+              type="text"
+              value={formData.bankAccountNumber}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  bankAccountNumber: e.target.value.replace(/[^0-9]/g, ''),
+                }))
+              }
+              placeholder="Contoh: 1234567890"
+              className="w-full h-10 px-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-foreground">
+              Nama Pemilik Rekening
+            </label>
+            <input
+              type="text"
+              value={formData.bankAccountHolder}
+              onChange={(e) =>
+                setFormData((prev) => ({ ...prev, bankAccountHolder: e.target.value }))
+              }
+              placeholder="Nama sesuai buku tabungan"
+              className="w-full h-10 px-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+            />
+          </div>
+        </div>
+
+        <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-[11px] text-muted-foreground flex items-center gap-2">
+          <ShieldCheck className="w-4 h-4 text-[#00a699] shrink-0" />
+          <span>
+            Rekening ini digunakan sebagai tujuan pencairan saldo saat Anda mengajukan penarikan di menu Saldo.
+          </span>
         </div>
       </div>
 

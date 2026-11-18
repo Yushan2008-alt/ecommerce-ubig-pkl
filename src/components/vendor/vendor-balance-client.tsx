@@ -44,6 +44,11 @@ interface VendorBalanceClientProps {
     pendingPaidPayouts: number
     availableBalance: number
     payoutHistory: PayoutHistoryItem[]
+    bankDetails?: {
+      bankName: string
+      accountNo: string
+      accountHolder: string
+    }
   }
   vendorDisplayName?: string
 }
@@ -58,14 +63,18 @@ export function VendorBalanceClient({
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
-  // Ambil data rekening terakhir dari riwayat jika ada
+  // Ambil data rekening terakhir dari riwayat jika ada, atau dari profil toko
   const lastPayout = initialData.payoutHistory[0]
+  const defaultBank = lastPayout?.bank_name || initialData.bankDetails?.bankName || ''
+  const defaultAccountNo = lastPayout?.account_no || initialData.bankDetails?.accountNo || ''
+  const defaultAccountHolder =
+    lastPayout?.account_holder || initialData.bankDetails?.accountHolder || vendorDisplayName || ''
 
   const [payoutForm, setPayoutForm] = useState({
     amount: formatNumberWithDots(Math.min(initialData.availableBalance, 100000)),
-    bankName: resolveBankValue(lastPayout?.bank_name) || '',
-    accountNo: lastPayout?.account_no || '',
-    accountHolder: lastPayout?.account_holder || vendorDisplayName || '',
+    bankName: resolveBankValue(defaultBank) || defaultBank,
+    accountNo: defaultAccountNo,
+    accountHolder: defaultAccountHolder,
   })
 
   // Supabase Realtime Subscription untuk penarikan saldo & pesanan selesai

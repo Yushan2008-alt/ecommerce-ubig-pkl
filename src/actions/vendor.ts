@@ -409,6 +409,7 @@ export async function getVendorDashboardDataAction(): Promise<{
     }
     recentOrders: any[]
     chartData: { date: string; sales: number; orders: number }[]
+    rawSales?: { createdAt: string; amount: number; isPaid: boolean }[]
     onboardingChecklist: {
       shopCreated: boolean
       hasProducts: boolean
@@ -542,10 +543,30 @@ export async function getVendorDashboardDataAction(): Promise<{
       orders: val.orders,
     }))
 
+    const rawSales = allItems.map((item: any) => {
+      const order = Array.isArray(item.orders) ? item.orders[0] : item.orders
+      return {
+        createdAt: item.created_at,
+        amount: Number(item.price) * Number(item.qty),
+        isPaid: order?.status === 'paid',
+      }
+    })
+
     // 7. Onboarding Checklist
     const hasProducts = (activeProductsCount || 0) > 0
-    const hasBankAccount = (payouts || []).length > 0
-    const profileComplete = Boolean(shop.whatsapp && shop.city && shop.description)
+    const meta = parseShopMetadata(shop.description)
+    const hasBankAccount = Boolean(
+      (shop as any).bank_account_number ||
+      (shop as any).bank_name ||
+      meta.bank_account_number ||
+      meta.bank_name ||
+      (payouts || []).length > 0
+    )
+    const profileComplete = Boolean(
+      shop.whatsapp &&
+      shop.city &&
+      (meta.bio || (shop.description && !shop.description.trim().startsWith('{')))
+    )
 
     return {
       success: true,
@@ -560,6 +581,7 @@ export async function getVendorDashboardDataAction(): Promise<{
         },
         recentOrders,
         chartData,
+        rawSales,
         onboardingChecklist: {
           shopCreated: true,
           hasProducts,
@@ -833,6 +855,82 @@ export async function deleteProductAction(productId: string): Promise<{
 }
 
 /**
+ * 6b. DELETE MULTIPLE PRODUCTS (Hapus massal produk)
+ */
+export async function deleteMultipleProductsAction(productIds: string[]): Promise<{
+  success: boolean
+  deletedCount: number
+  failedCount: number
+  deletedIds: string[]
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user || profile?.role !== 'vendor') {
+      return { success: false, deletedCount: 0, failedCount: 0, deletedIds: [], error: 'Unauthorized' }
+    }
+
+    const supabase = await createClient()
+
+    const { data: shop } = await supabase
+      .from('shops')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single()
+
+    if (!shop) {
+      return { success: false, deletedCount: 0, failedCount: 0, deletedIds: [], error: 'Toko tidak ditemukan' }
+    }
+
+    let deletedCount = 0
+    let failedCount = 0
+    const deletedIds: string[] = []
+
+    for (const pid of productIds) {
+      const { count } = await supabase
+        .from('order_items')
+        .select('*', { count: 'exact', head: true })
+        .eq('product_id', pid)
+
+      if ((count || 0) > 0) {
+        failedCount++
+        continue
+      }
+
+      const { error: deleteErr } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', pid)
+        .eq('shop_id', shop.id)
+
+      if (deleteErr) {
+        failedCount++
+      } else {
+        deletedCount++
+        deletedIds.push(pid)
+      }
+    }
+
+    revalidatePath('/vendor/products')
+    revalidatePath('/products')
+
+    return {
+      success: deletedCount > 0 || failedCount === 0,
+      deletedCount,
+      failedCount,
+      deletedIds,
+      error:
+        failedCount > 0
+          ? `${failedCount} produk tidak dapat dihapus karena sudah memiliki riwayat pesanan (disarankan diarsipkan).`
+          : undefined,
+    }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal menghapus produk terpilih'
+    return { success: false, deletedCount: 0, failedCount: 0, deletedIds: [], error: msg }
+  }
+}
+
+/**
  * 7. GET VENDOR INCOMING ORDERS
  */
 export async function getVendorOrdersAction(filterStatus?: string): Promise<{
@@ -988,6 +1086,11 @@ export async function getVendorBalanceDataAction(): Promise<{
     pendingPaidPayouts: number
     availableBalance: number
     payoutHistory: any[]
+    bankDetails?: {
+      bankName: string
+      accountNo: string
+      accountHolder: string
+    }
   }
   error?: string
 }> {
@@ -1034,6 +1137,13 @@ export async function getVendorBalanceDataAction(): Promise<{
 
     const availableBalance = Math.max(0, totalNetCompleted - pendingPaidPayouts)
 
+    const meta = parseShopMetadata(shop.description)
+    const bankDetails = {
+      bankName: (shop as any).bank_name || meta.bank_name || '',
+      accountNo: (shop as any).bank_account_number || meta.bank_account_number || '',
+      accountHolder: (shop as any).bank_account_holder || meta.bank_account_holder || '',
+    }
+
     return {
       success: true,
       data: {
@@ -1042,6 +1152,7 @@ export async function getVendorBalanceDataAction(): Promise<{
         pendingPaidPayouts,
         availableBalance,
         payoutHistory,
+        bankDetails,
       },
     }
   } catch (err: unknown) {
@@ -1114,11 +1225,31 @@ export async function updateShopSettingsAction(payload: ShopSettingsInput): Prom
 
     const supabase = await createClient()
 
+    // Ambil data toko lama untuk mempertahankan metadata (seperti bank, kurir, alamat gudang)
+    const { data: existingShop } = await supabase
+      .from('shops')
+      .select('description')
+      .eq('profile_id', user.id)
+      .single()
+
+    const currentMeta = parseShopMetadata(existingShop?.description)
+    const updatedMeta: ShopMetadata = {
+      ...currentMeta,
+      bio: parsed.data.description !== undefined ? (parsed.data.description || '') : (currentMeta.bio || ''),
+      ...(parsed.data.bankName !== undefined ? { bank_name: parsed.data.bankName || undefined } : {}),
+      ...(parsed.data.bankAccountNumber !== undefined
+        ? { bank_account_number: parsed.data.bankAccountNumber || undefined }
+        : {}),
+      ...(parsed.data.bankAccountHolder !== undefined
+        ? { bank_account_holder: parsed.data.bankAccountHolder || undefined }
+        : {}),
+    }
+
     const { error } = await supabase
       .from('shops')
       .update({
         name: parsed.data.name,
-        description: parsed.data.description,
+        description: serializeShopMetadata(updatedMeta),
         logo_url: parsed.data.logoUrl,
         flat_shipping_cost: parsed.data.flatShippingCost,
         whatsapp: parsed.data.whatsapp,
