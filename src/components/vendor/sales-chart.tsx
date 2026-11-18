@@ -1,6 +1,7 @@
 'use client'
 
-import React from 'react'
+import React, { useState } from 'react'
+import Link from 'next/link'
 import {
   AreaChart,
   Area,
@@ -37,47 +38,60 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export function SalesChart({ data }: SalesChartProps) {
+  const [range, setRange] = useState<'7' | '14' | '30'>('14')
+
   const formatCurrency = (val: number) => {
     if (val >= 1000000) return `Rp ${(val / 1000000).toFixed(1)}jt`
     if (val >= 1000) return `Rp ${(val / 1000).toFixed(0)}rb`
     return `Rp ${val}`
   }
 
+  // Filter data sesuai pilihan range hari
+  const filteredData = data.slice(-Number(range))
+
   return (
-    <div className="w-full h-64 sm:h-72">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#00a699" stopOpacity={0.4} />
-              <stop offset="95%" stopColor="#00a699" stopOpacity={0.0} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
-          <XAxis
-            dataKey="date"
-            tickLine={false}
-            axisLine={false}
-            tick={{ fontSize: 11, fill: '#888888' }}
-          />
-          <YAxis
-            tickLine={false}
-            axisLine={false}
-            tickFormatter={formatCurrency}
-            tick={{ fontSize: 11, fill: '#888888' }}
-            width={65}
-          />
-          <Tooltip content={<CustomTooltip />} />
-          <Area
-            type="monotone"
-            dataKey="sales"
-            stroke="#00a699"
-            strokeWidth={2.5}
-            fillOpacity={1}
-            fill="url(#colorSales)"
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+    <div className="space-y-4">
+      {/* Header Grafik & Filter Periode */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-bold text-foreground">Tren Penjualan</h2>
+        
+        {/* Tombol Filter */}
+        <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg text-xs">
+          {(['7', '14', '30'] as const).map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRange(r)}
+              className={`px-2.5 py-1 rounded-md font-semibold transition-all cursor-pointer ${
+                range === r
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {r} Hari
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Area Chart dengan Drilldown saat diklik */}
+      <Link href="/vendor/orders" className="block w-full h-64 sm:h-72 cursor-pointer" title="Klik untuk lihat pesanan">
+        <ResponsiveContainer width="100%" height="100%">
+          <AreaChart data={filteredData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+            <defs>
+              <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#00a699" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#00a699" stopOpacity={0.0} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#88888820" />
+            <XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fontSize: 11, fill: '#888888' }} />
+            <YAxis tickLine={false} axisLine={false} tickFormatter={formatCurrency} tick={{ fontSize: 11, fill: '#888888' }} width={65} />
+            <Tooltip content={<CustomTooltip />} />
+            <Area type="monotone" dataKey="sales" stroke="#00a699" strokeWidth={2.5} fillOpacity={1} fill="url(#colorSales)" />
+          </AreaChart>
+        </ResponsiveContainer>
+      </Link>
     </div>
   )
 }

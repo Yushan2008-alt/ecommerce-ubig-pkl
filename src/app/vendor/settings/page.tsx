@@ -5,7 +5,7 @@ import { VendorSettingsClient } from '@/components/vendor/vendor-settings-client
 import { AlertCircle } from 'lucide-react'
 
 export const metadata = {
-  title: 'Pengaturan Toko — Krafita Vendor Center',
+  title: 'Pengaturan Toko | Krafita',
 }
 
 export default async function VendorSettingsPage() {

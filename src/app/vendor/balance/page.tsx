@@ -5,7 +5,7 @@ import { VendorBalanceClient } from '@/components/vendor/vendor-balance-client'
 import { AlertCircle } from 'lucide-react'
 
 export const metadata = {
-  title: 'Saldo & Penarikan Dana (Payout) — Krafita Vendor Center',
+  title: 'Saldo (Payout) | Krafita',
 }
 
 export default async function VendorBalancePage() {
