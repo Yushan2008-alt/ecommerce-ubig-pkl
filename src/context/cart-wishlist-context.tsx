@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useMemo, useCall
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
+import { useAuthModal } from '@/context/auth-modal-context'
 import { createClient } from '@/lib/supabase/client'
 import {
   addToCartAction,
@@ -58,6 +59,8 @@ interface CartWishlistContextType {
   cartCount: number
   wishlistCount: number
   cartSubtotal: number
+  isAuthenticated: boolean
+  userId: string | null
   addToCart: (product: Omit<CartItem, 'qty'>, qty?: number, buyerNote?: string) => Promise<boolean>
   removeFromCart: (id: string) => Promise<void>
   updateCartQty: (id: string, qty: number) => Promise<void>
@@ -78,6 +81,7 @@ const CartWishlistContext = createContext<CartWishlistContextType | null>(null)
 export function CartWishlistProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const { t, locale } = useLanguage()
+  const { openLoginModal } = useAuthModal()
   const [cartItems, setCartItems] = useState<CartItem[]>([])
   const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
@@ -90,15 +94,11 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
     async function init() {
       try {
         const storedCartRaw = localStorage.getItem(CART_STORAGE_KEY)
-        const storedWishlistRaw = localStorage.getItem(WISHLIST_STORAGE_KEY)
-
         const localCart: CartItem[] = storedCartRaw ? JSON.parse(storedCartRaw) : []
-        const localWishlist: WishlistItem[] = storedWishlistRaw ? JSON.parse(storedWishlistRaw) : []
 
         if (!isMounted) return
 
         setCartItems(localCart)
-        setWishlistItems(localWishlist)
 
         const supabase = createClient()
         const { data: authData } = await supabase.auth.getUser()
@@ -107,7 +107,7 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
         if (currentUser) {
           setUserId(currentUser.id)
 
-          // Jika ada data lokal saat login, merge ke database
+          // Jika ada data keranjang lokal saat login, merge ke database
           if (localCart.length > 0) {
             await mergeGuestCartAction(
               localCart.map((i) => ({
@@ -116,10 +116,6 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
                 buyerNote: i.buyerNote,
               }))
             )
-          }
-
-          if (localWishlist.length > 0) {
-            await mergeGuestWishlistAction(localWishlist.map((w) => w.id))
           }
 
           // Sinkronisasi data terkini dari database
@@ -167,6 +163,13 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
             }))
             if (isMounted) setWishlistItems(mappedWishlist)
           }
+        } else {
+          // Mode guest: Bersihkan wishlist di state dan localStorage agar tidak ada produk ter-wishlist
+          setUserId(null)
+          setWishlistItems([])
+          try {
+            localStorage.removeItem(WISHLIST_STORAGE_KEY)
+          } catch {}
         }
       } catch (e) {
         console.error('Failed to initialize cart/wishlist:', e)
@@ -185,17 +188,12 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
         // Auto merge on sign-in event
         try {
           const storedCartRaw = localStorage.getItem(CART_STORAGE_KEY)
-          const storedWishlistRaw = localStorage.getItem(WISHLIST_STORAGE_KEY)
           const cItems: CartItem[] = storedCartRaw ? JSON.parse(storedCartRaw) : []
-          const wItems: WishlistItem[] = storedWishlistRaw ? JSON.parse(storedWishlistRaw) : []
 
           if (cItems.length > 0) {
             await mergeGuestCartAction(
               cItems.map((i) => ({ id: i.id, qty: i.qty, buyerNote: i.buyerNote }))
             )
-          }
-          if (wItems.length > 0) {
-            await mergeGuestWishlistAction(wItems.map((w) => w.id))
           }
 
           const [cartRes, wishRes] = await Promise.all([
@@ -247,6 +245,10 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
         }
       } else if (event === 'SIGNED_OUT') {
         setUserId(null)
+        setWishlistItems([])
+        try {
+          localStorage.removeItem(WISHLIST_STORAGE_KEY)
+        } catch {}
       }
     })
 
@@ -269,18 +271,22 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
   useEffect(() => {
     if (!isInitialized) return
     try {
-      localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlistItems))
+      if (userId && wishlistItems.length > 0) {
+        localStorage.setItem(WISHLIST_STORAGE_KEY, JSON.stringify(wishlistItems))
+      } else {
+        localStorage.removeItem(WISHLIST_STORAGE_KEY)
+      }
     } catch (e) {
       console.error('Failed to save wishlist to localStorage:', e)
     }
-  }, [wishlistItems, isInitialized])
+  }, [wishlistItems, isInitialized, userId])
 
   // Counts & totals
   const cartCount = useMemo(() => {
     return cartItems.reduce((acc, item) => acc + item.qty, 0)
   }, [cartItems])
 
-  const wishlistCount = wishlistItems.length
+  const wishlistCount = userId ? wishlistItems.length : 0
 
   const cartSubtotal = useMemo(() => {
     return cartItems.reduce((acc, item) => acc + item.price * item.qty, 0)
@@ -463,37 +469,44 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
     }
   }
 
-  // Toggle Wishlist
+  // Toggle Wishlist (Wajib Login - Mode Guest diblokir & diarahkan untuk login)
   const toggleWishlist = async (product: WishlistItem): Promise<boolean> => {
-    const isCurrentlyWishlisted = wishlistItems.some((item) => item.id === product.id)
-
-    if (userId) {
-      const res = await toggleWishlistAction(product.id)
-      if (!res.success) {
-        toast.error(res.error || 'Gagal mengubah wishlist')
-        return false
-      }
-      await refreshWishlist()
-      if (res.isFavorited) {
-        toast.success(t.added_to_wishlist, { description: product.title })
-      } else {
-        toast.info(t.removed_from_wishlist, { description: product.title })
-      }
-      return res.isFavorited
-    } else {
-      if (isCurrentlyWishlisted) {
-        setWishlistItems((prev) => prev.filter((item) => item.id !== product.id))
-        toast.info(t.removed_from_wishlist, { description: product.title })
-        return false
-      } else {
-        setWishlistItems((prev) => [...prev, product])
-        toast.success(t.added_to_wishlist, { description: product.title })
-        return true
-      }
+    if (!userId) {
+      toast.info(
+        locale === 'id'
+          ? 'Silakan masuk terlebih dahulu untuk menambahkan produk ke wishlist'
+          : 'Please log in to add products to your wishlist',
+        {
+          action: {
+            label: locale === 'id' ? 'Masuk' : 'Log In',
+            onClick: () => {
+              const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+              openLoginModal(currentPath)
+            },
+          },
+        }
+      )
+      const currentPath = typeof window !== 'undefined' ? window.location.pathname : '/'
+      openLoginModal(currentPath)
+      return false
     }
+
+    const res = await toggleWishlistAction(product.id)
+    if (!res.success) {
+      toast.error(res.error || 'Gagal mengubah wishlist')
+      return false
+    }
+    await refreshWishlist()
+    if (res.isFavorited) {
+      toast.success(t.added_to_wishlist, { description: product.title })
+    } else {
+      toast.info(t.removed_from_wishlist, { description: product.title })
+    }
+    return res.isFavorited
   }
 
   const isInWishlist = (id: string) => {
+    if (!userId) return false
     return wishlistItems.some((item) => item.id === id)
   }
 
@@ -509,6 +522,8 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
         cartCount,
         wishlistCount,
         cartSubtotal,
+        isAuthenticated: Boolean(userId),
+        userId,
         addToCart,
         removeFromCart,
         updateCartQty,

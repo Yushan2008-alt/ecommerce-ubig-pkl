@@ -27,6 +27,7 @@ import { ProductComments } from './product-comments'
 import { ReportModal } from './report-modal'
 import { addToCartAction } from '@/actions/cart'
 import { toggleWishlistAction } from '@/actions/wishlist'
+import { useAuthModal } from '@/context/auth-modal-context'
 import { toast } from 'sonner'
 
 interface ProductDetailViewProps {
@@ -51,6 +52,7 @@ export function ProductDetailView({
   isInWishlist = false,
 }: ProductDetailViewProps) {
   const router = useRouter()
+  const { openLoginModal } = useAuthModal()
   const images: string[] = (product.product_images || []).map((img: any) => img.path || img)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'shipping' | 'reviews' | 'comments'>('desc')
@@ -123,7 +125,13 @@ export function ProductDetailView({
   // Toggle wishlist handler
   const handleToggleWishlist = async () => {
     if (!currentUserId) {
-      router.push(`/login?next=/products/${product.slug}`)
+      toast.info('Silakan masuk terlebih dahulu untuk menambahkan produk ke wishlist', {
+        action: {
+          label: 'Masuk',
+          onClick: () => openLoginModal(`/products/${product.slug}`),
+        },
+      })
+      openLoginModal(`/products/${product.slug}`)
       return
     }
 

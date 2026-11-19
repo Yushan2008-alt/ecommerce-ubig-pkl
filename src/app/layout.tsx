@@ -40,12 +40,12 @@ export default function RootLayout({
     >
       <body className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-background text-foreground font-sans" suppressHydrationWarning>
         <LanguageProvider>
-          <CartWishlistProvider>
-            <AuthModalProvider>
+          <AuthModalProvider>
+            <CartWishlistProvider>
               {children}
               <Toaster position="top-right" />
-            </AuthModalProvider>
-          </CartWishlistProvider>
+            </CartWishlistProvider>
+          </AuthModalProvider>
         </LanguageProvider>
       </body>
     </html>

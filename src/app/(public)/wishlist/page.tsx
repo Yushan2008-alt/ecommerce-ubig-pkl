@@ -5,11 +5,13 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { Heart, ShoppingBag, ShoppingCart, Trash2, ArrowRight, Star } from 'lucide-react'
 import { useCartWishlist } from '@/context/cart-wishlist-context'
+import { useAuthModal } from '@/context/auth-modal-context'
 import { useLanguage } from '@/context/language-context'
 
 export default function WishlistPage() {
   const { t } = useLanguage()
-  const { wishlistItems, toggleWishlist, addToCart, wishlistCount } = useCartWishlist()
+  const { wishlistItems, toggleWishlist, addToCart, wishlistCount, isAuthenticated } = useCartWishlist()
+  const { openLoginModal } = useAuthModal()
 
   const formatPrice = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -37,13 +39,34 @@ export default function WishlistPage() {
         {/* Page Title */}
         <div className="flex items-center justify-between pb-6 border-b border-border/80 mb-6">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
-              {t.wishlist_page_title}
-            </h1>
           </div>
         </div>
 
-        {wishlistItems.length === 0 ? (
+        {!isAuthenticated ? (
+          /* Unauthenticated Guest State */
+          <div className="bg-card border border-border/80 rounded-2xl p-8 sm:p-14 text-center max-w-lg mx-auto shadow-xs">
+            <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-8 h-8 fill-rose-500" />
+            </div>
+            <h2 className="text-base sm:text-lg font-bold text-foreground mb-1.5">
+              Wishlist Anda Kosong
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground max-w-sm mx-auto mb-6">
+              Simpan produk favorit Anda.
+            </p>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => openLoginModal('/wishlist')}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold px-6 py-2.5 rounded-xl shadow-xs transition-colors cursor-pointer"
+              >
+                Masuk ke Akun
+                <ArrowRight className="w-4 h-4" />
+              </button>
+         
+            </div>
+          </div>
+        ) : wishlistItems.length === 0 ? (
           /* Empty State */
           <div className="bg-card border border-border/80 rounded-md p-10 sm:p-16 text-center max-w-xl mx-auto shadow-xs">
             <div className="w-16 h-16 rounded-full bg-rose-500/10 text-rose-500 flex items-center justify-center mx-auto mb-4">
