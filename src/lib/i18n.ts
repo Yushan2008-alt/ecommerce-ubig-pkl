@@ -268,6 +268,7 @@ export const translations = {
 
     // Fase 6: Account Page
     my_account: 'Akun Saya',
+    my_orders: 'Pesanan Saya',
     account_desc: 'Kelola informasi profil pribadi dan buku alamat pengiriman Anda.',
     profile_tab: 'Profil Saya',
     address_tab: 'Buku Alamat',
@@ -602,6 +603,7 @@ export const translations = {
 
     // Fase 6: Account Page
     my_account: 'My Account',
+    my_orders: 'My Orders',
     account_desc: 'Manage your personal profile information and delivery address book.',
     profile_tab: 'My Profile',
     address_tab: 'Address Book',

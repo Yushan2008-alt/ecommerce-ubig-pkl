@@ -17,6 +17,7 @@ import {
   User,
   LogOut,
   ShieldCheck,
+  Package,
 } from 'lucide-react'
 import { CATALOG_CATEGORIES } from '@/lib/catalog-data'
 
@@ -119,6 +120,14 @@ export function HeaderTopRightControls({
                   >
                     <User className="w-3.5 h-3.5 text-[#00a699]" />
                     <span>{t.my_account}</span>
+                  </Link>
+                  <Link
+                    href="/orders"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-2.5 py-1.5 rounded hover:bg-muted text-foreground transition-colors"
+                  >
+                    <Package className="w-3.5 h-3.5 text-[#00a699]" />
+                    <span>{t.my_orders || (locale === 'en' ? 'My Orders' : 'Pesanan Saya')}</span>
                   </Link>
                   {profile?.role === 'vendor' && (
                     <Link

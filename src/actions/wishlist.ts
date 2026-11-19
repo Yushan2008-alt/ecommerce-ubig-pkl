@@ -19,6 +19,22 @@ export async function toggleWishlistAction(
 
     const supabase = await createClient()
 
+    // Cegah vendor menambahkan produk dari tokonya sendiri ke wishlist
+    const { data: product } = await supabase
+      .from('products')
+      .select('id, shop_id, shops(profile_id)')
+      .eq('id', productId)
+      .maybeSingle()
+
+    const shop = product?.shops as any
+    if (shop?.profile_id === user.id) {
+      return {
+        success: false,
+        isFavorited: false,
+        error: 'Vendor tidak dapat menambahkan produk sendiri ke wishlist.',
+      }
+    }
+
     // Cek apakah produk sudah ada di wishlist
     const { data: existing } = await supabase
       .from('wishlists')

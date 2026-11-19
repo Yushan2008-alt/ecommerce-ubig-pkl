@@ -106,6 +106,11 @@ export function ProductDetailView({
 
   // Add to cart handler (terhubung langsung ke CartWishlistContext untuk update realtime instan tanpa refresh)
   const handleAddToCart = async () => {
+    if (isOwner) {
+      toast.info('Sebagai vendor pemilik toko, Anda tidak dapat memasukkan produk sendiri ke keranjang.')
+      return
+    }
+
     if (!currentUserId) {
       toast.info('Silakan masuk terlebih dahulu untuk menambahkan produk ke keranjang', {
         action: {
@@ -150,6 +155,11 @@ export function ProductDetailView({
 
   // Buy now handler (direct checkout)
   const handleBuyNow = () => {
+    if (isOwner) {
+      toast.info('Sebagai vendor pemilik toko, Anda tidak dapat membeli produk Anda sendiri.')
+      return
+    }
+
     if (!currentUserId) {
       toast.info('Silakan masuk terlebih dahulu untuk melanjutkan pembelian', {
         action: {
@@ -178,6 +188,11 @@ export function ProductDetailView({
 
   // Toggle wishlist handler (terhubung langsung ke CartWishlistContext untuk update realtime instan tanpa refresh)
   const handleToggleWishlist = async () => {
+    if (isOwner) {
+      toast.info('Sebagai vendor pemilik toko, Anda tidak dapat menambahkan produk sendiri ke wishlist.')
+      return
+    }
+
     if (!currentUserId) {
       toast.info('Silakan masuk terlebih dahulu untuk menambahkan produk ke wishlist', {
         action: {
@@ -444,8 +459,8 @@ export function ProductDetailView({
                 </div>
               </div>
 
-              {/* Quantity Counter (untuk produk fisik) */}
-              {isPhysical && (
+              {/* Quantity Counter (hanya jika produk fisik dan BUKAN pemilik produk) */}
+              {!isOwner && isPhysical && (
                 <div className="flex items-center gap-3 pt-1">
                   <span className="text-xs font-bold text-foreground">Jumlah:</span>
                   <div className="inline-flex items-center border border-border rounded-xl overflow-hidden bg-background">
@@ -470,47 +485,70 @@ export function ProductDetailView({
                 </div>
               )}
 
-              {/* Tombol Aksi: Sejajar 3 Memanjang Sedikit ke Samping Agar Teks Mendatar Satu Baris */}
-              <div className="grid grid-cols-3 gap-2 sm:gap-2.5 pt-2 w-full max-w-xl">
-                {/* 1. Tombol Beli Sekarang */}
-                <button
-                  type="button"
-                  onClick={handleBuyNow}
-                  className="w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-black font-bold text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm hover:shadow cursor-pointer"
-                >
-                  <CreditCard className="w-4 h-4 shrink-0" />
-                  <span className="whitespace-nowrap">Beli Sekarang</span>
-                </button>
+              {/* Tombol Aksi: Jika vendor pemilik produk, hanya bisa melihat detail */}
+              {isOwner ? (
+                <div className="w-full max-w-xl p-4 rounded-2xl bg-muted/40 border border-border/80 space-y-3">
+                  <div className="flex items-start gap-2.5 text-xs text-muted-foreground">
+                    <Store className="w-4 h-4 text-[#00a699] shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold text-foreground">Ini adalah produk dari toko Anda sendiri</p>
+                      <p className="mt-0.5 text-[11px] leading-relaxed">
+                        Sebagai vendor pemilik produk, Anda tidak dapat memesan, menambahkan ke keranjang, atau menyimpan produk ini ke wishlist. Anda hanya dapat melihat tampilan detail produk ini.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-border/60 flex items-center gap-2">
+                    <Link
+                      href="/vendor/products"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-2xs"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Kelola di Dashboard Vendor</span>
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2 sm:gap-2.5 pt-2 w-full max-w-xl">
+                  {/* 1. Tombol Beli Sekarang */}
+                  <button
+                    type="button"
+                    onClick={handleBuyNow}
+                    className="w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-black font-bold text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm hover:shadow cursor-pointer"
+                  >
+                    <CreditCard className="w-4 h-4 shrink-0" />
+                    <span className="whitespace-nowrap">Beli Sekarang</span>
+                  </button>
 
-                {/* 2. Tombol Add to Cart (warna utama projek Krafita #00a699) */}
-                <button
-                  type="button"
-                  disabled={addingToCart}
-                  onClick={handleAddToCart}
-                  className="w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white font-bold text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-60"
-                >
-                  <ShoppingCart className="w-4 h-4 shrink-0" />
-                  <span className="whitespace-nowrap">Add to Cart</span>
-                </button>
+                  {/* 2. Tombol Add to Cart (warna utama projek Krafita #00a699) */}
+                  <button
+                    type="button"
+                    disabled={addingToCart}
+                    onClick={handleAddToCart}
+                    className="w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white font-bold text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-60"
+                  >
+                    <ShoppingCart className="w-4 h-4 shrink-0" />
+                    <span className="whitespace-nowrap">Add to Cart</span>
+                  </button>
 
-                {/* 3. Tombol Wishlist */}
-                <button
-                  type="button"
-                  onClick={handleToggleWishlist}
-                  className={`w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl border font-bold text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
-                    isFavorited
-                      ? 'border-rose-300 bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:border-rose-800'
-                      : 'border-border/80 bg-background text-foreground hover:bg-muted'
-                  }`}
-                >
-                  <Heart
-                    className={`w-4 h-4 shrink-0 ${
-                      isFavorited ? 'fill-rose-500 text-rose-500' : ''
+                  {/* 3. Tombol Wishlist */}
+                  <button
+                    type="button"
+                    onClick={handleToggleWishlist}
+                    className={`w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl border font-bold text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                      isFavorited
+                        ? 'border-rose-300 bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:border-rose-800'
+                        : 'border-border/80 bg-background text-foreground hover:bg-muted'
                     }`}
-                  />
-                  <span className="whitespace-nowrap">Wishlist</span>
-                </button>
-              </div>
+                  >
+                    <Heart
+                      className={`w-4 h-4 shrink-0 ${
+                        isFavorited ? 'fill-rose-500 text-rose-500' : ''
+                      }`}
+                    />
+                    <span className="whitespace-nowrap">Wishlist</span>
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* SUB-KOLOM KANAN (Col 9-12): Tabel Spesifikasi Rapi */}

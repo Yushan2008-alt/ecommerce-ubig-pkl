@@ -61,6 +61,27 @@ export async function createOrderAction(data: {
     const randSuffix = Math.floor(1000 + Math.random() * 9000)
     const orderCode = `KRF-${dateStr}-${randSuffix}`
 
+    // 2.5 Validasi vendor tidak memesan produk sendiri & ambil data produk
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    const productIds = data.items.map((i) => i.productId).filter((id) => UUID_REGEX.test(id))
+    const { data: dbProducts } = await adminClient
+      .from('products')
+      .select('id, shop_id, type')
+      .in('id', productIds)
+
+    const { data: userShop } = await adminClient
+      .from('shops')
+      .select('id')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (userShop?.id && dbProducts) {
+      const hasOwnProduct = dbProducts.some((p) => p.shop_id === userShop.id)
+      if (hasOwnProduct) {
+        return { success: false, error: 'Vendor tidak dapat memesan produk dari tokonya sendiri.' }
+      }
+    }
+
     // 3. Simpan ke tabel orders
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 jam
     const { data: newOrder, error: orderError } = await adminClient
@@ -90,14 +111,6 @@ export async function createOrderAction(data: {
 
     // 4. Simpan item ke tabel order_items dengan validasi shop_id riil
     const trackingNumber = `KRFEXP-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`
-    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-    const productIds = data.items.map((i) => i.productId).filter((id) => UUID_REGEX.test(id))
-    const { data: dbProducts } = await adminClient
-      .from('products')
-      .select('id, shop_id, type')
-      .in('id', productIds)
-
     const productMap = new Map((dbProducts || []).map((p) => [p.id, p]))
 
     let defaultShopId = '06f642de-654a-4c48-87c0-aaee352d8ad4'
@@ -713,6 +726,29 @@ export async function createMarketplaceOrderAction(data: MarketplaceOrderPayload
       email: data.customerEmail || user.email,
     }
 
+    // 2.5. Validasi produk & pastikan vendor tidak memesan produk miliknya sendiri
+    const UUID_REGEX_MP = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    const productIds = data.items.map((i) => i.productId).filter((id) => UUID_REGEX_MP.test(id))
+    const { data: dbProducts } = await adminClient
+      .from('products')
+      .select('id, shop_id, type')
+      .in('id', productIds)
+
+    const productMap = new Map((dbProducts || []).map((p) => [p.id, p]))
+
+    const { data: userShop } = await adminClient
+      .from('shops')
+      .select('id')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (userShop?.id) {
+      const hasOwnProduct = (dbProducts || []).some((p) => p.shop_id === userShop.id)
+      if (hasOwnProduct) {
+        return { success: false, error: 'Vendor tidak dapat memesan produk dari tokonya sendiri.' }
+      }
+    }
+
     // 3. Simpan ke tabel orders
     const { data: newOrder, error: orderError } = await adminClient
       .from('orders')
@@ -735,15 +771,6 @@ export async function createMarketplaceOrderAction(data: MarketplaceOrderPayload
     // 4. Simpan ke tabel order_items dengan resolusi shop_id riil
     const trackingNumber = `KRFEXP-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`
     const downloadExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30 hari
-    const UUID_REGEX_MP = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
-
-    const productIds = data.items.map((i) => i.productId).filter((id) => UUID_REGEX_MP.test(id))
-    const { data: dbProducts } = await adminClient
-      .from('products')
-      .select('id, shop_id, type')
-      .in('id', productIds)
-
-    const productMap = new Map((dbProducts || []).map((p) => [p.id, p]))
 
     let defaultShopId = '06f642de-654a-4c48-87c0-aaee352d8ad4'
     const { data: activeShop } = await adminClient
@@ -1030,6 +1057,251 @@ export async function autoCompleteDeliveredOrdersAction(): Promise<{
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Gagal menjalankan auto complete'
     return { success: false, completedCount: 0, error: msg }
+  }
+}
+
+export interface BuyerOrderItem {
+  id: string
+  productId: string
+  title: string
+  price: number
+  qty: number
+  shippingCost: number
+  fulfilmentStatus: 'waiting' | 'processing' | 'shipped' | 'completed' | 'cancelled'
+  trackingNumber: string | null
+  productType: 'physical' | 'digital'
+  productSlug: string | null
+  imageUrl: string | null
+  shopId: string
+  shopName: string
+  shopSlug: string
+  shopLogo: string | null
+  shopCity: string | null
+}
+
+export interface BuyerOrder {
+  id: string
+  code: string
+  status: 'pending_payment' | 'paid' | 'expired' | 'cancelled'
+  total: number
+  snapToken: string | null
+  createdAt: string
+  paidAt: string | null
+  expiresAt: string | null
+  shippingAddress: any
+  items: BuyerOrderItem[]
+  computedStatus: 'unpaid' | 'processing' | 'shipped' | 'completed' | 'cancelled'
+  itemCount: number
+}
+
+/**
+ * Mengambil daftar seluruh pesanan yang dibeli oleh pengguna saat ini (Pembeli).
+ */
+export async function getBuyerOrdersAction(): Promise<{
+  success: boolean
+  error?: string
+  orders?: BuyerOrder[]
+}> {
+  try {
+    const { user } = await getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized', orders: [] }
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Ambil semua pesanan milik user login
+    const { data: dbOrders, error: orderErr } = await admin
+      .from('orders')
+      .select('*')
+      .eq('profile_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (orderErr) {
+      return { success: false, error: orderErr.message, orders: [] }
+    }
+
+    if (!dbOrders || dbOrders.length === 0) {
+      return { success: true, orders: [] }
+    }
+
+    const orderIds = dbOrders.map((o) => o.id)
+
+    // 2. Ambil seluruh order_items dari pesanan-pesanan tersebut
+    const { data: dbItems, error: itemsErr } = await admin
+      .from('order_items')
+      .select(`
+        id,
+        order_id,
+        shop_id,
+        product_id,
+        title,
+        price,
+        qty,
+        shipping_cost,
+        fulfilment_status,
+        tracking_number,
+        buyer_note,
+        downloads_count,
+        download_expires_at,
+        created_at
+      `)
+      .in('order_id', orderIds)
+
+    if (itemsErr) {
+      return { success: false, error: itemsErr.message, orders: [] }
+    }
+
+    // 3. Ambil data produk terkait
+    const productIds = Array.from(new Set((dbItems || []).map((it) => it.product_id).filter(Boolean)))
+    let productMap = new Map<string, any>()
+    if (productIds.length > 0) {
+      const { data: dbProducts } = await admin
+        .from('products')
+        .select(`
+          id,
+          slug,
+          type,
+          product_images (path, sort_order)
+        `)
+        .in('id', productIds)
+
+      productMap = new Map((dbProducts || []).map((p) => [p.id, p]))
+    }
+
+    // 4. Ambil data toko terkait
+    const shopIds = Array.from(new Set((dbItems || []).map((it) => it.shop_id).filter(Boolean)))
+    let shopMap = new Map<string, any>()
+    if (shopIds.length > 0) {
+      const { data: dbShops } = await admin
+        .from('shops')
+        .select('id, name, slug, logo_url, city')
+        .in('id', shopIds)
+
+      shopMap = new Map((dbShops || []).map((s) => [s.id, s]))
+    }
+
+    const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}/storage/v1/object/public/product-images`
+
+    // 5. Kelompokkan items ke masing-masing order
+    const itemsByOrderId = new Map<string, BuyerOrderItem[]>()
+
+    for (const it of dbItems || []) {
+      const product = productMap.get(it.product_id)
+      const shop = shopMap.get(it.shop_id)
+
+      const rawImages = Array.isArray(product?.product_images)
+        ? [...product.product_images]
+        : product?.product_images
+        ? [product.product_images]
+        : []
+
+      rawImages.sort((a: any, b: any) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
+      const primaryPath = rawImages[0]?.path || null
+
+      let imageUrl: string | null = null
+      if (primaryPath) {
+        if (primaryPath.startsWith('http://') || primaryPath.startsWith('https://') || primaryPath.startsWith('/')) {
+          imageUrl = primaryPath
+        } else if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          imageUrl = `${storageBaseUrl}/${primaryPath.replace(/^product-images\//, '')}`
+        } else {
+          imageUrl = primaryPath
+        }
+      }
+
+      const itemObj: BuyerOrderItem = {
+        id: it.id,
+        productId: it.product_id,
+        title: it.title,
+        price: Number(it.price || 0),
+        qty: Number(it.qty || 1),
+        shippingCost: Number(it.shipping_cost || 0),
+        fulfilmentStatus: (it.fulfilment_status as any) || 'waiting',
+        trackingNumber: it.tracking_number || null,
+        productType: product?.type || (it.download_expires_at ? 'digital' : 'physical'),
+        productSlug: product?.slug || null,
+        imageUrl,
+        shopId: it.shop_id,
+        shopName: shop?.name || 'Toko Krafita',
+        shopSlug: shop?.slug || '',
+        shopLogo: shop?.logo_url || null,
+        shopCity: shop?.city || null,
+      }
+
+      const existing = itemsByOrderId.get(it.order_id) || []
+      existing.push(itemObj)
+      itemsByOrderId.set(it.order_id, existing)
+    }
+
+    // 6. Cek apakah pengguna saat ini adalah vendor yang memiliki toko
+    const { data: userShop } = await admin
+      .from('shops')
+      .select('id')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    // 7. Bentuk BuyerOrder lengkap dan filter secara ketat:
+    // - Hanya pesanan yang memiliki item barang nyata (items.length > 0)
+    // - Jika user adalah vendor, jangan sertakan pesanan yang berisi produk dari tokonya sendiri (karena itu pesanan masuk toko/penjualan, bukan belanjaan pembeli)
+    const orders: BuyerOrder[] = []
+
+    for (const ord of dbOrders) {
+      const items = itemsByOrderId.get(ord.id) || []
+      // 1. Abaikan pesanan tanpa rincian item (dummy / corrupted)
+      if (items.length === 0) continue
+
+      // 2. Abaikan jika semua item berasal dari toko milik vendor itu sendiri
+      if (userShop?.id && items.every((it) => it.shopId === userShop.id)) {
+        continue
+      }
+
+      const totalItemsCount = items.reduce((acc, i) => acc + i.qty, 0)
+
+      let computedStatus: 'unpaid' | 'processing' | 'shipped' | 'completed' | 'cancelled' = 'unpaid'
+
+      if (ord.status === 'pending_payment') {
+        if (ord.expires_at && new Date(ord.expires_at).getTime() < Date.now()) {
+          computedStatus = 'cancelled'
+        } else {
+          computedStatus = 'unpaid'
+        }
+      } else if (ord.status === 'cancelled' || ord.status === 'expired') {
+        computedStatus = 'cancelled'
+      } else if (ord.status === 'paid') {
+        if (items.length > 0 && items.every((i) => i.fulfilmentStatus === 'completed')) {
+          computedStatus = 'completed'
+        } else if (items.some((i) => i.fulfilmentStatus === 'shipped')) {
+          computedStatus = 'shipped'
+        } else if (items.some((i) => i.fulfilmentStatus === 'processing' || i.fulfilmentStatus === 'waiting')) {
+          computedStatus = 'processing'
+        } else if (items.length > 0 && items.every((i) => i.fulfilmentStatus === 'cancelled')) {
+          computedStatus = 'cancelled'
+        } else {
+          computedStatus = 'processing'
+        }
+      }
+
+      orders.push({
+        id: ord.id,
+        code: ord.code,
+        status: ord.status,
+        total: Number(ord.total || 0),
+        snapToken: ord.snap_token || null,
+        createdAt: ord.created_at,
+        paidAt: ord.paid_at || null,
+        expiresAt: ord.expires_at || null,
+        shippingAddress: ord.shipping_address || null,
+        items,
+        computedStatus,
+        itemCount: totalItemsCount,
+      })
+    }
+
+    return { success: true, orders }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memuat pesanan pembeli'
+    return { success: false, error: msg, orders: [] }
   }
 }
 
