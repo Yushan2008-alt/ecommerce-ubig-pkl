@@ -602,7 +602,11 @@ export async function getVendorDashboardDataAction(): Promise<{
 
     allItems.forEach((item: any) => {
       const order = Array.isArray(item.orders) ? item.orders[0] : item.orders
-      if (order?.status === 'paid') {
+      const isPaid =
+        order?.status?.toLowerCase() === 'paid' ||
+        ['processing', 'shipped', 'completed'].includes(item.fulfilment_status)
+
+      if (isPaid) {
         totalGrossSales += Number(item.price) * Number(item.qty)
         if (['processing', 'shipped', 'completed'].includes(item.fulfilment_status)) {
           totalNetCompleted += Number(item.net_amount || (Number(item.price) * Number(item.qty)))
@@ -689,7 +693,7 @@ export async function getVendorDashboardDataAction(): Promise<{
       }
     })
 
-    // 6. Data grafik 14 hari terakhir
+    // 6. Data grafik 14 hari terakhir (sinkron dengan pesanan yang valid/dibayar)
     const daysMap = new Map<string, { sales: number; orders: number }>()
     for (let i = 13; i >= 0; i--) {
       const d = new Date()
@@ -699,13 +703,21 @@ export async function getVendorDashboardDataAction(): Promise<{
     }
 
     allItems.forEach((item: any) => {
-      const dateKey = new Date(item.created_at).toISOString().slice(5, 10)
-      if (daysMap.has(dateKey)) {
-        const current = daysMap.get(dateKey)!
-        daysMap.set(dateKey, {
-          sales: current.sales + Number(item.price) * Number(item.qty),
-          orders: current.orders + 1,
-        })
+      const order = Array.isArray(item.orders) ? item.orders[0] : item.orders
+      const isPaid =
+        order?.status?.toLowerCase() === 'paid' ||
+        ['processing', 'shipped', 'completed'].includes(item.fulfilment_status)
+
+      if (isPaid) {
+        const dateToUse = order?.paid_at || order?.created_at || item.created_at
+        const dateKey = new Date(dateToUse).toISOString().slice(5, 10)
+        if (daysMap.has(dateKey)) {
+          const current = daysMap.get(dateKey)!
+          daysMap.set(dateKey, {
+            sales: current.sales + Number(item.price) * Number(item.qty),
+            orders: current.orders + 1,
+          })
+        }
       }
     })
 
@@ -717,10 +729,15 @@ export async function getVendorDashboardDataAction(): Promise<{
 
     const rawSales = allItems.map((item: any) => {
       const order = Array.isArray(item.orders) ? item.orders[0] : item.orders
+      const isPaid =
+        order?.status?.toLowerCase() === 'paid' ||
+        ['processing', 'shipped', 'completed'].includes(item.fulfilment_status)
+      const dateToUse = order?.paid_at || order?.created_at || item.created_at
+
       return {
-        createdAt: item.created_at,
+        createdAt: dateToUse,
         amount: Number(item.price) * Number(item.qty),
-        isPaid: order?.status === 'paid',
+        isPaid,
       }
     })
 

@@ -205,8 +205,8 @@ export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
 
   return (
     <>
-      {/* Mobile Top Header */}
-      <div className="lg:hidden sticky top-0 z-40 bg-card border-b border-border/80 px-4 h-14 flex items-center justify-between shadow-xs">
+      {/* Mobile Top Header (Fixed at top, shrink-0) */}
+      <div className="lg:hidden shrink-0 bg-card border-b border-border/80 px-4 h-14 flex items-center justify-between shadow-xs z-30">
         <div className="flex items-center gap-2">
           <button
             type="button"
@@ -240,8 +240,8 @@ export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
         </div>
       )}
 
-      {/* Desktop Sidebar (Fixed left) */}
-      <aside className="hidden lg:block w-64 shrink-0 h-screen sticky top-0">
+      {/* Desktop Sidebar (Fixed left, locked to screen height) */}
+      <aside className="hidden lg:block w-64 shrink-0 h-full">
         {navContent}
       </aside>
     </>

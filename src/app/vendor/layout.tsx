@@ -31,7 +31,7 @@ export default async function VendorLayout({
   }
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-slate-50/60 dark:bg-background flex flex-col lg:flex-row">
+    <div className="h-screen h-[100dvh] w-full max-w-full overflow-hidden bg-slate-50/60 dark:bg-background flex flex-col lg:flex-row">
       <VendorSidebar
         shop={safeShop}
         user={{ email: user.email }}
@@ -40,7 +40,7 @@ export default async function VendorLayout({
           avatar_url: profile?.avatar_url,
         }}
       />
-      <main className="flex-1 min-w-0 w-full max-w-full p-4 sm:p-6 lg:p-8 overflow-y-auto overflow-x-hidden">
+      <main className="flex-1 min-w-0 w-full max-w-full h-full overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-8">
         <div className="w-full max-w-[1600px] min-w-0 mx-auto space-y-6">{children}</div>
       </main>
     </div>

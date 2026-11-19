@@ -204,8 +204,34 @@ export function VendorDashboardClient({
         sales: val.sales,
         orders: val.orders,
       }))
+    } else if (days.length <= 1) {
+      // Periode 1 hari (Hari Ini / Kemarin): Bagi menjadi 6 slot waktu agar kurva grafik terbentuk rapi
+      const singleDay = days[0] || from
+      const timeSlots = [
+        { label: '00:00', startH: 0, endH: 4 },
+        { label: '04:00', startH: 4, endH: 8 },
+        { label: '08:00', startH: 8, endH: 12 },
+        { label: '12:00', startH: 12, endH: 16 },
+        { label: '16:00', startH: 16, endH: 20 },
+        { label: '20:00', startH: 20, endH: 24 },
+      ]
+
+      chart = timeSlots.map((slot) => {
+        const slotSales = inRange.filter((s) => {
+          const d = new Date(s.createdAt)
+          if (!isSameDay(d, singleDay)) return false
+          const hour = d.getHours()
+          return hour >= slot.startH && hour < slot.endH
+        })
+        const salesSum = slotSales.reduce((acc, s) => acc + s.amount, 0)
+        return {
+          date: slot.label,
+          sales: salesSum,
+          orders: slotSales.length,
+        }
+      })
     } else {
-      // Agregasi harian untuk rentang <= 62 hari (Hari Ini, 7 Hari, 30 Hari, Bulan Ini, dsb)
+      // Agregasi harian untuk rentang 2 - 62 hari (7 Hari, 30 Hari, Bulan Ini, dsb)
       chart = days.map((day) => {
         const daySales = inRange.filter((s) => isSameDay(new Date(s.createdAt), day))
         const salesSum = daySales.reduce((acc, s) => acc + s.amount, 0)
@@ -257,9 +283,7 @@ export function VendorDashboardClient({
           <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
             Dashboard
           </h1>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Ringkasan performa dan transaksi toko {shop.name}
-          </p>
+  
         </div>
 
         {/* Filter Rentang Tanggal Shadcn UI Popover / Dropdown Menu */}
@@ -354,9 +378,7 @@ export function VendorDashboardClient({
             <h2 className="text-xl sm:text-2xl font-black text-foreground">
               {formatPrice(periodGrossSales)}
             </h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Semua transaksi lunas ({period.label})
-            </p>
+          
           </div>
         </Link>
 
@@ -375,7 +397,7 @@ export function VendorDashboardClient({
             <h2 className="text-xl sm:text-2xl font-black text-foreground">
               {metrics.newOrdersCount}
             </h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Perlu diproses / dikemas</p>
+    
           </div>
         </Link>
 
@@ -394,7 +416,7 @@ export function VendorDashboardClient({
             <h2 className="text-xl sm:text-2xl font-black text-foreground">
               {metrics.activeProductsCount}
             </h2>
-            <p className="text-[11px] text-muted-foreground mt-0.5">Tayang di etalase pembeli</p>
+        
           </div>
         </Link>
 
@@ -413,9 +435,7 @@ export function VendorDashboardClient({
             <h2 className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
               {formatPrice(metrics.availableBalance)}
             </h2>
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#00a699] mt-0.5">
-              Tarik Saldo <ArrowRight className="w-3 h-3" />
-            </span>
+         
           </div>
         </Link>
       </div>
