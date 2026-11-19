@@ -50,6 +50,7 @@ export interface MarketplaceOrderItemPayload {
   imageUrl?: string
   shopId?: string
   shopName?: string
+  shopCity?: string
   type: 'physical' | 'digital'
   buyerNote?: string
 }

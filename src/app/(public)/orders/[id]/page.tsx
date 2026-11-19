@@ -22,9 +22,15 @@ import {
   Star,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { getOrderDetailsAction, confirmOrderPaymentAction, confirmOrderReceivedAction } from '@/actions/order'
+import {
+  getOrderDetailsAction,
+  confirmOrderPaymentAction,
+  confirmOrderReceivedAction,
+  confirmEntireOrderReceivedAction,
+} from '@/actions/order'
 import { submitReviewAction } from '@/actions/social'
 import { Button } from '@/components/ui/button'
+import { createClient } from '@/lib/supabase/client'
 
 export default function OrderDetailsPage({
   params,
@@ -39,6 +45,7 @@ export default function OrderDetailsPage({
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [confirming, setConfirming] = useState(false)
   const [confirmingReceiptId, setConfirmingReceiptId] = useState<string | null>(null)
+  const [confirmingEntireOrder, setConfirmingEntireOrder] = useState(false)
   const [reviewModalItem, setReviewModalItem] = useState<{ id: string; productId: string; title: string } | null>(null)
   const [reviewRating, setReviewRating] = useState(5)
   const [reviewBody, setReviewBody] = useState('')
@@ -67,10 +74,55 @@ export default function OrderDetailsPage({
       }
     }
     load()
+
+    // Supabase Realtime Listener untuk order dan order_items
+    const supabase = createClient()
+    const channel = supabase
+      .channel(`order-detail-realtime-${orderId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders', filter: `id=eq.${orderId}` },
+        () => {
+          fetchOrder()
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'order_items', filter: `order_id=eq.${orderId}` },
+        () => {
+          fetchOrder()
+        }
+      )
+      .subscribe()
+
+    // Sinkron saat tab/jendela kembali fokus
+    const handleFocus = () => {
+      fetchOrder()
+    }
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOrder()
+      }
+    }
+
+    window.addEventListener('focus', handleFocus)
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+
+    // Polling interval lembut (setiap 6 detik) sebagai backup sinkronisasi
+    const intervalId = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchOrder()
+      }
+    }, 6000)
+
     return () => {
       isMounted = false
+      supabase.removeChannel(channel)
+      window.removeEventListener('focus', handleFocus)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      clearInterval(intervalId)
     }
-  }, [fetchOrder])
+  }, [orderId, fetchOrder])
 
   const handlePayNow = async () => {
     setConfirming(true)
@@ -108,6 +160,23 @@ export default function OrderDetailsPage({
       toast.error('Gagal memproses konfirmasi')
     } finally {
       setConfirmingReceiptId(null)
+    }
+  }
+
+  const handleConfirmEntireOrder = async () => {
+    setConfirmingEntireOrder(true)
+    try {
+      const res = await confirmEntireOrderReceivedAction(orderId)
+      if (res.success) {
+        toast.success('Pesanan berhasil diselesaikan!')
+        await fetchOrder()
+      } else {
+        toast.error(res.error || 'Gagal menyelesaikan pesanan')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan saat menyelesaikan pesanan')
+    } finally {
+      setConfirmingEntireOrder(false)
     }
   }
 
@@ -170,8 +239,16 @@ export default function OrderDetailsPage({
     )
   }
 
-  const { order, items, shippingInfo, trackingNumber, trackingSteps } = orderData
-  const isPaid = order.status === 'paid'
+  const { order, items, shippingInfo, trackingNumber, trackingSteps, computedStatus } = orderData
+  const currentStatus =
+    computedStatus ||
+    (order.status === 'paid'
+      ? 'waiting'
+      : order.status === 'cancelled' || order.status === 'expired'
+      ? 'cancelled'
+      : order.status === 'completed'
+      ? 'completed'
+      : 'unpaid')
 
   return (
     <div className="min-h-screen bg-slate-50/50 py-8 sm:py-12">
@@ -201,14 +278,9 @@ export default function OrderDetailsPage({
         <div className="bg-card rounded-2xl border border-border/80 shadow-xs p-6 sm:p-8 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-6 mb-6">
             <div className="space-y-1">
-              <div className="flex items-center gap-2.5">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Detail Pesanan
-                </span>
-                <span className="font-mono text-xs font-extrabold text-foreground bg-muted/60 px-2.5 py-0.5 rounded border border-border">
-                  {order.code}
-                </span>
-              </div>
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block">
+                Detail Pesanan
+              </span>
               <h1 className="text-xl sm:text-2xl font-bold text-foreground">
                 Total Tagihan: {formatPrice(order.total)}
               </h1>
@@ -225,38 +297,73 @@ export default function OrderDetailsPage({
             </div>
 
             <div className="flex flex-col sm:items-end gap-2">
-              <span
-                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-full border ${
-                  isPaid
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800'
-                    : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-400 dark:border-amber-800'
-                }`}
-              >
-                {isPaid ? (
-                  <>
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Pembayaran Berhasil (Lunas)
-                  </>
-                ) : (
-                  <>
-                    <Clock className="w-3.5 h-3.5" /> Menunggu Pembayaran
-                  </>
-                )}
-              </span>
+              {currentStatus === 'unpaid' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500">
+                  <Clock className="w-3.5 h-3.5" /> Menunggu Pembayaran
+                </span>
+              )}
+              {currentStatus === 'waiting' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600">
+                  <Clock className="w-3.5 h-3.5" /> Menunggu Pesanan Diterima
+                </span>
+              )}
+              {currentStatus === 'processing' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-500">
+                  <PackageCheck className="w-3.5 h-3.5" /> Sedang Dikemas
+                </span>
+              )}
+              {currentStatus === 'shipped' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#00a699]">
+                  <Truck className="w-3.5 h-3.5" /> Sedang Dikirim
+                </span>
+              )}
+              {currentStatus === 'completed' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-600">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Pesanan Selesai
+                </span>
+              )}
+              {currentStatus === 'cancelled' && (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-500">
+                  <AlertCircle className="w-3.5 h-3.5" /> Pesanan Dibatalkan
+                </span>
+              )}
 
-              {!isPaid && (
+              {/* Tombol Konfirmasi Bayar Sekarang HANYA muncul jika pesanan belum bayar (unpaid) */}
+              {currentStatus === 'unpaid' && (
                 <Button
                   type="button"
                   size="sm"
                   onClick={handlePayNow}
                   disabled={confirming}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-9 cursor-pointer"
+                  className="bg-[#00a699] hover:bg-[#008f84] text-white font-semibold text-xs h-8.5 px-3.5 rounded-xl cursor-pointer shadow-xs"
                 >
                   {confirming ? (
                     <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memproses...
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Memproses...
                     </>
                   ) : (
                     'Konfirmasi Bayar Sekarang'
+                  )}
+                </Button>
+              )}
+
+              {/* Opsi Selesaikan Pesanan jika status 'dikirim' (Shipped) */}
+              {currentStatus === 'shipped' && (
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleConfirmEntireOrder}
+                  disabled={confirmingEntireOrder}
+                  className="bg-[#00a699] hover:bg-[#008f84] text-white font-semibold text-xs h-8.5 px-3.5 rounded-xl cursor-pointer shadow-xs"
+                >
+                  {confirmingEntireOrder ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> Memproses...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Selesaikan Pesanan
+                    </>
                   )}
                 </Button>
               )}
@@ -289,8 +396,12 @@ export default function OrderDetailsPage({
             </div>
             <div>
               <span className="text-[11px] text-muted-foreground block">Estimasi Waktu Tiba</span>
-              <span className="text-xs font-bold text-emerald-600">
-                {shippingInfo.estimatedDays || '2-3 Hari Kerja'}
+              <span className="text-xs font-semibold text-foreground">
+                {currentStatus === 'cancelled'
+                  ? 'Dibatalkan'
+                  : currentStatus === 'completed'
+                  ? 'Telah Diterima'
+                  : shippingInfo.estimatedDays || '2-3 Hari'}
               </span>
             </div>
           </div>
@@ -307,28 +418,35 @@ export default function OrderDetailsPage({
             {trackingSteps.map((step: any, index: number) => {
               const isDone = step.completed
               const isCurrent = step.current
+              const isCancelledStep = step.isCancelled
 
               return (
                 <div key={index} className="relative group">
-                  {/* Bullet indicator */}
+                  {/* Bullet indicator minimalis tanpa efek mencolok */}
                   <div
                     className={`absolute -left-6 sm:-left-8 top-0.5 w-5 sm:w-6 h-5 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${
-                      isDone
-                        ? 'bg-[#00a699] text-white ring-4 ring-[#00a699]/20'
+                      isCancelledStep
+                        ? 'bg-rose-500 text-white'
+                        : isDone
+                        ? 'bg-[#00a699] text-white'
                         : isCurrent
-                        ? 'bg-amber-500 text-white ring-4 ring-amber-500/20 animate-pulse'
+                        ? 'bg-amber-500 text-white'
                         : 'bg-muted text-muted-foreground border border-border'
                     }`}
                   >
-                    {isDone ? '✓' : index + 1}
+                    {isCancelledStep ? '✕' : isDone ? '✓' : index + 1}
                   </div>
 
                   {/* Konten Step */}
-                  <div className="space-y-1">
+                  <div className="space-y-0.5">
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <h3
-                        className={`text-sm font-bold ${
-                          isDone || isCurrent ? 'text-foreground' : 'text-muted-foreground'
+                        className={`text-sm font-semibold ${
+                          isCancelledStep
+                            ? 'text-rose-500'
+                            : isDone || isCurrent
+                            ? 'text-foreground'
+                            : 'text-muted-foreground'
                         }`}
                       >
                         {step.title}
@@ -466,13 +584,20 @@ export default function OrderDetailsPage({
                       {formatPrice(item.price * item.qty)}
                     </span>
 
+                    {/* Status Item Dibatalkan */}
+                    {(currentStatus === 'cancelled' || item.fulfilment_status === 'cancelled') && (
+                      <span className="text-[11px] font-medium text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded">
+                        Dibatalkan
+                      </span>
+                    )}
+
                     {/* Tombol Selesaikan Pesanan (Opsi 1 Pembeli) */}
                     {isShipped && (
                       <button
                         type="button"
                         disabled={confirmingReceiptId === item.id}
                         onClick={() => handleConfirmReceived(item.id)}
-                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                        className="px-3 py-1.5 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-semibold transition-all shadow-xs cursor-pointer disabled:opacity-50"
                         title="Klik untuk menyelesaikan pesanan setelah paket diterima"
                       >
                         {confirmingReceiptId === item.id ? 'Memproses...' : 'Selesaikan Pesanan'}

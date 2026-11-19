@@ -22,7 +22,8 @@ import {
   Loader2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { getBuyerOrdersAction, type BuyerOrder } from '@/actions/order'
+import { getBuyerOrdersAction, confirmEntireOrderReceivedAction, type BuyerOrder } from '@/actions/order'
+import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import { Button } from '@/components/ui/button'
 
@@ -39,6 +40,7 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
   const [activeTab, setActiveTab] = useState<TabKey>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [isRefreshing, setIsRefreshing] = useState(false)
+  const [completingOrderId, setCompletingOrderId] = useState<string | null>(null)
 
   // Sinkronisasi otomatis saat data props dari server berubah
   useEffect(() => {
@@ -59,6 +61,23 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
       if (showIndicator) setIsRefreshing(false)
     }
   }, [])
+
+  const handleCompleteOrder = async (orderId: string) => {
+    setCompletingOrderId(orderId)
+    try {
+      const res = await confirmEntireOrderReceivedAction(orderId)
+      if (res.success) {
+        toast.success('Pesanan berhasil diselesaikan!')
+        await reloadOrders(false)
+      } else {
+        toast.error(res.error || 'Gagal menyelesaikan pesanan')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan saat menyelesaikan pesanan')
+    } finally {
+      setCompletingOrderId(null)
+    }
+  }
 
   // Supabase Realtime Subscription + Window Focus + Interval Sync (Sinkronisasi Otomatis Tanpa Reload)
   useEffect(() => {
@@ -125,7 +144,7 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
 
     for (const ord of orders) {
       if (ord.computedStatus === 'unpaid') res.unpaid++
-      else if (ord.computedStatus === 'processing') res.processing++
+      else if (ord.computedStatus === 'waiting' || ord.computedStatus === 'processing') res.processing++
       else if (ord.computedStatus === 'shipped') res.shipped++
       else if (ord.computedStatus === 'completed') res.completed++
       else if (ord.computedStatus === 'cancelled') res.cancelled++
@@ -139,7 +158,7 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
     return orders.filter((ord) => {
       // 1. Filter Tab
       if (activeTab === 'unpaid' && ord.computedStatus !== 'unpaid') return false
-      if (activeTab === 'processing' && ord.computedStatus !== 'processing') return false
+      if (activeTab === 'processing' && ord.computedStatus !== 'processing' && ord.computedStatus !== 'waiting') return false
       if (activeTab === 'shipped' && ord.computedStatus !== 'shipped') return false
       if (activeTab === 'completed' && ord.computedStatus !== 'completed') return false
       if (activeTab === 'cancelled' && ord.computedStatus !== 'cancelled') return false
@@ -197,6 +216,13 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-500">
             <Clock className="w-3.5 h-3.5" />
             <span>Belum Bayar</span>
+          </span>
+        )
+      case 'waiting':
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-600">
+            <Clock className="w-3.5 h-3.5" />
+            <span>Menunggu Diterima</span>
           </span>
         )
       case 'processing':
@@ -450,13 +476,25 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                                   <span>Bayar</span>
                                 </Link>
                               ) : ord.computedStatus === 'shipped' ? (
-                                <Link
-                                  href={`/orders/${ord.id}`}
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-2xs"
-                                >
-                                  <Truck className="w-3.5 h-3.5" />
-                                  <span>Lacak</span>
-                                </Link>
+                                <div className="flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    disabled={completingOrderId === ord.id}
+                                    onClick={() => handleCompleteOrder(ord.id)}
+                                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-semibold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                                    title="Konfirmasi bahwa barang telah diterima dan selesaikan pesanan"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>{completingOrderId === ord.id ? 'Memproses...' : 'Selesai'}</span>
+                                  </button>
+                                  <Link
+                                    href={`/orders/${ord.id}`}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-foreground transition-colors"
+                                  >
+                                    <Truck className="w-3.5 h-3.5 text-muted-foreground" />
+                                    <span>Lacak</span>
+                                  </Link>
+                                </div>
                               ) : (
                                 <Link
                                   href={`/orders/${ord.id}`}
@@ -555,13 +593,24 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                               <span>Bayar</span>
                             </Link>
                           ) : ord.computedStatus === 'shipped' ? (
-                            <Link
-                              href={`/orders/${ord.id}`}
-                              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-2xs"
-                            >
-                              <Truck className="w-3.5 h-3.5" />
-                              <span>Lacak</span>
-                            </Link>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                disabled={completingOrderId === ord.id}
+                                onClick={() => handleCompleteOrder(ord.id)}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-semibold transition-all shadow-2xs cursor-pointer disabled:opacity-50"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span>{completingOrderId === ord.id ? '...' : 'Selesai'}</span>
+                              </button>
+                              <Link
+                                href={`/orders/${ord.id}`}
+                                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-foreground transition-colors"
+                              >
+                                <Truck className="w-3.5 h-3.5 text-muted-foreground" />
+                                <span>Lacak</span>
+                              </Link>
+                            </div>
                           ) : (
                             <Link
                               href={`/orders/${ord.id}`}

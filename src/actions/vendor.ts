@@ -1668,6 +1668,16 @@ export async function acceptVendorOrderAction(itemId: string): Promise<{
       })
       .eq('id', shop.id)
 
+    // Perbarui orders.updated_at agar listener realtime di sisi pembeli langsung mendeteksi perubahan status
+    await admin
+      .from('orders')
+      .update({
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', item.order_id)
+
+    revalidatePath('/orders')
+    revalidatePath(`/orders/${item.order_id}`)
     revalidatePath('/vendor/orders')
     revalidatePath('/vendor/balance')
     revalidatePath('/vendor')

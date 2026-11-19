@@ -52,7 +52,7 @@ export async function createOrderAction(data: {
 
     // 1. Hitung total
     const subtotal = data.items.reduce((acc, item) => acc + item.price * item.qty, 0)
-    const shippingCost = data.shippingOption.cost || 15000
+    const shippingCost = data.shippingOption.cost || 2000
     const serviceFee = 1000
     const grandTotal = subtotal + shippingCost + serviceFee
 
@@ -318,46 +318,109 @@ export async function getOrderDetailsAction(orderId: string) {
 
     const shippingInfo = (order.shipping_address as any) || {}
 
-    // Timeline tahapan pengiriman
-    const trackingSteps = [
-      {
-        title: 'Pesanan Dibuat',
-        description: 'Menunggu pembayaran dari pembeli',
-        time: formatTime(createdAt),
-        completed: true,
-        current: !paidAt,
-      },
-      {
-        title: 'Pembayaran Dikonfirmasi',
-        description: paidAt
-          ? `Pembayaran berhasil diverifikasi. Dana aman di rekening penampung Krafita.`
-          : 'Menunggu konfirmasi pembayaran',
-        time: paidAt ? formatTime(paidAt) : null,
-        completed: Boolean(paidAt),
-        current: Boolean(paidAt) && order.status === 'paid',
-      },
-      {
-        title: 'Sedang Dikemas (Gudang Asal)',
-        description: `Pesanan sedang disiapkan & dikemas dengan bubble wrap aman di Gudang Krafita Hub Barat (Jakarta Barat).`,
-        time: paidAt ? formatTime(new Date(paidAt.getTime() + 15 * 60 * 1000)) : null,
-        completed: Boolean(paidAt),
-        current: false,
-      },
-      {
-        title: 'Sedang Dikirim & Transit',
-        description: `Paket dijemput kurir ${shippingInfo.courier || 'Krafita Express'}. Rute Transit: Sorting Hub Jakarta ➔ DC Transit Surabaya ➔ Hub Kota ${shippingInfo.city || 'Tujuan'}.`,
-        time: paidAt ? formatTime(new Date(paidAt.getTime() + 60 * 60 * 1000)) : null,
-        completed: Boolean(paidAt),
-        current: false,
-      },
-      {
-        title: 'Sedang Diantar Kurir ke Alamat Anda',
-        description: `Kurir sedang menuju alamat penerima: ${shippingInfo.recipientName || 'Pembeli'} (${shippingInfo.addressLine || ''}, ${shippingInfo.city || ''}). Estimasi tiba: ${shippingInfo.estimatedDays || '2-3 Hari Kerja'}.`,
-        time: paidAt ? `Estimasi Tiba: ${shippingInfo.estimatedDays || '2-3 Hari'}` : null,
-        completed: false,
-        current: Boolean(paidAt),
-      },
-    ]
+    // Hitung status pesanan terpadu
+    let computedStatus: 'unpaid' | 'waiting' | 'processing' | 'shipped' | 'completed' | 'cancelled' = 'unpaid'
+
+    if (order.status === 'pending_payment') {
+      if (order.expires_at && new Date(order.expires_at).getTime() < Date.now()) {
+        computedStatus = 'cancelled'
+      } else {
+        computedStatus = 'unpaid'
+      }
+    } else if (order.status === 'cancelled' || order.status === 'expired') {
+      computedStatus = 'cancelled'
+    } else if (order.status === 'paid') {
+      if (mappedItems.length > 0 && mappedItems.every((i: any) => i.fulfilment_status === 'completed')) {
+        computedStatus = 'completed'
+      } else if (mappedItems.some((i: any) => i.fulfilment_status === 'shipped')) {
+        computedStatus = 'shipped'
+      } else if (mappedItems.some((i: any) => i.fulfilment_status === 'processing')) {
+        computedStatus = 'processing'
+      } else if (mappedItems.some((i: any) => i.fulfilment_status === 'waiting')) {
+        computedStatus = 'waiting'
+      } else if (mappedItems.length > 0 && mappedItems.every((i: any) => i.fulfilment_status === 'cancelled')) {
+        computedStatus = 'cancelled'
+      } else {
+        computedStatus = 'processing'
+      }
+    }
+
+    // Timeline tahapan pengiriman (singkat, padat, jelas)
+    let trackingSteps: any[] = []
+
+    if (computedStatus === 'cancelled') {
+      trackingSteps = [
+        {
+          title: 'Pesanan Dibuat',
+          description: 'Pesanan telah dibuat.',
+          time: formatTime(createdAt),
+          completed: true,
+          current: false,
+        },
+        {
+          title: 'Pesanan Dibatalkan',
+          description: 'Pesanan ini telah dibatalkan.',
+          time: formatTime(new Date(order.updated_at || order.created_at)),
+          completed: true,
+          current: true,
+          isCancelled: true,
+        },
+      ]
+    } else {
+      const isCompleted = computedStatus === 'completed'
+      const isShipped = computedStatus === 'shipped' || isCompleted
+      const isProcessing = computedStatus === 'processing' || isShipped
+      const isVendorAccepted = isProcessing
+
+      trackingSteps = [
+        {
+          title: 'Pesanan Dibuat',
+          description: paidAt ? 'Pesanan telah dibuat.' : 'Menunggu pembayaran.',
+          time: formatTime(createdAt),
+          completed: true,
+          current: !paidAt,
+        },
+        {
+          title: 'Pembayaran Dikonfirmasi',
+          description: paidAt ? 'Pembayaran terverifikasi.' : 'Menunggu pembayaran.',
+          time: paidAt ? formatTime(paidAt) : null,
+          completed: Boolean(paidAt),
+          current: false,
+        },
+        {
+          title: isVendorAccepted ? 'Pesanan Diterima Penjual' : 'Menunggu Pesanan Diterima',
+          description: isVendorAccepted ? 'Penjual telah menerima pesanan.' : 'Menunggu penjual menerima pesanan.',
+          time: isVendorAccepted ? formatTime(new Date(order.updated_at || paidAt || createdAt)) : null,
+          completed: isVendorAccepted,
+          current: computedStatus === 'waiting',
+        },
+        {
+          title: 'Sedang Dikemas (Gudang Asal)',
+          description: 'Pesanan sedang dikemas oleh penjual.',
+          time: isProcessing && paidAt ? formatTime(new Date(paidAt.getTime() + 15 * 60 * 1000)) : null,
+          completed: isProcessing,
+          current: computedStatus === 'processing',
+        },
+        {
+          title: 'Sedang Dikirim & Transit',
+          description: 'Paket dalam pengiriman kurir.',
+          time: paidAt && isShipped ? formatTime(new Date(paidAt.getTime() + 60 * 60 * 1000)) : null,
+          completed: isShipped,
+          current: computedStatus === 'shipped',
+        },
+        {
+          title: isCompleted ? 'Pesanan Selesai' : 'Sedang Diantar Kurir ke Alamat Anda',
+          description: isCompleted ? 'Paket telah diterima oleh pembeli.' : 'Kurir sedang menuju alamat tujuan.',
+          time: isCompleted
+            ? formatTime(new Date(order.updated_at || Date.now()))
+            : paidAt
+            ? `Estimasi: ${shippingInfo.estimatedDays || '2-3 Hari'}`
+            : null,
+          completed: isCompleted,
+          current: isCompleted,
+        },
+      ]
+    }
 
     return {
       success: true,
@@ -367,6 +430,7 @@ export async function getOrderDetailsAction(orderId: string) {
         shippingInfo,
         trackingNumber,
         trackingSteps,
+        computedStatus,
       },
     }
   } catch (err: unknown) {
@@ -700,7 +764,7 @@ export async function createMarketplaceOrderAction(data: MarketplaceOrderPayload
 
     // 1. Hitung total biaya
     const subtotal = data.items.reduce((acc, item) => acc + item.price * (item.qty || 1), 0)
-    const shippingCost = data.hasPhysicalItems ? (data.shippingOption?.cost || 15000) : 0
+    const shippingCost = data.hasPhysicalItems ? (data.shippingOption?.cost || 2000) : 0
     const serviceFee = 1000 // Biaya Layanan Krafita
     const grandTotal = subtotal + shippingCost + serviceFee
 
@@ -1010,6 +1074,73 @@ export async function confirmOrderReceivedAction(itemId: string): Promise<{
 }
 
 /**
+ * Menyelesaikan seluruh pesanan (Opsi Selesai untuk pembeli pada pesanan yang sedang dikirim)
+ * Otomatis mengupdate status pesanan di sisi pembeli dan dashboard/pesanan vendor
+ */
+export async function confirmEntireOrderReceivedAction(orderId: string): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const { user } = await getUser()
+    if (!user) {
+      return { success: false, error: 'Unauthorized: Silakan login terlebih dahulu' }
+    }
+
+    const admin = createAdminClient()
+
+    // 1. Ambil order_items yang terkait dengan pesanan
+    const { data: items, error: itemsError } = await admin
+      .from('order_items')
+      .select('id, fulfilment_status')
+      .eq('order_id', orderId)
+
+    if (itemsError || !items) {
+      return { success: false, error: 'Item pesanan tidak ditemukan' }
+    }
+
+    // 2. Tandai semua item yang aktif sebagai completed
+    for (const it of items) {
+      if (it.fulfilment_status !== 'cancelled') {
+        try {
+          await admin.rpc('confirm_received', { p_item_id: it.id })
+        } catch {
+          // ignore
+        }
+
+        await admin
+          .from('order_items')
+          .update({
+            fulfilment_status: 'completed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', it.id)
+      }
+    }
+
+    // 3. Update waktu updated_at order
+    await admin
+      .from('orders')
+      .update({
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', orderId)
+
+    // 4. Revalidate seluruh halaman pembeli dan vendor terkait
+    revalidatePath('/orders')
+    revalidatePath(`/orders/${orderId}`)
+    revalidatePath('/vendor')
+    revalidatePath('/vendor/orders')
+    revalidatePath('/vendor/balance')
+
+    return { success: true }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal menyelesaikan pesanan'
+    return { success: false, error: msg }
+  }
+}
+
+/**
  * Auto-complete pesanan yang sudah berstatus 'shipped' dan sampai ke tujuan
  * Opsi 2: Dipicu secara otomatis oleh sistem saat paket sampai di alamat pembeli
  */
@@ -1090,7 +1221,7 @@ export interface BuyerOrder {
   expiresAt: string | null
   shippingAddress: any
   items: BuyerOrderItem[]
-  computedStatus: 'unpaid' | 'processing' | 'shipped' | 'completed' | 'cancelled'
+  computedStatus: 'unpaid' | 'waiting' | 'processing' | 'shipped' | 'completed' | 'cancelled'
   itemCount: number
 }
 
@@ -1258,7 +1389,7 @@ export async function getBuyerOrdersAction(): Promise<{
 
       const totalItemsCount = items.reduce((acc, i) => acc + i.qty, 0)
 
-      let computedStatus: 'unpaid' | 'processing' | 'shipped' | 'completed' | 'cancelled' = 'unpaid'
+      let computedStatus: 'unpaid' | 'waiting' | 'processing' | 'shipped' | 'completed' | 'cancelled' = 'unpaid'
 
       if (ord.status === 'pending_payment') {
         if (ord.expires_at && new Date(ord.expires_at).getTime() < Date.now()) {
@@ -1273,8 +1404,10 @@ export async function getBuyerOrdersAction(): Promise<{
           computedStatus = 'completed'
         } else if (items.some((i) => i.fulfilmentStatus === 'shipped')) {
           computedStatus = 'shipped'
-        } else if (items.some((i) => i.fulfilmentStatus === 'processing' || i.fulfilmentStatus === 'waiting')) {
+        } else if (items.some((i) => i.fulfilmentStatus === 'processing')) {
           computedStatus = 'processing'
+        } else if (items.some((i) => i.fulfilmentStatus === 'waiting')) {
+          computedStatus = 'waiting'
         } else if (items.length > 0 && items.every((i) => i.fulfilmentStatus === 'cancelled')) {
           computedStatus = 'cancelled'
         } else {
