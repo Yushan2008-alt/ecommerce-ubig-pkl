@@ -17,36 +17,50 @@ export function serializeShopMetadata(meta: ShopMetadata): string {
   return JSON.stringify(meta)
 }
 
-export const POPULAR_COURIERS = [
-  {
-    id: 'jnt',
-    name: 'J&T Express',
-    desc: 'Pengiriman reguler & express terluas ke seluruh Indonesia',
-    badgeColor: 'bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-900',
-  },
-  {
-    id: 'spx',
-    name: 'SPX Express',
-    desc: 'Layanan armada kilat hemat & terpercaya',
-    badgeColor: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900',
-  },
+export interface CourierOption {
+  id: string
+  name: string
+  type: string
+  badgeColor: string
+  desc?: string
+}
+
+export const POPULAR_COURIERS: CourierOption[] = [
   {
     id: 'jne',
-    name: 'JNE Express',
-    desc: 'Pilihan pengiriman Reguler',
+    name: 'JNE',
+    type: 'Reguler',
     badgeColor: 'bg-blue-500/10 text-blue-600 border-blue-200 dark:border-blue-900',
   },
   {
+    id: 'jnt',
+    name: 'J&T',
+    type: 'Standard',
+    badgeColor: 'bg-rose-500/10 text-rose-600 border-rose-200 dark:border-rose-900',
+  },
+  {
     id: 'sicepat',
-    name: 'SiCepat Ekspres',
-    desc: 'Layanan pick-up cepat',
+    name: 'SiCepat',
+    type: 'Reguler',
     badgeColor: 'bg-red-500/10 text-red-600 border-red-200 dark:border-red-900',
   },
   {
     id: 'anteraja',
     name: 'Anteraja',
-    desc: 'Pengiriman modern terintegrasi',
+    type: 'Reguler',
     badgeColor: 'bg-purple-500/10 text-purple-600 border-purple-200 dark:border-purple-900',
+  },
+  {
+    id: 'pos',
+    name: 'Pos Indonesia',
+    type: 'Kilat Khusus',
+    badgeColor: 'bg-orange-500/10 text-orange-600 border-orange-200 dark:border-orange-900',
+  },
+  {
+    id: 'spx',
+    name: 'SPX Express',
+    type: 'Standard',
+    badgeColor: 'bg-amber-500/10 text-amber-600 border-amber-200 dark:border-amber-900',
   },
 ]
 
@@ -70,11 +84,11 @@ export interface BankOption {
 
 export const INDONESIA_BANKS: BankOption[] = [
   // 1. Bank BUMN & Swasta Terbesar
-  { value: 'BCA', label: 'BCA' },
+  { value: 'BCA', label: 'BCA (Bank Central Asia)' },
   { value: 'Mandiri', label: 'Bank Mandiri' },
-  { value: 'BRI', label: 'BRI' },
-  { value: 'BNI', label: 'BNI' },
-  { value: 'BSI', label: 'BSI' },
+  { value: 'BRI', label: 'BRI (Bank Rakyat Indonesia)' },
+  { value: 'BNI', label: 'BNI (Bank Negara Indonesia)' },
+  { value: 'BSI', label: 'Bank Syariah Indonesia (BSI)' },
   { value: 'CIMB Niaga', label: 'CIMB Niaga' },
   { value: 'Permata', label: 'Bank Permata' },
   { value: 'Danamon', label: 'Bank Danamon' },
@@ -85,6 +99,7 @@ export const INDONESIA_BANKS: BankOption[] = [
   { value: 'Maybank', label: 'Bank Maybank Indonesia' },
   { value: 'Sinarmas', label: 'Bank Sinarmas' },
   { value: 'BTPN', label: 'Bank BTPN / Jenius' },
+  { value: 'BJB', label: 'Bank BJB (Jawa Barat & Banten)' },
 
   // 2. Bank Digital & Neobank Populer
   { value: 'Bank Jago', label: 'Bank Jago' },
@@ -98,9 +113,13 @@ export const INDONESIA_BANKS: BankOption[] = [
   { value: 'Aladin', label: 'Bank Aladin Syariah' },
 
   // 3. Bank Swasta & Syariah Lainnya
-  { value: 'Muamalat', label: 'Bank Muamalat Indonesia' },
+  { value: 'Muamalat', label: 'Bank Muamalat Indonesia (Syariah)' },
   { value: 'BCA Syariah', label: 'Bank BCA Syariah' },
   { value: 'Mega Syariah', label: 'Bank Mega Syariah' },
+  { value: 'BJB Syariah', label: 'Bank BJB Syariah' },
+  { value: 'Panin Dubai Syariah', label: 'Bank Panin Dubai Syariah' },
+  { value: 'Bukopin Syariah', label: 'Bank KB Bukopin Syariah' },
+  { value: 'BTPN Syariah', label: 'Bank BTPN Syariah' },
   { value: 'Bukopin', label: 'KB Bukopin' },
   { value: 'UOB', label: 'Bank UOB Indonesia' },
   { value: 'Commonwealth', label: 'Bank Commonwealth' },

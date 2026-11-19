@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
 import { parseShopMetadata, serializeShopMetadata } from '@/lib/shop-helper'
+import { formatAddressLine } from '@/lib/address-helper'
 import type { Database, FulfilmentStatus, ProductStatus, ProductType, ShopMetadata } from '@/types/database'
 
 type Shop = Database['public']['Tables']['shops']['Row']
@@ -69,6 +70,8 @@ export async function submitVendorApplicationAction(payload: VendorApplicationIn
 
     const metadata: ShopMetadata = {
       pickup_address: parsed.data.pickup_address,
+      district: parsed.data.district,
+      village: parsed.data.village,
       postal_code: parsed.data.postal_code,
       couriers: parsed.data.couriers,
       bank_name: parsed.data.bank_name,
@@ -76,12 +79,25 @@ export async function submitVendorApplicationAction(payload: VendorApplicationIn
       bank_account_holder: parsed.data.bank_account_holder,
     }
 
+    let cleanPhone = parsed.data.phone.trim()
+    if (cleanPhone.startsWith('+62')) {
+      cleanPhone = '0' + cleanPhone.slice(3).replace(/\D/g, '')
+    } else if (cleanPhone.startsWith('62')) {
+      cleanPhone = '0' + cleanPhone.slice(2).replace(/\D/g, '')
+    } else if (cleanPhone.startsWith('0')) {
+      cleanPhone = '0' + cleanPhone.slice(1).replace(/\D/g, '')
+    } else if (cleanPhone.startsWith('+')) {
+      cleanPhone = '+' + cleanPhone.slice(1).replace(/\D/g, '')
+    } else {
+      cleanPhone = cleanPhone.replace(/\D/g, '')
+    }
+
     const shopPayload = {
       profile_id: user.id,
       name: parsed.data.name,
       slug: parsed.data.slug,
-      phone: parsed.data.phone,
-      whatsapp: parsed.data.phone,
+      phone: cleanPhone,
+      whatsapp: cleanPhone,
       email: user.email || null,
       city: parsed.data.city,
       province: parsed.data.province,
@@ -120,12 +136,18 @@ export async function submitVendorApplicationAction(payload: VendorApplicationIn
       savedShop = inserted
     }
 
-    // Simpan alamat gudang ke tabel addresses
+    // Simpan alamat gudang ke tabel addresses dengan format desa dan kecamatan lengkap
+    const pickupAddressFormatted = formatAddressLine(
+      parsed.data.pickup_address,
+      parsed.data.village,
+      parsed.data.district
+    )
+
     await admin.from('addresses').upsert({
       profile_id: user.id,
       recipient_name: parsed.data.name,
-      phone: parsed.data.phone,
-      address_line: parsed.data.pickup_address,
+      phone: cleanPhone,
+      address_line: pickupAddressFormatted,
       city: parsed.data.city,
       province: parsed.data.province,
       postal_code: parsed.data.postal_code,
@@ -179,6 +201,64 @@ export async function getVendorApplicationStatusAction(): Promise<{
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Gagal memuat status pendaftaran'
     return { success: false, hasShop: false, error: msg }
+  }
+}
+
+/**
+ * 1C. BATALKAN PENGAJUAN PENDAFTARAN TOKO
+ */
+export async function cancelVendorApplicationAction(): Promise<{
+  success: boolean
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user) {
+      return { success: false, error: 'Silakan login terlebih dahulu.' }
+    }
+
+    const admin = createAdminClient()
+
+    // Cari toko milik user yang berstatus pending atau rejected
+    const { data: userShop } = await admin
+      .from('shops')
+      .select('id, name, status')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (!userShop) {
+      return { success: false, error: 'Tidak ditemukan pengajuan toko untuk dibatalkan.' }
+    }
+
+    if (userShop.status !== 'pending' && userShop.status !== 'rejected') {
+      return {
+        success: false,
+        error: 'Hanya pengajuan dengan status pending atau ditolak yang dapat dibatalkan.',
+      }
+    }
+
+    // Hapus data toko pengajuan
+    const { error: deleteErr } = await admin
+      .from('shops')
+      .delete()
+      .eq('id', userShop.id)
+
+    if (deleteErr) {
+      return { success: false, error: deleteErr.message || 'Gagal membatalkan pengajuan toko.' }
+    }
+
+    if (profile?.role === 'vendor') {
+      await admin.from('profiles').update({ role: 'member' }).eq('id', user.id)
+    }
+
+    revalidatePath('/sell')
+    revalidatePath('/vendor')
+    revalidatePath('/moderator/vendors')
+
+    return { success: true }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem saat membatalkan pengajuan.'
+    return { success: false, error: msg }
   }
 }
 

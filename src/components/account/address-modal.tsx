@@ -8,8 +8,16 @@ import {
   addAddressAction,
   updateAddressAction,
 } from '@/actions/address'
+import { extractAddressLineDetails } from '@/lib/address-helper'
 import type { AddressItem, AddressFormData } from '@/types/address'
-import { INDONESIA_PROVINCES, getCitiesByProvinceName, getPostalCodeByCityName } from '@/data/indonesia-regions'
+import {
+  INDONESIA_PROVINCES,
+  getCitiesByProvinceName,
+  getDistrictsByCityName,
+  getVillagesByDistrictName,
+  getPostalCodeByDistrictAndVillage,
+  getPostalCodeByCityName,
+} from '@/data/indonesia-regions'
 import { SearchableSelect } from '@/components/ui/searchSelect'
 
 interface AddressModalProps {
@@ -19,13 +27,40 @@ interface AddressModalProps {
   onSuccess: () => void
 }
 
-function formatPhoneNumber(value: string): string {
+function cleanPhoneDigits(value: string, country = '+62'): string {
   let digits = value.replace(/\D/g, '')
 
-  if (digits.startsWith('0')) {
-    digits = digits.slice(1)
+  if (country === '+62') {
+    while (digits.startsWith('62') || digits.startsWith('0')) {
+      if (digits.startsWith('62')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  } else if (country === '+60') {
+    while (digits.startsWith('60') || digits.startsWith('0')) {
+      if (digits.startsWith('60')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  } else if (country === '+65') {
+    while (digits.startsWith('65') || digits.startsWith('0')) {
+      if (digits.startsWith('65')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
   }
 
+  return digits
+}
+
+function formatPhoneNumber(value: string, country = '+62'): string {
+  let digits = cleanPhoneDigits(value, country)
   digits = digits.slice(0, 15)
 
   if (digits.length <= 3) return digits
@@ -46,8 +81,10 @@ export function AddressModal({
     recipientName: '',
     phone: '',
     addressLine: '',
-    city: '',
     province: '',
+    city: '',
+    district: '',
+    village: '',
     postalCode: '',
     isDefault: false,
   })
@@ -63,14 +100,25 @@ export function AddressModal({
     setPrevIsOpen(isOpen)
     if (addressToEdit) {
       const rawPhone = addressToEdit.phone || ''
-      const cleanPhone = rawPhone.replace(/^\+62\s*/, '').replace(/^\+60\s*/, '').replace(/^\+65\s*/, '')
+      let editCountry = '+62'
+      if (rawPhone.startsWith('+60') || rawPhone.startsWith('60')) editCountry = '+60'
+      else if (rawPhone.startsWith('+65') || rawPhone.startsWith('65')) editCountry = '+65'
+      setCountryCode(editCountry)
+
+      const { cleanAddressLine, district: extractedDist, village: extractedVil } =
+        extractAddressLineDetails(addressToEdit.addressLine)
+
+      const district = addressToEdit.district || extractedDist || ''
+      const village = addressToEdit.village || extractedVil || ''
 
       setFormData({
         recipientName: addressToEdit.recipientName,
-        phone: formatPhoneNumber(cleanPhone),
-        addressLine: addressToEdit.addressLine,
-        city: addressToEdit.city,
+        phone: formatPhoneNumber(rawPhone, editCountry),
+        addressLine: cleanAddressLine,
         province: addressToEdit.province,
+        city: addressToEdit.city,
+        district,
+        village,
         postalCode: addressToEdit.postalCode,
         isDefault: addressToEdit.isDefault,
       })
@@ -80,8 +128,10 @@ export function AddressModal({
         recipientName: '',
         phone: '',
         addressLine: '',
-        city: '',
         province: '',
+        city: '',
+        district: '',
+        village: '',
         postalCode: '',
         isDefault: false,
       })
@@ -111,11 +161,13 @@ export function AddressModal({
     }
   }
   
-    const handleProvinceSelect = (selectedProv: string) => {
+  const handleProvinceSelect = (selectedProv: string) => {
     setFormData((prev) => ({
       ...prev,
       province: selectedProv,
       city: '',
+      district: '',
+      village: '',
       postalCode: '',
     }))
   }
@@ -125,7 +177,26 @@ export function AddressModal({
     setFormData((prev) => ({
       ...prev,
       city: selectedCity,
+      district: '',
+      village: '',
       postalCode: autoPostalCode || prev.postalCode,
+    }))
+  }
+
+  const handleDistrictSelect = (selectedDistrict: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      district: selectedDistrict,
+      village: '',
+    }))
+  }
+
+  const handleVillageSelect = (selectedVillage: string) => {
+    const postal = getPostalCodeByDistrictAndVillage(formData.district || '', selectedVillage, formData.city)
+    setFormData((prev) => ({
+      ...prev,
+      village: selectedVillage,
+      postalCode: postal || prev.postalCode,
     }))
   }
 
@@ -143,24 +214,33 @@ export function AddressModal({
       setErrorMessage('Nomor Wajib diisi')
       return
     }
-    if (cleanPhone.length < 10 || cleanPhone.length > 15) {
-      setErrorMessage('Nomor tidak valid (10-15 digit)')
-      return
-    }
-    if (!formData.addressLine.trim()) {
-      setErrorMessage(locale === 'id' ? 'Alamat lengkap wajib diisi' : 'Address line is required')
-      return
-    }
-    if (!formData.city.trim()) {
-      setErrorMessage(locale === 'id' ? 'Kota / Kabupaten wajib diisi' : 'City is required')
+    const minDigits = countryCode === '+65' ? 8 : 9
+    if (cleanPhone.length < minDigits || cleanPhone.length > 15) {
+      setErrorMessage(`Nomor tidak valid (${minDigits}-15 digit)`)
       return
     }
     if (!formData.province.trim()) {
       setErrorMessage(locale === 'id' ? 'Provinsi wajib diisi' : 'Province is required')
       return
     }
+    if (!formData.city.trim()) {
+      setErrorMessage(locale === 'id' ? 'Kota / Kabupaten wajib diisi' : 'City is required')
+      return
+    }
+    if (!formData.district?.trim()) {
+      setErrorMessage(locale === 'id' ? 'Kecamatan wajib dipilih' : 'District is required')
+      return
+    }
+    if (!formData.village?.trim()) {
+      setErrorMessage(locale === 'id' ? 'Desa / Kelurahan wajib dipilih' : 'Village is required')
+      return
+    }
     if (!formData.postalCode.trim()) {
       setErrorMessage(locale === 'id' ? 'Kode pos wajib diisi' : 'Postal code is required')
+      return
+    }
+    if (!formData.addressLine.trim()) {
+      setErrorMessage(locale === 'id' ? 'Alamat lengkap wajib diisi' : 'Address line is required')
       return
     }
 
@@ -259,7 +339,14 @@ export function AddressModal({
                 {/* Dropdown Kode Negara (Default +62) */}
                 <select
                   value={countryCode}
-                  onChange={(e) => setCountryCode(e.target.value)}
+                  onChange={(e) => {
+                    const newCode = e.target.value
+                    setCountryCode(newCode)
+                    setFormData((prev) => ({
+                      ...prev,
+                      phone: formatPhoneNumber(prev.phone, newCode),
+                    }))
+                  }}
                   className="bg-muted/40 px-2.5 text-xs text-foreground font-semibold border-r border-border focus:outline-none cursor-pointer"
                 >
                   <option value="+62">🇮🇩 +62</option>
@@ -269,15 +356,22 @@ export function AddressModal({
                 {/* Input Nomor Telepon dengan otomatis tanda '-' & maks 15 digit */}
                 <input
                   type="tel"
+                  inputMode="tel"
                   name="phone"
                   value={formData.phone}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      phone: formatPhoneNumber(e.target.value),
+                      phone: formatPhoneNumber(e.target.value, countryCode),
                     }))
                   }
-                  placeholder="812-3456-7890"
+                  placeholder={
+                    countryCode === '+62'
+                      ? '812-3456-7890'
+                      : countryCode === '+60'
+                      ? '12-345-6789'
+                      : '8123-4567'
+                  }
                   className="w-full px-3 text-xs bg-transparent focus:outline-none placeholder:text-muted-foreground/60"
                   required
                 />
@@ -285,7 +379,103 @@ export function AddressModal({
             </div>
           </div>
 
-          {/* Alamat Lengkap */}
+          {/* Master Data Wilayah Bertingkat: Provinsi -> Kota/Kabupaten -> Kecamatan -> Desa/Kelurahan */}
+          <div className="space-y-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* 1. Provinsi */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Provinsi <span className="text-rose-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={INDONESIA_PROVINCES.map((prov) => ({
+                    value: prov.name,
+                    label: prov.name,
+                  }))}
+                  value={formData.province}
+                  onChange={handleProvinceSelect}
+                  placeholder="Pilih Provinsi"
+                  searchPlaceholder="Cari provinsi..."
+                />
+              </div>
+
+              {/* 2. Kota / Kabupaten */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Kota / Kabupaten <span className="text-rose-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={getCitiesByProvinceName(formData.province).map((city) => ({
+                    value: city.name,
+                    label: city.name,
+                  }))}
+                  value={formData.city}
+                  onChange={handleCitySelect}
+                  disabled={!formData.province}
+                  placeholder={formData.province ? 'Pilih Kota / Kabupaten' : 'Pilih Provinsi Dulu'}
+                  searchPlaceholder="Cari kota/kabupaten..."
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {/* 3. Kecamatan */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Kecamatan <span className="text-rose-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={getDistrictsByCityName(formData.city).map((dist) => ({
+                    value: dist.name,
+                    label: dist.name,
+                  }))}
+                  value={formData.district || ''}
+                  onChange={handleDistrictSelect}
+                  disabled={!formData.city}
+                  placeholder={formData.city ? 'Pilih Kecamatan' : 'Pilih Kota Dulu'}
+                  searchPlaceholder="Cari kecamatan..."
+                  allowCustom
+                />
+              </div>
+
+              {/* 4. Desa / Kelurahan */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Desa / Kelurahan <span className="text-rose-500">*</span>
+                </label>
+                <SearchableSelect
+                  options={getVillagesByDistrictName(formData.district || '', formData.city).map((vil) => ({
+                    value: vil.name,
+                    label: vil.name,
+                  }))}
+                  value={formData.village || ''}
+                  onChange={handleVillageSelect}
+                  disabled={!formData.district}
+                  placeholder={formData.district ? 'Pilih Desa / Kelurahan' : 'Pilih Kecamatan Dulu'}
+                  searchPlaceholder="Cari desa/kelurahan..."
+                  allowCustom
+                />
+              </div>
+            </div>
+
+            {/* 5. Kode Pos */}
+            <div>
+              <label className="block text-xs font-semibold text-foreground mb-1">
+                Kode Pos <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="postalCode"
+                value={formData.postalCode}
+                onChange={handleChange}
+                placeholder="Contoh: 60111"
+                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary font-mono"
+                required
+              />
+            </div>
+          </div>
+
+          {/* 6. Alamat Lengkap */}
           <div>
             <label className="block text-xs font-semibold text-foreground mb-1">
               {t.full_address} <span className="text-rose-500">*</span>
@@ -299,58 +489,6 @@ export function AddressModal({
               className="w-full p-2.5 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary resize-none"
               required
             />
-          </div>
-
-          {/* Kota, Provinsi, Kode Pos */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* 1. Dropdown Provinsi Searchable */}
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Provinsi <span className="text-rose-500">*</span>
-              </label>
-              <SearchableSelect
-                options={INDONESIA_PROVINCES.map((prov) => ({
-                  value: prov.name,
-                  label: prov.name,
-                }))}
-                value={formData.province}
-                onChange={handleProvinceSelect}
-                placeholder="Pilih Provinsi"
-                searchPlaceholder="Cari provinsi..."
-              />
-            </div>
-            {/* 2. Dropdown Kota / Kabupaten Searchable (Otomatis Terfilter) */}
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Kota / Kabupaten <span className="text-rose-500">*</span>
-              </label>
-              <SearchableSelect
-                options={getCitiesByProvinceName(formData.province).map((city) => ({
-                  value: city.name,
-                  label: city.name,
-                }))}
-                value={formData.city}
-                onChange={handleCitySelect}
-                disabled={!formData.province}
-                placeholder={formData.province ? 'Pilih Kota / Kabupaten' : 'Pilih Provinsi Dulu'}
-                searchPlaceholder="Cari kota/kabupaten..."
-              />
-            </div>
-            {/* 3. Input Kode Pos */}
-            <div>
-              <label className="block text-xs font-semibold text-foreground mb-1">
-                Kode Pos <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="postalCode"
-                value={formData.postalCode}
-                onChange={handleChange}
-                placeholder="60111"
-                className="w-full h-10 px-3 text-xs bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-primary"
-                required
-              />
-            </div>
           </div>
 
           {/* Checkbox Jadikan Utama */}

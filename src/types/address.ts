@@ -4,8 +4,10 @@ export interface AddressItem {
   recipientName: string
   phone: string
   addressLine: string
-  city: string
   province: string
+  city: string
+  district?: string
+  village?: string
   postalCode: string
   isDefault: boolean
   createdAt: string
@@ -15,8 +17,10 @@ export interface AddressFormData {
   recipientName: string
   phone: string
   addressLine: string
-  city: string
   province: string
+  city: string
+  district?: string
+  village?: string
   postalCode: string
   isDefault?: boolean
 }

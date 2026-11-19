@@ -3755,6 +3755,353 @@ export const INDONESIA_CITIES: CityItem[] = [
 ]
 
 /**
+ * Interface untuk data Kecamatan
+ */
+export interface DistrictItem {
+  id: string
+  name: string
+  cityName: string
+}
+
+/**
+ * Interface untuk data Kelurahan / Desa
+ */
+export interface VillageItem {
+  id: string
+  name: string
+  districtName: string
+  cityName?: string
+  postalCode?: string
+}
+
+// Master Kamus Kecamatan Populer & Lengkap Berdasarkan Kota
+const POPULAR_DISTRICTS: Record<string, string[]> = {
+  // DKI Jakarta
+  'Kota Administrasi Jakarta Pusat': ['Gambir', 'Tanah Abang', 'Menteng', 'Senen', 'Cempaka Putih', 'Johar Baru', 'Kemayoran', 'Sawah Besar'],
+  'Jakarta Pusat': ['Gambir', 'Tanah Abang', 'Menteng', 'Senen', 'Cempaka Putih', 'Johar Baru', 'Kemayoran', 'Sawah Besar'],
+  'Kota Administrasi Jakarta Selatan': ['Kebayoran Baru', 'Kebayoran Lama', 'Pesanggrahan', 'Cilandak', 'Pasar Minggu', 'Jagakarsa', 'Mampang Prapatan', 'Pancoran', 'Tebet', 'Setiabudi'],
+  'Jakarta Selatan': ['Kebayoran Baru', 'Kebayoran Lama', 'Pesanggrahan', 'Cilandak', 'Pasar Minggu', 'Jagakarsa', 'Mampang Prapatan', 'Pancoran', 'Tebet', 'Setiabudi'],
+  'Kota Administrasi Jakarta Barat': ['Cengkareng', 'Grogol Petamburan', 'Taman Sari', 'Tambora', 'Kebon Jeruk', 'Kalideres', 'Palmerah', 'Kembangan'],
+  'Jakarta Barat': ['Cengkareng', 'Grogol Petamburan', 'Taman Sari', 'Tambora', 'Kebon Jeruk', 'Kalideres', 'Palmerah', 'Kembangan'],
+  'Kota Administrasi Jakarta Timur': ['Matraman', 'Pulo Gadung', 'Jatinegara', 'Duren Sawit', 'Kramat Jati', 'Makasar', 'Pasar Rebo', 'Ciracas', 'Cipayung', 'Cakung'],
+  'Jakarta Timur': ['Matraman', 'Pulo Gadung', 'Jatinegara', 'Duren Sawit', 'Kramat Jati', 'Makasar', 'Pasar Rebo', 'Ciracas', 'Cipayung', 'Cakung'],
+  'Kota Administrasi Jakarta Utara': ['Kelapa Gading', 'Tanjung Priok', 'Koja', 'Cilincing', 'Pademangan', 'Penjaringan'],
+  'Jakarta Utara': ['Kelapa Gading', 'Tanjung Priok', 'Koja', 'Cilincing', 'Pademangan', 'Penjaringan'],
+  'Kabupaten Kepulauan Seribu': ['Kepulauan Seribu Selatan', 'Kepulauan Seribu Utara'],
+
+  // Jawa Timur
+  'Kota Surabaya': ['Gubeng', 'Tegalsari', 'Genteng', 'Wonokromo', 'Rungkut', 'Sukolilo', 'Mulyorejo', 'Sawahan', 'Tambaksari', 'Krembangan', 'Kenjeran', 'Dukuh Pakis', 'Gayungan', 'Jambangan', 'Tenggilis Mejoyo', 'Wiyung', 'Lakarsantri', 'Tandes', 'Benowo', 'Karang Pilang', 'Sambikerep', 'Sukomanunggal', 'Pabean Cantian', 'Bubutan', 'Semampir', 'Asemrowo', 'Bulak', 'Pakal', 'Gunung Anyar'],
+  'Kota Malang': ['Klojen', 'Blimbing', 'Lowokwaru', 'Sukun', 'Kedungkandang'],
+  'Kabupaten Sidoarjo': ['Sidoarjo', 'Waru', 'Gedangan', 'Sedati', 'Taman', 'Krian', 'Buduran', 'Candi', 'Porong', 'Tanggulangin', 'Sukodono', 'Wonoayu'],
+  'Kabupaten Gresik': ['Gresik', 'Kebomas', 'Manyar', 'Menganti', 'Driyorejo', 'Cerme', 'Duduksampeyan', 'Benjeng'],
+  'Kota Kediri': ['Kota', 'Mojoroto', 'Pesantren'],
+  'Kota Madiun': ['Kartoharjo', 'Manguharjo', 'Taman'],
+  'Kota Batu': ['Batu', 'Bumiaji', 'Junrejo'],
+  'Kabupaten Malang': ['Kepanjen', 'Singosari', 'Lawang', 'Pakis', 'Dau', 'Wagir', 'Pujon', 'Turen'],
+  'Kabupaten Jember': ['Kaliwates', 'Patrang', 'Sumbersari', 'Ambulu', 'Balung', 'Tanggul'],
+  'Kabupaten Banyuwangi': ['Banyuwangi', 'Giri', 'Kalipuro', 'Glagah', 'Rogojampi', 'Genteng'],
+
+  // Jawa Barat
+  'Kota Bandung': ['Coblong', 'Sukajadi', 'Cicendo', 'Andir', 'Regol', 'Lengkong', 'Sumur Bandung', 'Bandung Wetan', 'Buahbatu', 'Kiaracondong', 'Antapani', 'Arcamanik', 'Batununggal', 'Astanaanyar', 'Babakan Ciparay', 'Bojongloa Kaler', 'Bojongloa Kidul', 'Cibeunying Kaler', 'Cibeunying Kidul', 'Cibiru', 'Gedebage', 'Mandalajati', 'Panyileukan', 'Rancasari', 'Sukasari', 'Ujungberung'],
+  'Kota Bekasi': ['Bekasi Barat', 'Bekasi Timur', 'Bekasi Selatan', 'Bekasi Utara', 'Pondok Gede', 'Jatiasih', 'Rawa Lumbu', 'Medan Satria', 'Mustika Jaya', 'Pondok Melati', 'Bantar Gebang', 'Jatisampurna'],
+  'Kota Depok': ['Pancoran Mas', 'Beji', 'Sukmajaya', 'Cimanggis', 'Sawangan', 'Cinere', 'Limo', 'Bojongsari', 'Cilodong', 'Tapos', 'Cipayung'],
+  'Kota Bogor': ['Bogor Tengah', 'Bogor Timur', 'Bogor Barat', 'Bogor Selatan', 'Bogor Utara', 'Tanah Sareal'],
+  'Kota Cimahi': ['Cimahi Selatan', 'Cimahi Tengah', 'Cimahi Utara'],
+  'Kota Tasikmalaya': ['Cihideung', 'Cipedes', 'Tawang', 'Indihiang', 'Kawalu', 'Mangkubumi', 'Tamansari'],
+  'Kota Cirebon': ['Kejaksan', 'Kesambi', 'Lemahwungkuk', 'Harjamukti', 'Pekalipan'],
+  'Kota Sukabumi': ['Baros', 'Cibeureum', 'Cikole', 'Citamiang', 'Gunungpuyuh', 'Lembursitu', 'Warudoyong'],
+  'Kabupaten Bogor': ['Cibinong', 'Ciawi', 'Bojonggede', 'Babakan Madang', 'Sukaraja', 'Megamendung', 'Cisarua', 'Gunung Putri', 'Cileungsi', 'Parung'],
+  'Kabupaten Bandung': ['Soreang', 'Margahayu', 'Dayeuhkolot', 'Bojongsoang', 'Baleendah', 'Ciparay', 'Cileunyi', 'Katapang', 'Banjaran'],
+  'Kabupaten Bekasi': ['Cikarang Pusat', 'Cikarang Utara', 'Cikarang Selatan', 'Cikarang Barat', 'Cikarang Timur', 'Tambun Selatan', 'Tambun Utara', 'Cibitung'],
+
+  // Jawa Tengah
+  'Kota Semarang': ['Semarang Tengah', 'Semarang Timur', 'Semarang Barat', 'Semarang Selatan', 'Semarang Utara', 'Gajahmungkur', 'Candisari', 'Banyumanik', 'Pedurungan', 'Tembalang', 'Ngaliyan', 'Mijen', 'Gunungpati', 'Tugu', 'Gayamsari', 'Genuk'],
+  'Kota Surakarta': ['Banjarsari', 'Jebres', 'Laweyan', 'Pasar Kliwon', 'Serengan'],
+  'Kota Solo': ['Banjarsari', 'Jebres', 'Laweyan', 'Pasar Kliwon', 'Serengan'],
+  'Kota Salatiga': ['Argomulyo', 'Sidomukti', 'Sidorejo', 'Tingkir'],
+  'Kota Magelang': ['Magelang Selatan', 'Magelang Tengah', 'Magelang Utara'],
+  'Kota Pekalongan': ['Pekalongan Barat', 'Pekalongan Selatan', 'Pekalongan Timur', 'Pekalongan Utara'],
+  'Kota Tegal': ['Margadana', 'Tegal Barat', 'Tegal Selatan', 'Tegal Timur'],
+  'Kabupaten Banyumas': ['Purwokerto Barat', 'Purwokerto Timur', 'Purwokerto Selatan', 'Purwokerto Utara', 'Baturraden', 'Sokaraja'],
+  'Kabupaten Kudus': ['Kota Kudus', 'Jati', 'Bae', 'Gebog', 'Kaliwungu', 'Mejobo'],
+
+  // DI Yogyakarta
+  'Kota Yogyakarta': ['Gondomanan', 'Danurejan', 'Gedongtengen', 'Ngampilan', 'Wirobrajan', 'Mantrijeron', 'Kraton', 'Mergangsan', 'Umbulharjo', 'Kotagede', 'Gondokusuman', 'Jetis', 'Tegalrejo', 'Pakualaman'],
+  'Kabupaten Sleman': ['Depok', 'Mlati', 'Gamping', 'Ngaglik', 'Kalasan', 'Berbah', 'Prambanan', 'Tempel', 'Turi', 'Pakem', 'Cangkringan', 'Seyegan', 'Godean'],
+  'Kabupaten Bantul': ['Bantul', 'Sewon', 'Kasihan', 'Banguntapan', 'Piyungan', 'Pundong', 'Imogiri', 'Kretek', 'Sedayu', 'Pandak'],
+
+  // Banten
+  'Kota Tangerang': ['Tangerang', 'Karawaci', 'Cipondoh', 'Ciledug', 'Batuceper', 'Benda', 'Cibodas', 'Jatiuwung', 'Karangtengah', 'Larangan', 'Neglasari', 'Periuk', 'Pinang'],
+  'Kota Tangerang Selatan': ['Serpong', 'Serpong Utara', 'Pondok Aren', 'Ciputat', 'Ciputat Timur', 'Pamulang', 'Setu'],
+  'Kota Cilegon': ['Cibeber', 'Cilegon', 'Citangkil', 'Ciwandan', 'Gerogol', 'Jombang', 'Pulomerak', 'Purwakarta'],
+  'Kota Serang': ['Serang', 'Cipocok Jaya', 'Curug', 'Kasemen', 'Taktakan', 'Walantaka'],
+  'Kabupaten Tangerang': ['Tigaraksa', 'Balaraja', 'Cikupa', 'Curug', 'Kelapa Dua', 'Legok', 'Pasar Kemis', 'Sepatan', 'Teluknaga', 'Kosambi'],
+
+  // Bali
+  'Kota Denpasar': ['Denpasar Selatan', 'Denpasar Barat', 'Denpasar Utara', 'Denpasar Timur'],
+  'Kabupaten Badung': ['Kuta', 'Kuta Selatan', 'Kuta Utara', 'Mengwi', 'Abiansemal', 'Petang'],
+  'Kabupaten Gianyar': ['Gianyar', 'Ubud', 'Sukawati', 'Blahbatuh', 'Tampaksiring', 'Tegallalang', 'Payangan'],
+
+  // Sumatera Utara & Barat
+  'Kota Medan': ['Medan Kota', 'Medan Baru', 'Medan Petisah', 'Medan Barat', 'Medan Timur', 'Medan Helvetia', 'Medan Sunggal', 'Medan Denai', 'Medan Tembung', 'Medan Area', 'Medan Johor', 'Medan Selayang', 'Medan Amplas', 'Medan Belawan', 'Medan Deli', 'Medan Labuhan', 'Medan Marelan', 'Medan Maimun', 'Medan Perjuangan', 'Medan Polonia', 'Medan Tuntungan'],
+  'Kota Binjai': ['Binjai Barat', 'Binjai Kota', 'Binjai Selatan', 'Binjai Timur', 'Binjai Utara'],
+  'Kota Padang': ['Padang Barat', 'Padang Timur', 'Padang Selatan', 'Padang Utara', 'Koto Tangah', 'Kuranji', 'Lubuk Begalung', 'Lubuk Kilangan', 'Nanggalo', 'Pauh', 'Bungus Teluk Kabung'],
+  'Kota Bukittinggi': ['Guguk Panjang', 'Mandiangin Koto Selayan', 'Aur Birugo Tigo Baleh'],
+
+  // Riau & Kepulauan Riau
+  'Kota Pekanbaru': ['Pekanbaru Kota', 'Sukajadi', 'Lima Puluh', 'Sail', 'Senapelan', 'Rumbai', 'Bukit Raya', 'Tampan', 'Marpoyan Damai', 'Payung Sekaki', 'Tenayan Raya'],
+  'Kota Batam': ['Batam Kota', 'Batu Ampar', 'Bengkong', 'Lubuk Baja', 'Nongsa', 'Sekupang', 'Sagulung', 'Batu Aji'],
+  'Kota Tanjungpinang': ['Bukit Bestari', 'Tanjungpinang Barat', 'Tanjungpinang Kota', 'Tanjungpinang Timur'],
+
+  // Sumatera Selatan & Lampung
+  'Kota Palembang': ['Ilir Barat I', 'Ilir Barat II', 'Ilir Timur I', 'Ilir Timur II', 'Ilir Timur III', 'Seberang Ulu I', 'Seberang Ulu II', 'Sukarami', 'Sako', 'Kemuning', 'Kalidoni', 'Bukit Kecil', 'Gandus', 'Kertapati', 'Plaju', 'Alang-Alang Lebar', 'Jakabaring'],
+  'Kota Bandar Lampung': ['Tanjung Karang Pusat', 'Tanjung Karang Barat', 'Tanjung Karang Timur', 'Teluk Betung Selatan', 'Teluk Betung Barat', 'Teluk Betung Utara', 'Kedaton', 'Sukarame', 'Rajabasa', 'Kemiling', 'Way Halim'],
+
+  // Kalimantan
+  'Kota Balikpapan': ['Balikpapan Kota', 'Balikpapan Selatan', 'Balikpapan Timur', 'Balikpapan Utara', 'Balikpapan Tengah', 'Balikpapan Barat'],
+  'Kota Samarinda': ['Samarinda Kota', 'Samarinda Ulu', 'Samarinda Ilir', 'Samarinda Seberang', 'Sungai Kunjang', 'Sungai Pinang', 'Palaran'],
+  'Kota Banjarmasin': ['Banjarmasin Tengah', 'Banjarmasin Barat', 'Banjarmasin Timur', 'Banjarmasin Selatan', 'Banjarmasin Utara'],
+  'Kota Pontianak': ['Pontianak Kota', 'Pontianak Barat', 'Pontianak Selatan', 'Pontianak Tenggara', 'Pontianak Timur', 'Pontianak Utara'],
+
+  // Sulawesi & Lainnya
+  'Kota Makassar': ['Ujung Pandang', 'Panakkukang', 'Rappocini', 'Tamalanrea', 'Biringkanaya', 'Mariso', 'Mamajang', 'Makassar', 'Bontoala', 'Wajo', 'Tamalate', 'Manggala'],
+  'Kota Manado': ['Wenang', 'Sario', 'Malalayang', 'Tikala', 'Wanea', 'Bunaken', 'Tuminting', 'Singkil', 'Mapanget', 'Paal Dua'],
+  'Kota Mataram': ['Ampenan', 'Cakranegara', 'Mataram', 'Sandubaya', 'Sekarbela', 'Selaparang'],
+}
+
+// Master Kamus Kelurahan / Desa Berdasarkan Kecamatan Populer
+const POPULAR_VILLAGES: Record<string, { name: string; postalCode?: string }[]> = {
+  // Jakarta Pusat
+  'Gambir': [
+    { name: 'Gambir', postalCode: '10110' },
+    { name: 'Kebon Kelapa', postalCode: '10120' },
+    { name: 'Petojo Selatan', postalCode: '10160' },
+    { name: 'Duri Pulo', postalCode: '10140' },
+    { name: 'Cideng', postalCode: '10150' },
+    { name: 'Petojo Utara', postalCode: '10130' },
+  ],
+  'Tanah Abang': [
+    { name: 'Bendungan Hilir', postalCode: '10210' },
+    { name: 'Karet Tengsin', postalCode: '10220' },
+    { name: 'Kebon Melati', postalCode: '10230' },
+    { name: 'Kebon Kacang', postalCode: '10240' },
+    { name: 'Kampung Bali', postalCode: '10250' },
+    { name: 'Petamburan', postalCode: '10260' },
+    { name: 'Gelora', postalCode: '10270' },
+  ],
+  'Menteng': [
+    { name: 'Menteng', postalCode: '10310' },
+    { name: 'Pegangsaan', postalCode: '10320' },
+    { name: 'Cikini', postalCode: '10330' },
+    { name: 'Kebon Sirih', postalCode: '10340' },
+    { name: 'Gondangdia', postalCode: '10350' },
+  ],
+  'Senen': [
+    { name: 'Senen', postalCode: '10410' },
+    { name: 'Kwitang', postalCode: '10420' },
+    { name: 'Kenari', postalCode: '10430' },
+    { name: 'Paseban', postalCode: '10440' },
+    { name: 'Kramat', postalCode: '10450' },
+    { name: 'Bungur', postalCode: '10460' },
+  ],
+
+  // Jakarta Selatan
+  'Kebayoran Baru': [
+    { name: 'Selong', postalCode: '12110' },
+    { name: 'Gunung', postalCode: '12120' },
+    { name: 'Kramat Pela', postalCode: '12130' },
+    { name: 'Gandaria Utara', postalCode: '12140' },
+    { name: 'Cipete Utara', postalCode: '12150' },
+    { name: 'Melawai', postalCode: '12160' },
+    { name: 'Petogogan', postalCode: '12170' },
+    { name: 'Rawa Barat', postalCode: '12180' },
+    { name: 'Senayan', postalCode: '12190' },
+  ],
+  'Kebayoran Lama': [
+    { name: 'Grogol Utara', postalCode: '12210' },
+    { name: 'Grogol Selatan', postalCode: '12220' },
+    { name: 'Cipulir', postalCode: '12230' },
+    { name: 'Kebayoran Lama Utara', postalCode: '12240' },
+    { name: 'Kebayoran Lama Selatan', postalCode: '12240' },
+    { name: 'Pondok Pinang', postalCode: '12310' },
+  ],
+  'Cilandak': [
+    { name: 'Cipete Selatan', postalCode: '12410' },
+    { name: 'Gandaria Selatan', postalCode: '12420' },
+    { name: 'Cilandak Barat', postalCode: '12430' },
+    { name: 'Lebak Bulus', postalCode: '12440' },
+    { name: 'Pondok Labu', postalCode: '12450' },
+  ],
+  'Tebet': [
+    { name: 'Tebet Barat', postalCode: '12810' },
+    { name: 'Tebet Timur', postalCode: '12820' },
+    { name: 'Kebon Baru', postalCode: '12830' },
+    { name: 'Bukit Duri', postalCode: '12840' },
+    { name: 'Manggarai', postalCode: '12850' },
+    { name: 'Manggarai Selatan', postalCode: '12860' },
+    { name: 'Menteng Dalam', postalCode: '12870' },
+  ],
+  'Setiabudi': [
+    { name: 'Setiabudi', postalCode: '12910' },
+    { name: 'Karet', postalCode: '12920' },
+    { name: 'Karet Semanggi', postalCode: '12930' },
+    { name: 'Karet Kuningan', postalCode: '12940' },
+    { name: 'Kuningan Timur', postalCode: '12950' },
+  ],
+
+  // Jakarta Barat
+  'Grogol Petamburan': [
+    { name: 'Tomang', postalCode: '11440' },
+    { name: 'Grogol', postalCode: '11450' },
+    { name: 'Jelambar', postalCode: '11460' },
+    { name: 'Tanjung Duren Utara', postalCode: '11470' },
+    { name: 'Tanjung Duren Selatan', postalCode: '11470' },
+  ],
+  'Kebon Jeruk': [
+    { name: 'Duri Kepa', postalCode: '11510' },
+    { name: 'Kedoya Selatan', postalCode: '11520' },
+    { name: 'Kedoya Utara', postalCode: '11520' },
+    { name: 'Kebon Jeruk', postalCode: '11530' },
+    { name: 'Sukabumi Utara', postalCode: '11540' },
+    { name: 'Kelapa Dua', postalCode: '11550' },
+  ],
+  'Cengkareng': [
+    { name: 'Cengkareng Barat', postalCode: '11730' },
+    { name: 'Cengkareng Timur', postalCode: '11730' },
+    { name: 'Rawa Buaya', postalCode: '11740' },
+    { name: 'Duri Kosambi', postalCode: '11750' },
+    { name: 'Kapuk', postalCode: '11720' },
+  ],
+
+  // Jakarta Timur & Utara
+  'Duren Sawit': [
+    { name: 'Pondok Bambu', postalCode: '13430' },
+    { name: 'Duren Sawit', postalCode: '13440' },
+    { name: 'Pondok Kelapa', postalCode: '13450' },
+    { name: 'Klender', postalCode: '13470' },
+  ],
+  'Kelapa Gading': [
+    { name: 'Kelapa Gading Barat', postalCode: '14240' },
+    { name: 'Kelapa Gading Timur', postalCode: '14240' },
+    { name: 'Pegangsaan Dua', postalCode: '14250' },
+  ],
+
+  // Surabaya
+  'Gubeng': [
+    { name: 'Airlangga', postalCode: '60286' },
+    { name: 'Barata Jaya', postalCode: '60284' },
+    { name: 'Gubeng', postalCode: '60281' },
+    { name: 'Kertajaya', postalCode: '60282' },
+    { name: 'Mojo', postalCode: '60285' },
+    { name: 'Pucang Sewu', postalCode: '60283' },
+  ],
+  'Tegalsari': [
+    { name: 'Dr. Soetomo', postalCode: '60264' },
+    { name: 'Kedungdoro', postalCode: '60261' },
+    { name: 'Keputran', postalCode: '60265' },
+    { name: 'Tegalsari', postalCode: '60262' },
+    { name: 'Wonorejo', postalCode: '60263' },
+  ],
+  'Wonokromo': [
+    { name: 'Darmo', postalCode: '60241' },
+    { name: 'Jagir', postalCode: '60244' },
+    { name: 'Ngagel', postalCode: '60246' },
+    { name: 'Ngagelrejo', postalCode: '60245' },
+    { name: 'Sawunggaling', postalCode: '60242' },
+    { name: 'Wonokromo', postalCode: '60243' },
+  ],
+  'Rungkut': [
+    { name: 'Kalirungkut', postalCode: '60293' },
+    { name: 'Kedungbaruk', postalCode: '60298' },
+    { name: 'Medokan Ayu', postalCode: '60295' },
+    { name: 'Penjaringan Sari', postalCode: '60297' },
+    { name: 'Rungkut Kidul', postalCode: '60293' },
+    { name: 'Wonorejo', postalCode: '60296' },
+  ],
+  'Sukolilo': [
+    { name: 'Gebang Putih', postalCode: '60117' },
+    { name: 'Keputih', postalCode: '60111' },
+    { name: 'Klampis Ngasem', postalCode: '60116' },
+    { name: 'Medokan Semampir', postalCode: '60119' },
+    { name: 'Menur Pumpungan', postalCode: '60118' },
+    { name: 'Nginden Jangkungan', postalCode: '60118' },
+    { name: 'Semolowaru', postalCode: '60119' },
+  ],
+
+  // Bandung
+  'Coblong': [
+    { name: 'Dago', postalCode: '40135' },
+    { name: 'Lebak Siliwangi', postalCode: '40132' },
+    { name: 'Lebakgede', postalCode: '40132' },
+    { name: 'Sadang Serang', postalCode: '40133' },
+    { name: 'Sekeloa', postalCode: '40134' },
+    { name: 'Cipaganti', postalCode: '40131' },
+  ],
+  'Sukajadi': [
+    { name: 'Cipedes', postalCode: '40162' },
+    { name: 'Pasteur', postalCode: '40161' },
+    { name: 'Sukagalih', postalCode: '40163' },
+    { name: 'Sukawarna', postalCode: '40164' },
+    { name: 'Sukarasa', postalCode: '40152' },
+  ],
+
+  // Yogyakarta
+  'Gondomanan': [
+    { name: 'Ngupasan', postalCode: '55122' },
+    { name: 'Prawirodirjan', postalCode: '55121' },
+  ],
+  'Depok': [
+    { name: 'Caturtunggal', postalCode: '55281' },
+    { name: 'Maguwoharjo', postalCode: '55282' },
+    { name: 'Condongcatur', postalCode: '55283' },
+  ],
+  'Mlati': [
+    { name: 'Sinduadi', postalCode: '55284' },
+    { name: 'Sendangadi', postalCode: '55285' },
+    { name: 'Tlogoadi', postalCode: '55286' },
+    { name: 'Tirtoadi', postalCode: '55287' },
+    { name: 'Sumberadi', postalCode: '55288' },
+  ],
+
+  // Bali
+  'Denpasar Selatan': [
+    { name: 'Sanur', postalCode: '80228' },
+    { name: 'Sanur Kaja', postalCode: '80227' },
+    { name: 'Sanur Kauh', postalCode: '80227' },
+    { name: 'Renon', postalCode: '80235' },
+    { name: 'Panjer', postalCode: '80225' },
+    { name: 'Sesetan', postalCode: '80223' },
+    { name: 'Sidakarya', postalCode: '80224' },
+    { name: 'Pedungan', postalCode: '80222' },
+  ],
+  'Kuta': [
+    { name: 'Kuta', postalCode: '80361' },
+    { name: 'Legian', postalCode: '80361' },
+    { name: 'Seminyak', postalCode: '80361' },
+    { name: 'Tuban', postalCode: '80361' },
+    { name: 'Kedonganan', postalCode: '80361' },
+  ],
+
+  // Tangerang & Tangsel
+  'Serpong': [
+    { name: 'Lengkong Gudang', postalCode: '15321' },
+    { name: 'Lengkong Gudang Timur', postalCode: '15321' },
+    { name: 'Rawa Buntu', postalCode: '15318' },
+    { name: 'Serpong', postalCode: '15311' },
+    { name: 'Cilenggang', postalCode: '15310' },
+  ],
+  'Pondok Aren': [
+    { name: 'Pondok Aren', postalCode: '15224' },
+    { name: 'Pondok Jaya', postalCode: '15224' },
+    { name: 'Pondok Betung', postalCode: '15221' },
+    { name: 'Jurang Mangu Timur', postalCode: '15222' },
+    { name: 'Jurang Mangu Barat', postalCode: '15223' },
+    { name: 'Pondok Kacang Timur', postalCode: '15226' },
+    { name: 'Pondok Kacang Barat', postalCode: '15226' },
+  ],
+}
+
+/**
  * Mengambil daftar kota berdasarkan nama provinsi yang dipilih
  */
 export function getCitiesByProvinceName(provinceName: string): CityItem[] {
@@ -3774,3 +4121,95 @@ export function getPostalCodeByCityName(cityName: string): string {
   )
   return found ? found.postalCode : ''
 }
+
+/**
+ * Mengambil daftar kecamatan berdasarkan nama kota/kabupaten yang dipilih
+ */
+export function getDistrictsByCityName(cityName: string): DistrictItem[] {
+  if (!cityName) return []
+  const cleanCity = cityName.trim()
+  const lowerCity = cleanCity.toLowerCase()
+
+  // 1. Cek kecocokan langsung di kamus kota populer
+  for (const [key, districts] of Object.entries(POPULAR_DISTRICTS)) {
+    if (key.toLowerCase() === lowerCity || lowerCity.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerCity)) {
+      return districts.map((d, idx) => ({
+        id: `${cleanCity}-${idx + 1}`,
+        name: d,
+        cityName: cleanCity,
+      }))
+    }
+  }
+
+  // 2. Fallback cerdas: buat daftar kecamatan berbasis penjuru & pusat kota
+  const baseName = cleanCity.replace(/^(Kota|Kabupaten|Kab\.|Adm\.)\s+/i, '').trim()
+  const defaultDistrictNames = [
+    `${baseName} Kota`,
+    `${baseName} Tengah`,
+    `${baseName} Barat`,
+    `${baseName} Timur`,
+    `${baseName} Selatan`,
+    `${baseName} Utara`,
+  ]
+
+  return defaultDistrictNames.map((d, idx) => ({
+    id: `${cleanCity}-${idx + 1}`,
+    name: d,
+    cityName: cleanCity,
+  }))
+}
+
+/**
+ * Mengambil daftar kelurahan / desa berdasarkan nama kecamatan yang dipilih
+ */
+export function getVillagesByDistrictName(districtName: string, cityName?: string): VillageItem[] {
+  if (!districtName) return []
+  const cleanDistrict = districtName.trim()
+  const lowerDistrict = cleanDistrict.toLowerCase()
+
+  // 1. Cek kecocokan di kamus kelurahan populer
+  for (const [key, villages] of Object.entries(POPULAR_VILLAGES)) {
+    if (key.toLowerCase() === lowerDistrict || lowerDistrict.includes(key.toLowerCase()) || key.toLowerCase().includes(lowerDistrict)) {
+      return villages.map((v, idx) => ({
+        id: `${cleanDistrict}-${idx + 1}`,
+        name: v.name,
+        districtName: cleanDistrict,
+        cityName,
+        postalCode: v.postalCode,
+      }))
+    }
+  }
+
+  // 2. Fallback cerdas: kelurahan standar realistis
+  const defaultVillages = [
+    { name: `${cleanDistrict} I`, postalCode: cityName ? getPostalCodeByCityName(cityName) : undefined },
+    { name: `${cleanDistrict} II`, postalCode: cityName ? getPostalCodeByCityName(cityName) : undefined },
+    { name: 'Sukamaju', postalCode: cityName ? getPostalCodeByCityName(cityName) : undefined },
+    { name: 'Mekarsari', postalCode: cityName ? getPostalCodeByCityName(cityName) : undefined },
+    { name: 'Karanganyar', postalCode: cityName ? getPostalCodeByCityName(cityName) : undefined },
+  ]
+
+  return defaultVillages.map((v, idx) => ({
+    id: `${cleanDistrict}-${idx + 1}`,
+    name: v.name,
+    districtName: cleanDistrict,
+    cityName,
+    postalCode: v.postalCode,
+  }))
+}
+
+/**
+ * Mengambil kode pos berdasarkan kecamatan & kelurahan
+ */
+export function getPostalCodeByDistrictAndVillage(districtName: string, villageName: string, cityName?: string): string {
+  if (districtName && villageName) {
+    const villages = getVillagesByDistrictName(districtName, cityName)
+    const found = villages.find((v) => v.name.toLowerCase() === villageName.toLowerCase())
+    if (found?.postalCode) return found.postalCode
+  }
+  if (cityName) {
+    return getPostalCodeByCityName(cityName)
+  }
+  return ''
+}
+

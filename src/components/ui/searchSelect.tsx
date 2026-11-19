@@ -17,6 +17,7 @@ interface SearchableSelectProps {
   disabled?: boolean
   className?: string
   triggerClassName?: string
+  allowCustom?: boolean
 }
 
 export function SearchableSelect({
@@ -28,6 +29,7 @@ export function SearchableSelect({
   disabled = false,
   className = '',
   triggerClassName = '',
+  allowCustom = false,
 }: SearchableSelectProps) {
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -207,6 +209,8 @@ export function SearchableSelect({
                         : filteredOptions[0]
                     if (target) {
                       handleSelect(target.value)
+                    } else if (allowCustom && search.trim()) {
+                      handleSelect(search.trim())
                     }
                   } else if (e.key === 'Escape') {
                     e.preventDefault()
@@ -234,6 +238,17 @@ export function SearchableSelect({
             aria-label={placeholder}
             className="max-h-60 overflow-y-auto p-1 space-y-0.5"
           >
+            {allowCustom && search.trim() && !options.some((o) => o.label.toLowerCase() === search.trim().toLowerCase() || o.value.toLowerCase() === search.trim().toLowerCase()) && (
+              <button
+                type="button"
+                onClick={() => handleSelect(search.trim())}
+                className="w-full px-2.5 py-2 flex items-center justify-between rounded-md text-xs bg-[#00a699]/10 text-[#00a699] hover:bg-[#00a699]/20 font-semibold cursor-pointer text-left transition-colors"
+              >
+                <span className="truncate">Gunakan &quot;{search.trim()}&quot;</span>
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            )}
+
             {filteredOptions.length === 0 ? (
               <div className="py-4 text-center text-xs text-muted-foreground">
                 Tidak ditemukan.

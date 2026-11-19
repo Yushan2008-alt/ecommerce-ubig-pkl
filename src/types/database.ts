@@ -12,6 +12,8 @@ export type ShopStatus = 'pending' | 'approved' | 'active' | 'rejected'
 export interface ShopMetadata {
   bio?: string
   pickup_address?: string
+  district?: string
+  village?: string
   postal_code?: string
   couriers?: string[]
   bank_name?: string

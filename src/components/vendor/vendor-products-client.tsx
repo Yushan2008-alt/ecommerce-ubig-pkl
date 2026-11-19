@@ -669,7 +669,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Produk</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus produk <strong>"{deleteTarget?.title}"</strong>.
+              Apakah Anda yakin ingin menghapus produk <strong>&quot;{deleteTarget?.title}&quot;</strong>.
             </AlertDialogDescription>
 
             {/* Komponen Alert Shadcn UI untuk konfirmasi hapus */}

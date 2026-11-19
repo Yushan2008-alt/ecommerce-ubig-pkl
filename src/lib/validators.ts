@@ -43,10 +43,17 @@ export const VendorApplicationSchema = z.object({
     .min(2, 'Slug toko minimal 2 karakter')
     .max(60, 'Slug toko maksimal 60 karakter')
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug hanya boleh huruf kecil, angka, dan strip (-)'),
-  phone: z.string().min(8, 'Nomor telepon minimal 8 digit').max(20, 'Nomor telepon maksimal 20 digit'),
+  phone: z
+    .string()
+    .regex(
+      /^(?:(?:08|\+?628)\d{8,13}|(?:\+?60|\+?65)\d{7,12})$/,
+      'Nomor telepon harus diawali 08 dan minimal 10 digit angka (contoh: 081234567890)'
+    ),
   pickup_address: z.string().min(5, 'Alamat pengambilan minimal 5 karakter'),
-  city: z.string().min(2, 'Kota wajib diisi'),
   province: z.string().min(2, 'Provinsi wajib diisi'),
+  city: z.string().min(2, 'Kota wajib diisi'),
+  district: z.string().min(1, 'Kecamatan wajib diisi'),
+  village: z.string().min(1, 'Desa / Kelurahan wajib diisi'),
   postal_code: z.string().min(3, 'Kode pos minimal 3 digit'),
   couriers: z.array(z.string()).min(1, 'Pilih minimal 1 jasa kirim ekspedisi'),
   bank_name: z.string().min(2, 'Nama bank wajib dipilih'),

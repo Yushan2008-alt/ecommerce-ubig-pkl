@@ -8,8 +8,18 @@ import {
   submitVendorApplicationAction,
   submitFirstProductAction,
   getVendorApplicationStatusAction,
+  cancelVendorApplicationAction,
 } from '@/actions/vendor'
-import { POPULAR_COURIERS, POPULAR_BANKS } from '@/lib/shop-helper'
+import { POPULAR_COURIERS, INDONESIA_BANKS } from '@/lib/shop-helper'
+import {
+  INDONESIA_PROVINCES,
+  getCitiesByProvinceName,
+  getDistrictsByCityName,
+  getVillagesByDistrictName,
+  getPostalCodeByDistrictAndVillage,
+  getPostalCodeByCityName,
+} from '@/data/indonesia-regions'
+import { SearchableSelect } from '@/components/ui/searchSelect'
 import { DASHBOARD_12_CATEGORIES } from '@/lib/catalog-data'
 import {
   Store,
@@ -23,18 +33,17 @@ import {
   CheckCircle2,
   AlertCircle,
   Loader2,
-  Sparkles,
   RefreshCw,
   Building,
   Phone,
-  ShieldCheck,
   Check,
   ExternalLink,
+  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
 import { NumberInput } from '@/components/ui/number-input'
-import type { Database, ShopMetadata, ShopStatus } from '@/types/database'
+import type { Database, ShopMetadata } from '@/types/database'
 
 type Shop = Database['public']['Tables']['shops']['Row']
 
@@ -53,8 +62,68 @@ interface VendorOnboardingWizardProps {
   categories?: CategoryOption[]
 }
 
+function cleanPhoneDigits(value: string, country = '+62'): string {
+  let digits = value.replace(/\D/g, '')
+
+  if (country === '+62') {
+    while (digits.startsWith('62') || digits.startsWith('0')) {
+      if (digits.startsWith('62')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  } else if (country === '+60') {
+    while (digits.startsWith('60') || digits.startsWith('0')) {
+      if (digits.startsWith('60')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  } else if (country === '+65') {
+    while (digits.startsWith('65') || digits.startsWith('0')) {
+      if (digits.startsWith('65')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  }
+
+  return digits
+}
+
+function formatPhoneNumber(value: string, country = '+62'): string {
+  let digits = cleanPhoneDigits(value, country)
+  const maxDigits = country === '+62' ? 13 : 12
+  digits = digits.slice(0, maxDigits)
+
+  if (digits.length <= 3) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  if (digits.length <= 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}-${digits.slice(11)}`
+}
+
+function formatPhoneDisplay(rawPhone?: string | null, defaultCountry = '+62'): string {
+  if (!rawPhone || !rawPhone.trim()) return '-'
+
+  let country = defaultCountry
+  const trimmed = rawPhone.trim()
+
+  if (trimmed.startsWith('+60') || trimmed.startsWith('60')) {
+    country = '+60'
+  } else if (trimmed.startsWith('+65') || trimmed.startsWith('65')) {
+    country = '+65'
+  } else if (trimmed.startsWith('+62') || trimmed.startsWith('62') || trimmed.startsWith('0')) {
+    country = '+62'
+  }
+
+  const formatted = formatPhoneNumber(trimmed, country)
+  return formatted ? `${country} ${formatted}` : '-'
+}
+
 export function VendorOnboardingWizard({
-  userEmail = '',
   userName = '',
   initialStep = 1,
   existingShop = null,
@@ -82,6 +151,7 @@ export function VendorOnboardingWizard({
   })
 
   const [submitting, setSubmitting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [checkingStatus, setCheckingStatus] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -89,22 +159,42 @@ export function VendorOnboardingWizard({
   const [shop, setShop] = useState<Shop | null>(existingShop)
   const [shopMeta, setShopMeta] = useState<ShopMetadata>(existingMetadata || {})
 
+  const [countryCode, setCountryCode] = useState(() => {
+    const raw = existingShop?.phone || existingShop?.whatsapp || ''
+    if (raw.startsWith('+60') || raw.startsWith('60')) return '+60'
+    if (raw.startsWith('+65') || raw.startsWith('65')) return '+65'
+    return '+62'
+  })
+
   // Step 2, 3, 4: Application Form State
-  const [appForm, setAppForm] = useState({
-    name: existingShop?.name || '',
-    slug: existingShop?.slug || '',
-    phone: existingShop?.phone || existingShop?.whatsapp || '',
-    pickup_address: existingMetadata?.pickup_address || '',
-    city: existingShop?.city || 'Jakarta',
-    province: existingShop?.province || 'DKI Jakarta',
-    postal_code: existingMetadata?.postal_code || '',
-    couriers: existingMetadata?.couriers && existingMetadata.couriers.length > 0
-      ? existingMetadata.couriers
-      : ['jnt', 'spx', 'jne'],
-    bank_name: existingMetadata?.bank_name || POPULAR_BANKS[0],
-    bank_account_number: existingMetadata?.bank_account_number || '',
-    bank_account_holder: existingMetadata?.bank_account_holder || userName || '',
-    agreedToTerms: true,
+  const [appForm, setAppForm] = useState(() => {
+    const rawPhone = existingShop?.phone || existingShop?.whatsapp || ''
+    const initialCountry =
+      rawPhone.startsWith('+60') || rawPhone.startsWith('60')
+        ? '+60'
+        : rawPhone.startsWith('+65') || rawPhone.startsWith('65')
+        ? '+65'
+        : '+62'
+
+    return {
+      name: existingShop?.name || '',
+      slug: existingShop?.slug || '',
+      phone: formatPhoneNumber(rawPhone, initialCountry),
+      pickup_address: existingMetadata?.pickup_address || '',
+      province: existingShop?.province || '',
+      city: existingShop?.city || '',
+      district: existingMetadata?.district || '',
+      village: existingMetadata?.village || '',
+      postal_code: existingMetadata?.postal_code || '',
+      couriers:
+        existingMetadata?.couriers && existingMetadata.couriers.length > 0
+          ? existingMetadata.couriers
+          : ['jne', 'jnt', 'sicepat'],
+      bank_name: existingMetadata?.bank_name || INDONESIA_BANKS[0].label,
+      bank_account_number: existingMetadata?.bank_account_number || '',
+      bank_account_holder: existingMetadata?.bank_account_holder || userName || '',
+      agreedToTerms: true,
+    }
   })
 
   // Step 6: First Product Form State
@@ -171,20 +261,48 @@ export function VendorOnboardingWizard({
       toast.error('Slug toko wajib diisi (minimal 2 karakter).')
       return false
     }
-    if (!appForm.phone.trim() || appForm.phone.length < 8) {
-      toast.error('Nomor telepon wajib diisi minimal 8 digit.')
+    const phoneDigits = cleanPhoneDigits(appForm.phone, countryCode)
+    if (!phoneDigits) {
+      toast.error('Nomor telepon toko wajib diisi.')
       return false
     }
-    if (!appForm.pickup_address.trim() || appForm.pickup_address.length < 5) {
-      toast.error('Alamat pengambilan barang (gudang/rumah) wajib diisi lengkap.')
+    if (countryCode === '+62') {
+      if (!phoneDigits.startsWith('8')) {
+        toast.error('Nomor telepon Indonesia harus diawali angka 8 setelah kode negara +62 (contoh: 812-3456-7890).')
+        return false
+      }
+      if (phoneDigits.length < 9 || phoneDigits.length > 13) {
+        toast.error('Nomor telepon tidak valid (minimal 9 digit dan maksimal 13 digit setelah +62).')
+        return false
+      }
+    } else {
+      if (phoneDigits.length < 7 || phoneDigits.length > 12) {
+        toast.error('Nomor telepon tidak valid (7-12 digit).')
+        return false
+      }
+    }
+    if (!appForm.province.trim()) {
+      toast.error('Provinsi wajib dipilih.')
       return false
     }
-    if (!appForm.city.trim() || !appForm.province.trim()) {
-      toast.error('Kota dan Provinsi wajib diisi.')
+    if (!appForm.city.trim()) {
+      toast.error('Kota / Kabupaten wajib dipilih.')
+      return false
+    }
+    if (!appForm.district.trim()) {
+      toast.error('Kecamatan wajib dipilih.')
+      return false
+    }
+    if (!appForm.village.trim()) {
+      toast.error('Desa / Kelurahan wajib dipilih.')
       return false
     }
     if (!appForm.postal_code.trim()) {
       toast.error('Kode pos wajib diisi.')
+      return false
+    }
+    if (!appForm.pickup_address.trim() || appForm.pickup_address.length < 5) {
+      toast.error('Alamat pengambilan barang (gudang/rumah) wajib diisi lengkap (minimal 5 karakter).')
       return false
     }
     return true
@@ -218,6 +336,103 @@ export function VendorOnboardingWizard({
     return true
   }
 
+  // Master Data Wilayah Handlers
+  const handleProvinceChange = (prov: string) => {
+    setAppForm((prev) => ({
+      ...prev,
+      province: prov,
+      city: '',
+      district: '',
+      village: '',
+      postal_code: '',
+    }))
+  }
+
+  const handleCityChange = (selectedCity: string) => {
+    const autoPostal = getPostalCodeByCityName(selectedCity)
+    setAppForm((prev) => ({
+      ...prev,
+      city: selectedCity,
+      district: '',
+      village: '',
+      postal_code: autoPostal || prev.postal_code,
+    }))
+  }
+
+  const handleDistrictChange = (selectedDistrict: string) => {
+    setAppForm((prev) => ({
+      ...prev,
+      district: selectedDistrict,
+      village: '',
+    }))
+  }
+
+  const handleVillageChange = (selectedVillage: string) => {
+    const postal = getPostalCodeByDistrictAndVillage(appForm.district, selectedVillage, appForm.city)
+    setAppForm((prev) => ({
+      ...prev,
+      village: selectedVillage,
+      postal_code: postal || prev.postal_code,
+    }))
+  }
+
+  // Handle Batalkan Pengajuan Toko
+  const handleCancelApplication = async () => {
+    const confirmed = window.confirm(
+      'Apakah Anda yakin ingin membatalkan pendaftaran toko?'
+    )
+    if (!confirmed) return
+
+    setCancelling(true)
+    setErrorMsg(null)
+    try {
+      const res = await cancelVendorApplicationAction()
+      if (res.success) {
+        toast.success('Pengajuan berhasil dibatalkan.')
+        setShop(null)
+        setShopMeta({})
+        setCountryCode('+62')
+        setAppForm({
+          name: '',
+          slug: '',
+          phone: '',
+          pickup_address: '',
+          province: '',
+          city: '',
+          district: '',
+          village: '',
+          postal_code: '',
+          couriers: ['jne', 'jnt', 'sicepat'],
+          bank_name: INDONESIA_BANKS[0].label,
+          bank_account_number: '',
+          bank_account_holder: userName || '',
+          agreedToTerms: true,
+        })
+        setCurrentStep(1)
+        router.push('/sell')
+        router.refresh()
+      } else {
+        toast.error(res.error || 'Gagal membatalkan pengajuan.')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server.')
+    } finally {
+      setCancelling(false)
+    }
+  }
+
+  const handleCancelWizard = () => {
+    if (shop && (shop.status === 'pending' || shop.status === 'rejected')) {
+      handleCancelApplication()
+      return
+    }
+    const confirmed = window.confirm('Apakah Anda yakin ingin membatalkan pendaftaran toko?')
+    if (confirmed) {
+      toast.info('Pendaftaran toko dibatalkan.')
+      router.push('/')
+    }
+  }
+
   // Handle Submit Application (Step 4 -> Step 5)
   const handleSubmitApplication = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -230,10 +445,18 @@ export function VendorOnboardingWizard({
       const res = await submitVendorApplicationAction({
         name: appForm.name.trim(),
         slug: appForm.slug.trim(),
-        phone: appForm.phone.trim(),
+        phone: (() => {
+          const rawDigits = cleanPhoneDigits(appForm.phone, countryCode)
+          if (countryCode === '+62') {
+            return `0${rawDigits}`
+          }
+          return `${countryCode}${rawDigits}`
+        })(),
         pickup_address: appForm.pickup_address.trim(),
-        city: appForm.city.trim(),
         province: appForm.province.trim(),
+        city: appForm.city.trim(),
+        district: appForm.district.trim(),
+        village: appForm.village.trim(),
         postal_code: appForm.postal_code.trim(),
         couriers: appForm.couriers,
         bank_name: appForm.bank_name.trim(),
@@ -245,6 +468,8 @@ export function VendorOnboardingWizard({
         setShop(res.shop)
         setShopMeta({
           pickup_address: appForm.pickup_address,
+          district: appForm.district,
+          village: appForm.village,
           postal_code: appForm.postal_code,
           couriers: appForm.couriers,
           bank_name: appForm.bank_name,
@@ -364,15 +589,15 @@ export function VendorOnboardingWizard({
   ]
 
   return (
-    <div className="w-full max-w-3xl mx-auto bg-card border border-border/80 rounded-2xl shadow-xl overflow-hidden transition-all">
+    <div className="w-full max-w-3xl mx-auto bg-card border border-border/80 rounded-2xl shadow-xl transition-all">
       {/* 1. PROGRESS STEPPER HEADER */}
-      <div className="bg-muted/40 border-b border-border/80 px-6 py-4">
+      <div className="bg-muted/40 border-b border-border/80 px-6 py-4 rounded-t-2xl">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold text-[#00a699] uppercase tracking-wider">
             Langkah {currentStep} dari 6
           </span>
           <span className="text-xs text-muted-foreground font-medium">
-            {currentStep === 1 && 'Selamat Datang Calon Vendor'}
+            {currentStep === 1 && 'Mulai'}
             {currentStep === 2 && 'Informasi & Alamat Toko'}
             {currentStep === 3 && 'Pengaturan Jasa Kirim'}
             {currentStep === 4 && 'Rekening Bank Pencairan'}
@@ -434,11 +659,8 @@ export function VendorOnboardingWizard({
               </div>
               <div className="space-y-1">
                 <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-                  Mulai Buka Toko di Krafita
+                  Mulai Jual
                 </h2>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Proses pendaftaran cepat dan terstruktur dalam 6 langkah mudah.
-                </p>
               </div>
             </div>
 
@@ -501,7 +723,7 @@ export function VendorOnboardingWizard({
                 onClick={() => setCurrentStep(2)}
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-bold px-6 py-3 rounded-xl transition-all shadow-md hover:shadow-lg cursor-pointer"
               >
-                <span>Mulai Pendaftaran</span>
+                <span>Lanjut</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </div>
@@ -513,14 +735,11 @@ export function VendorOnboardingWizard({
         {/* ========================================================================= */}
         {currentStep === 2 && (
           <div className="space-y-6">
-            <div className="space-y-1">
+            <div>
               <h2 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
                 <Store className="w-5 h-5 text-[#00a699]" />
-                Atur Informasi & Lokasi Toko
+                Informasi Toko
               </h2>
-              <p className="text-xs text-muted-foreground">
-                Masukkan detail toko serta alamat penjemputan barang kurir ekspedisi.
-              </p>
             </div>
 
             <div className="space-y-4">
@@ -564,20 +783,160 @@ export function VendorOnboardingWizard({
                   <Phone className="w-3.5 h-3.5 text-[#00a699]" />
                   Nomor Telepon / WhatsApp Toko <span className="text-rose-500">*</span>
                 </label>
-                <input
-                  type="tel"
-                  required
-                  value={appForm.phone}
-                  onChange={(e) => setAppForm((prev) => ({ ...prev, phone: e.target.value }))}
-                  placeholder="Contoh: 081234567890"
-                  className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-                />
+                <div className="flex rounded-lg border border-border bg-background focus-within:ring-1 focus-within:ring-[#00a699] focus-within:border-[#00a699] overflow-hidden h-10 transition-all">
+                  {/* Dropdown Kode Negara (Default +62) */}
+                  <select
+                    value={countryCode}
+                    onChange={(e) => {
+                      const newCode = e.target.value
+                      setCountryCode(newCode)
+                      setAppForm((prev) => ({
+                        ...prev,
+                        phone: formatPhoneNumber(prev.phone, newCode),
+                      }))
+                    }}
+                    className="bg-muted/40 px-2.5 text-xs text-foreground font-semibold border-r border-border focus:outline-none cursor-pointer"
+                    aria-label="Kode Negara"
+                  >
+                    <option value="+62">🇮🇩 +62</option>
+                    <option value="+60">🇲🇾 +60</option>
+                    <option value="+65">🇸🇬 +65</option>
+                  </select>
+                  {/* Input Nomor Telepon dengan otomatis tanda '-' & maks digit dinamis */}
+                  <input
+                    type="tel"
+                    inputMode="tel"
+                    name="phone"
+                    required
+                    value={appForm.phone}
+                    onChange={(e) =>
+                      setAppForm((prev) => ({
+                        ...prev,
+                        phone: formatPhoneNumber(e.target.value, countryCode),
+                      }))
+                    }
+                    placeholder={
+                      countryCode === '+62'
+                        ? '812-3456-7890'
+                        : countryCode === '+60'
+                        ? '12-345-6789'
+                        : '8123-4567'
+                    }
+                    className="w-full px-3 text-xs font-mono bg-transparent focus:outline-none placeholder:text-muted-foreground/60"
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {countryCode === '+62'
+                    ? 'Nomor WhatsApp aktif toko untuk koordinasi pesanan dan kurir penjemputan (9-13 digit setelah +62).'
+                    : 'Nomor WhatsApp aktif toko untuk koordinasi pesanan dan kurir penjemputan.'}
+                </p>
               </div>
 
+              {/* Master Data Wilayah Bertingkat: Provinsi -> Kota/Kabupaten -> Kecamatan -> Desa/Kelurahan */}
+              <div className="space-y-3.5 pt-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* 1. Provinsi */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Provinsi <span className="text-rose-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      options={INDONESIA_PROVINCES.map((p) => ({
+                        value: p.name,
+                        label: p.name,
+                      }))}
+                      value={appForm.province}
+                      onChange={handleProvinceChange}
+                      placeholder="Pilih Provinsi"
+                      searchPlaceholder="Cari provinsi..."
+                    />
+                  </div>
+
+                  {/* 2. Kota / Kabupaten */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Kota / Kabupaten <span className="text-rose-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      options={getCitiesByProvinceName(appForm.province).map((c) => ({
+                        value: c.name,
+                        label: c.name,
+                      }))}
+                      value={appForm.city}
+                      onChange={handleCityChange}
+                      disabled={!appForm.province}
+                      placeholder={appForm.province ? 'Pilih Kota / Kabupaten' : 'Pilih Provinsi Dulu'}
+                      searchPlaceholder="Cari kota/kabupaten..."
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                  {/* 3. Kecamatan */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Kecamatan <span className="text-rose-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      options={getDistrictsByCityName(appForm.city).map((d) => ({
+                        value: d.name,
+                        label: d.name,
+                      }))}
+                      value={appForm.district}
+                      onChange={handleDistrictChange}
+                      disabled={!appForm.city}
+                      placeholder={appForm.city ? 'Pilih Kecamatan' : 'Pilih Kota Dulu'}
+                      searchPlaceholder="Cari kecamatan..."
+                      allowCustom
+                    />
+                  </div>
+
+                  {/* 4. Desa / Kelurahan */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-foreground">
+                      Desa / Kelurahan <span className="text-rose-500">*</span>
+                    </label>
+                    <SearchableSelect
+                      options={getVillagesByDistrictName(appForm.district, appForm.city).map((v) => ({
+                        value: v.name,
+                        label: v.name,
+                      }))}
+                      value={appForm.village}
+                      onChange={handleVillageChange}
+                      disabled={!appForm.district}
+                      placeholder={appForm.district ? 'Pilih Desa / Kelurahan' : 'Pilih Kecamatan Dulu'}
+                      searchPlaceholder="Cari desa/kelurahan..."
+                      allowCustom
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Kode Pos */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-foreground">
+                    Kode Pos <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={appForm.postal_code}
+                    onChange={(e) =>
+                      setAppForm((prev) => ({
+                        ...prev,
+                        postal_code: e.target.value.replace(/\D/g, '').slice(0, 6),
+                      }))
+                    }
+                    placeholder="Contoh: 10110"
+                    className="w-full h-10 px-3 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+                  />
+                </div>
+              </div>
+
+              {/* 6. Alamat Pengambilan Barang */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-foreground flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-[#00a699]" />
-                  Alamat Pengambilan Barang (Gudang/Rumah Anda) <span className="text-rose-500">*</span>
+                  Alamat Pengambilan Barang (Nama Jalan, No. Rumah/Gudang, RT/RW, Patokan) <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   required
@@ -588,70 +947,48 @@ export function VendorOnboardingWizard({
                   className="w-full p-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
                 />
               </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">
-                    Kota/Kabupaten <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={appForm.city}
-                    onChange={(e) => setAppForm((prev) => ({ ...prev, city: e.target.value }))}
-                    placeholder="Jakarta Barat"
-                    className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">
-                    Provinsi <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={appForm.province}
-                    onChange={(e) => setAppForm((prev) => ({ ...prev, province: e.target.value }))}
-                    placeholder="DKI Jakarta"
-                    className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-foreground">
-                    Kode Pos <span className="text-rose-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={appForm.postal_code}
-                    onChange={(e) => setAppForm((prev) => ({ ...prev, postal_code: e.target.value }))}
-                    placeholder="11480"
-                    className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-                  />
-                </div>
-              </div>
             </div>
 
             <div className="pt-4 flex items-center justify-between border-t border-border/80">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(1)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground px-4 py-2 rounded-xl transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Kembali
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(1)}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Kembali
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelWizard}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Membatalkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Batalkan</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <button
                 type="button"
                 onClick={() => {
                   if (validateStep2()) setCurrentStep(3)
                 }}
-                className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+                disabled={cancelling}
+                className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <span>Lanjut: Atur Jasa Kirim</span>
+                <span>Lanjut</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -663,17 +1000,14 @@ export function VendorOnboardingWizard({
         {/* ========================================================================= */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            <div className="space-y-1">
+            <div>
               <h2 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
                 <Truck className="w-5 h-5 text-[#00a699]" />
-                Atur Jasa Kirim (Ekspedisi)
+                Jasa Kirim
               </h2>
-              <p className="text-xs text-muted-foreground">
-                Pilih ekspedisi pengiriman yang ingin Anda aktifkan untuk melayani pengiriman pesanan pembeli (pilih minimal 1).
-              </p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2.5">
               {POPULAR_COURIERS.map((c) => {
                 const isSelected = appForm.couriers.includes(c.id)
                 return (
@@ -681,14 +1015,14 @@ export function VendorOnboardingWizard({
                     key={c.id}
                     type="button"
                     onClick={() => toggleCourier(c.id)}
-                    className={`w-full p-4 rounded-xl border text-left flex items-start gap-3.5 transition-all cursor-pointer ${
+                    className={`w-full px-4 py-3 rounded-xl border text-left flex items-center gap-3.5 transition-all cursor-pointer ${
                       isSelected
                         ? 'border-[#00a699] bg-[#00a699]/5 ring-1 ring-[#00a699]/30'
                         : 'border-border/80 hover:border-foreground/30 bg-card'
                     }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
                           ? 'bg-[#00a699] border-[#00a699] text-white'
                           : 'border-border bg-background'
@@ -697,16 +1031,10 @@ export function VendorOnboardingWizard({
                       {isSelected && <Check className="w-3.5 h-3.5" />}
                     </div>
 
-                    <div className="space-y-1 flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-foreground">{c.name}</span>
-                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${c.badgeColor}`}>
-                          Reguler
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground leading-relaxed">
-                        {c.desc}
-                      </p>
+                    <div className="flex items-center flex-1 min-w-0">
+                      <span className="text-xs font-bold text-foreground">
+                        {c.name} - {c.type}
+                      </span>
                     </div>
                   </button>
                 )
@@ -714,23 +1042,45 @@ export function VendorOnboardingWizard({
             </div>
 
             <div className="pt-4 flex items-center justify-between border-t border-border/80">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(2)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground px-4 py-2 rounded-xl transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Kembali
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(2)}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Kembali
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelWizard}
+                  disabled={cancelling}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Membatalkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Batalkan</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <button
                 type="button"
                 onClick={() => {
                   if (validateStep3()) setCurrentStep(4)
                 }}
-                className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer"
+                disabled={cancelling}
+                className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                <span>Lanjut: Rekening Bank</span>
+                <span>Lanjut</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -742,14 +1092,11 @@ export function VendorOnboardingWizard({
         {/* ========================================================================= */}
         {currentStep === 4 && (
           <form onSubmit={handleSubmitApplication} className="space-y-6">
-            <div className="space-y-1">
+            <div>
               <h2 className="text-lg sm:text-xl font-bold text-foreground flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-[#00a699]" />
-                Rekening Bank Pencairan Dana
+                Rekening Bank
               </h2>
-              <p className="text-xs text-muted-foreground">
-                Tambahkan nomor rekening bank Anda untuk keperluan pencairan dana hasil penjualan pesanan secara berkala.
-              </p>
             </div>
 
             <div className="space-y-4">
@@ -758,18 +1105,16 @@ export function VendorOnboardingWizard({
                   <Building className="w-3.5 h-3.5 text-[#00a699]" />
                   Nama Bank <span className="text-rose-500">*</span>
                 </label>
-                <select
-                  required
+                <SearchableSelect
+                  options={INDONESIA_BANKS.map((b) => ({
+                    value: b.label,
+                    label: b.label,
+                  }))}
                   value={appForm.bank_name}
-                  onChange={(e) => setAppForm((prev) => ({ ...prev, bank_name: e.target.value }))}
-                  className="w-full h-10 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] cursor-pointer"
-                >
-                  {POPULAR_BANKS.map((b) => (
-                    <option key={b} value={b}>
-                      {b}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setAppForm((prev) => ({ ...prev, bank_name: val }))}
+                  placeholder="Pilih Nama Bank"
+                  searchPlaceholder="Cari bank..."
+                />
               </div>
 
               <div className="space-y-1.5">
@@ -817,29 +1162,49 @@ export function VendorOnboardingWizard({
             </div>
 
             <div className="pt-4 flex items-center justify-between border-t border-border/80">
-              <button
-                type="button"
-                onClick={() => setCurrentStep(3)}
-                disabled={submitting}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground px-4 py-2 rounded-xl transition-colors disabled:opacity-50"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                Kembali
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentStep(3)}
+                  disabled={submitting || cancelling}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/50 px-3 py-2 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  Kembali
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelWizard}
+                  disabled={submitting || cancelling}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Membatalkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Batalkan</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
               <button
                 type="submit"
-                disabled={submitting}
-                className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60"
+                disabled={submitting || cancelling}
+                className="inline-flex items-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Mengirim Pendaftaran...
+                    Mengirim...
                   </>
                 ) : (
                   <>
-                    <span>Kirim Pendaftaran Toko</span>
+                    <span>Kirim</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
@@ -849,26 +1214,47 @@ export function VendorOnboardingWizard({
         )}
 
         {/* ========================================================================= */}
-        {/* LANGKAH 5: MENUNGGU VERIFIKASI MODERATOR */}
+        {/* LANGKAH 5: MENUNGGU VERIFIKASI MODERATOR / STATUS PENGAJUAN */}
         {/* ========================================================================= */}
         {currentStep === 5 && (
           <div className="space-y-6 text-center sm:text-left">
-            <div className="p-6 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row items-center gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-md">
-                <Clock className="w-7 h-7 animate-pulse" />
-              </div>
-              <div className="space-y-1">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 font-bold text-[11px]">
-                  Status: Menunggu Verifikasi Moderator
+            {shop?.status === 'rejected' ? (
+              <div className="p-6 rounded-2xl bg-rose-500/10 border border-rose-500/30 flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-md">
+                  <AlertCircle className="w-7 h-7" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground">
-                  Pendaftaran Toko Sedang Ditinjau
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  Terima kasih telah mendaftar! Tim moderator Krafita sedang meninjau kelengkapan informasi toko Anda. Setelah disetujui, Anda dapat langsung mengunggah produk pertama.
-                </p>
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-rose-500/20 text-rose-600 dark:text-rose-400 font-bold text-[11px]">
+                    Status: Pendaftaran Ditolak
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    Pendaftaran Toko Perlu Diperbaiki
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {shopMeta.moderator_notes
+                      ? `Catatan Moderator: "${shopMeta.moderator_notes}". Silakan batalkan pengajuan ini untuk memperbarui data toko dan mengajukan ulang.`
+                      : 'Pendaftaran toko Anda belum dapat disetujui moderator. Silakan batalkan pengajuan untuk mendaftar ulang dengan data yang benar.'}
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-6 rounded-2xl bg-[#00a699]/10 border border-[#00a699]/30 flex flex-col sm:flex-row items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-[#00a699] text-white flex items-center justify-center shrink-0 shadow-md">
+                  <Clock className="w-7 h-7 animate-pulse" />
+                </div>
+                <div className="space-y-1">
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#00a699]/20 text-[#00a699] dark:text-teal-300 font-bold text-[11px]">
+                    Status: Menunggu Verifikasi Moderator
+                  </div>
+                  <h3 className="text-lg font-bold text-foreground">
+                    Pendaftaran Toko Sedang Ditinjau
+                  </h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Terima kasih telah mendaftar! Tim moderator Krafita sedang meninjau kelengkapan informasi toko Anda. Setelah disetujui, Anda dapat langsung mengunggah produk pertama.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Ringkasan Data Pengajuan Toko */}
             <div className="space-y-3">
@@ -880,21 +1266,36 @@ export function VendorOnboardingWizard({
                 <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-1">
                   <span className="text-muted-foreground font-medium block">Nama & Kontak Toko</span>
                   <p className="font-bold text-foreground text-sm">{shop?.name || appForm.name}</p>
-                  <p className="text-muted-foreground font-mono">{shop?.phone || appForm.phone}</p>
+                  <p className="text-muted-foreground font-mono">
+                    {formatPhoneDisplay(shop?.phone || appForm.phone, countryCode)}
+                  </p>
                 </div>
 
                 <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-1">
                   <span className="text-muted-foreground font-medium block">Alamat Pengambilan (Gudang)</span>
                   <p className="font-semibold text-foreground truncate">{shopMeta.pickup_address || appForm.pickup_address}</p>
-                  <p className="text-muted-foreground">{shop?.city || appForm.city}, {shop?.province || appForm.province} {shopMeta.postal_code || appForm.postal_code}</p>
+                  <p className="text-muted-foreground">
+                    {[
+                      shopMeta.village || appForm.village ? `Kel. ${shopMeta.village || appForm.village}` : null,
+                      shopMeta.district || appForm.district ? `Kec. ${shopMeta.district || appForm.district}` : null,
+                      shop?.city || appForm.city,
+                      shop?.province || appForm.province,
+                      shopMeta.postal_code || appForm.postal_code,
+                    ]
+                      .filter(Boolean)
+                      .join(', ')}
+                  </p>
                 </div>
 
                 <div className="p-4 rounded-xl border border-border/80 bg-muted/20 space-y-1">
                   <span className="text-muted-foreground font-medium block">Ekspedisi Aktif</span>
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {(shopMeta.couriers || appForm.couriers).map((cId) => (
-                      <span key={cId} className="px-2 py-0.5 rounded-full bg-[#00a699]/15 text-[#00a699] font-bold text-[10px] uppercase">
-                        {cId}
+                      <span
+                        key={cId}
+                        className="px-2.5 py-0.5 rounded-full bg-[#00a699]/15 text-[#00a699] dark:text-teal-300 font-bold text-[10px]"
+                      >
+                        {POPULAR_COURIERS.find((c) => c.id === cId)?.name || cId}
                       </span>
                     ))}
                   </div>
@@ -910,23 +1311,46 @@ export function VendorOnboardingWizard({
 
             {/* Action Bar */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-border/80">
-              <Link
-                href="/moderator/vendors"
-                className="text-xs font-semibold text-[#00a699] hover:underline flex items-center gap-1"
-              >
-                <span>Buka Panel Moderator</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </Link>
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-start">
+                <button
+                  type="button"
+                  onClick={handleCancelApplication}
+                  disabled={cancelling || checkingStatus}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-600 hover:text-rose-700 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-3 py-2 rounded-xl transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {cancelling ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Membatalkan...</span>
+                    </>
+                  ) : (
+                    <>
+                      <XCircle className="w-3.5 h-3.5" />
+                      <span>Batalkan</span>
+                    </>
+                  )}
+                </button>
+              </div>
 
-              <button
-                type="button"
-                onClick={handleCheckStatus}
-                disabled={checkingStatus}
-                className="inline-flex items-center justify-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? 'animate-spin' : ''}`} />
-                <span>{checkingStatus ? 'Memeriksa...' : 'Periksa Status Terkini'}</span>
-              </button>
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                <Link
+                  href="/moderator/vendors"
+                  className="text-xs font-semibold text-muted-foreground hover:text-[#00a699] flex items-center gap-1 transition-colors"
+                >
+                  <span>Buka Panel Moderator</span>
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </Link>
+
+                <button
+                  type="button"
+                  onClick={handleCheckStatus}
+                  disabled={checkingStatus || cancelling}
+                  className="inline-flex items-center justify-center gap-2 bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold px-6 py-2.5 rounded-xl transition-all shadow-md cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${checkingStatus ? 'animate-spin' : ''}`} />
+                  <span>{checkingStatus ? 'Memeriksa...' : 'Periksa Status'}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -1085,12 +1509,12 @@ export function VendorOnboardingWizard({
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Menerbitkan & Mengaktifkan Toko...
+                    Menerbitkan...
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Terbitkan Produk & Buka Toko</span>
+                    <span>Terbitkan & Buka Toko</span>
                   </>
                 )}
               </button>

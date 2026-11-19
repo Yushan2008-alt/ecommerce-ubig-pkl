@@ -12,11 +12,10 @@ import {
   Zap,
   TrendingUp,
   CreditCard,
-  Sparkles,
 } from 'lucide-react'
 
 export const metadata = {
-  title: 'Buka Toko & Jual Karya di Krafita — Marketplace Multi-Vendor',
+  title: 'Pengajuan Toko | Krafita',
   description:
     'Daftarkan toko online Anda di Krafita. Jual produk fisik dan produk digital dengan komisi bersahabat, pembayaran terintegrasi Midtrans, dan jangkauan pelanggan se-Indonesia.',
 }
@@ -70,30 +69,19 @@ export default async function SellOnKrafitaPage({
             </Link>
           </li>
           <li aria-hidden="true">/</li>
-          <li className="font-semibold text-foreground">Buka Toko di Krafita</li>
+          <li className="font-semibold text-foreground">Buka Toko</li>
         </ol>
       </nav>
 
       {/* 2. Top Header Intro */}
-      <div className="max-w-3xl mb-8 space-y-2">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#00a699]/10 text-[#00a699] text-xs font-bold">
-          <Sparkles className="w-3.5 h-3.5" />
-          Krafita Vendor Portal
-        </div>
+      <div className="max-w-3xl mb-6">
         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-foreground">
           {userShop?.status === 'approved'
-            ? 'Langkah Terakhir: Unggah Produk Pertama Anda'
-            : userShop?.status === 'pending'
-            ? 'Pendaftaran Toko Sedang Ditinjau Moderator'
-            : 'Buka Toko Anda dalam 6 Langkah Mudah'}
+            ? 'Unggah Produk Pertama'
+            : userShop?.status === 'pending' || userShop?.status === 'rejected'
+            ? 'Status Pendaftaran Toko'
+            : 'Mulai Jual di Krafita'}
         </h1>
-        <p className="text-xs md:text-sm text-muted-foreground leading-relaxed">
-          {userShop?.status === 'approved'
-            ? 'Pendaftaran toko Anda telah disetujui! Unggah produk pertama Anda agar toko resmi aktif dan produk Anda tampil di katalog Krafita.'
-            : userShop?.status === 'pending'
-            ? 'Pendaftaran toko Anda telah tersimpan dan saat ini menunggu verifikasi dari tim moderator kami.'
-            : 'Bergabunglah dengan ribuan kreator, pengrajin, dan pelaku usaha di seluruh Indonesia. Pendaftaran terverifikasi, ekspedisi terpadu, dan pencairan dana aman.'}
-        </p>
       </div>
 
       {/* 3. WIZARD KHUSUS MEMBER ATAU HERO BANNER UNTUK GUEST */}

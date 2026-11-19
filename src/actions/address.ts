@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
 import type { AddressItem, AddressFormData } from '@/types/address'
+import { formatAddressLine, extractAddressLineDetails } from '@/lib/address-helper'
 
 /**
  * Mengambil seluruh daftar alamat pengiriman user
@@ -29,18 +30,24 @@ export async function getAddressesAction(): Promise<{
 
     if (error) throw error
 
-    const mapped: AddressItem[] = (data || []).map((addr) => ({
-      id: addr.id,
-      profileId: addr.profile_id,
-      recipientName: addr.recipient_name,
-      phone: addr.phone,
-      addressLine: addr.address_line,
-      city: addr.city,
-      province: addr.province,
-      postalCode: addr.postal_code,
-      isDefault: addr.is_default,
-      createdAt: addr.created_at,
-    }))
+    const mapped: AddressItem[] = (data || []).map((addr) => {
+      const { district, village } = extractAddressLineDetails(addr.address_line)
+
+      return {
+        id: addr.id,
+        profileId: addr.profile_id,
+        recipientName: addr.recipient_name,
+        phone: addr.phone,
+        addressLine: addr.address_line,
+        province: addr.province,
+        city: addr.city,
+        district,
+        village,
+        postalCode: addr.postal_code,
+        isDefault: addr.is_default,
+        createdAt: addr.created_at,
+      }
+    })
 
     return { success: true, data: mapped }
   } catch (err: any) {
@@ -87,13 +94,19 @@ export async function addAddressAction(
         .eq('profile_id', user.id)
     }
 
+    const finalAddressLine = formatAddressLine(
+      data.addressLine,
+      data.village,
+      data.district
+    )
+
     const { data: newAddr, error } = await supabase
       .from('addresses')
       .insert({
         profile_id: user.id,
         recipient_name: data.recipientName.trim(),
         phone: data.phone.trim(),
-        address_line: data.addressLine.trim(),
+        address_line: finalAddressLine,
         city: data.city.trim(),
         province: data.province.trim(),
         postal_code: data.postalCode.trim(),
@@ -117,6 +130,8 @@ export async function addAddressAction(
         addressLine: newAddr.address_line,
         city: newAddr.city,
         province: newAddr.province,
+        district: data.district,
+        village: data.village,
         postalCode: newAddr.postal_code,
         isDefault: newAddr.is_default,
         createdAt: newAddr.created_at,
@@ -155,12 +170,18 @@ export async function updateAddressAction(
         .eq('profile_id', user.id)
     }
 
+    const finalAddressLine = formatAddressLine(
+      data.addressLine,
+      data.village,
+      data.district
+    )
+
     const { error } = await supabase
       .from('addresses')
       .update({
         recipient_name: data.recipientName.trim(),
         phone: data.phone.trim(),
-        address_line: data.addressLine.trim(),
+        address_line: finalAddressLine,
         city: data.city.trim(),
         province: data.province.trim(),
         postal_code: data.postalCode.trim(),
