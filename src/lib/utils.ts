@@ -71,3 +71,54 @@ export function unformatNumber(val: string | number | null | undefined): number 
   const num = Number(clean)
   return isNaN(num) ? 0 : num
 }
+
+/**
+ * Memformat tanggal menjadi format waktu relatif (time ago) Bahasa Indonesia.
+ * Contoh: "Baru saja", "2 menit yang lalu", "1 jam yang lalu", "Kemarin", "3 hari yang lalu".
+ *
+ * @param dateInput Tanggal dalam bentuk string ISO, timestamp number, atau objek Date
+ * @returns String waktu relatif dalam bahasa Indonesia
+ */
+export function formatTimeAgo(dateInput: string | number | Date | null | undefined): string {
+  if (!dateInput) return '-'
+
+  const date = typeof dateInput === 'object' && dateInput instanceof Date ? dateInput : new Date(dateInput)
+  if (isNaN(date.getTime())) return '-'
+
+  const now = Date.now()
+  const diffInSeconds = Math.floor((now - date.getTime()) / 1000)
+
+  // Toleransi jika tanggal berada di masa depan atau kurang dari 60 detik yang lalu
+  if (diffInSeconds < 60) {
+    return 'Baru saja'
+  }
+
+  const diffInMinutes = Math.floor(diffInSeconds / 60)
+  if (diffInMinutes < 60) {
+    return `${diffInMinutes} menit yang lalu`
+  }
+
+  const diffInHours = Math.floor(diffInSeconds / 3600)
+  if (diffInHours < 24) {
+    return `${diffInHours} jam lalu`
+  }
+
+  const diffInDays = Math.floor(diffInSeconds / 86400)
+  if (diffInDays < 7) {
+    return `${diffInDays} hari lalu`
+  }
+
+  const diffInWeeks = Math.floor(diffInDays / 7)
+  if (diffInDays < 30) {
+    return `${diffInWeeks} minggu lalu`
+  }
+
+  const diffInMonths = Math.floor(diffInDays / 30)
+  if (diffInDays < 365) {
+    return `${Math.max(1, diffInMonths)} bulan lalu`
+  }
+
+  const diffInYears = Math.floor(diffInDays / 365)
+  return `${Math.max(1, diffInYears)} tahun lalu`
+}
+

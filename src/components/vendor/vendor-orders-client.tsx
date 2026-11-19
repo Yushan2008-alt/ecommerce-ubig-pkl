@@ -21,12 +21,18 @@ import type { FulfilmentStatus } from '@/types/database'
 
 interface VendorOrdersClientProps {
   initialOrders: any[]
+  initialFilter?: string
+  initialSearchQuery?: string
 }
 
-export function VendorOrdersClient({ initialOrders }: VendorOrdersClientProps) {
+export function VendorOrdersClient({
+  initialOrders,
+  initialFilter = 'all',
+  initialSearchQuery = '',
+}: VendorOrdersClientProps) {
   const [orders, setOrders] = useState<any[]>(initialOrders)
-  const [statusFilter, setStatusFilter] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilter)
+  const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery)
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null)
 
   // Supabase Realtime Subscription untuk pesanan masuk toko

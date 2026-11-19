@@ -473,6 +473,27 @@ export async function becomeVendorAction(payload: BecomeVendorInput): Promise<{
   }
 }
 
+export interface VendorRecentOrder {
+  id: string
+  orderId: string
+  orderCode: string
+  orderStatus: string
+  title: string
+  imageUrl: string | null
+  productType: 'physical' | 'digital'
+  productSlug?: string
+  price: number
+  qty: number
+  shippingCost?: number
+  totalPrice: number
+  fulfilmentStatus: FulfilmentStatus
+  buyerName: string
+  buyerPhone?: string
+  createdAt: string
+  shippingAddress: any
+  itemTotal: number
+}
+
 /**
  * 2. GET VENDOR DASHBOARD DATA
  */
@@ -487,7 +508,7 @@ export async function getVendorDashboardDataAction(): Promise<{
       activeProductsCount: number
       availableBalance: number
     }
-    recentOrders: any[]
+    recentOrders: VendorRecentOrder[]
     chartData: { date: string; sales: number; orders: number }[]
     rawSales?: { createdAt: string; amount: number; isPaid: boolean }[]
     onboardingChecklist: {
@@ -525,12 +546,14 @@ export async function getVendorDashboardDataAction(): Promise<{
       .eq('shop_id', shop.id)
       .eq('status', 'published')
 
-    // 3. Ambil total order items toko
+    // 3. Ambil total order items toko beserta relasi lengkap (produk, pesanan, pembeli)
     const { data: orderItems } = await supabase
       .from('order_items')
       .select(`
         id,
         order_id,
+        product_id,
+        title,
         price,
         qty,
         shipping_cost,
@@ -538,13 +561,27 @@ export async function getVendorDashboardDataAction(): Promise<{
         net_amount,
         fulfilment_status,
         created_at,
+        products (
+          id,
+          title,
+          type,
+          slug,
+          product_images (path, sort_order)
+        ),
         orders (
           id,
           code,
           status,
+          total,
           created_at,
           paid_at,
-          shipping_address
+          shipping_address,
+          profiles (
+            id,
+            display_name,
+            phone,
+            avatar_url
+          )
         )
       `)
       .eq('shop_id', shop.id)
@@ -583,17 +620,68 @@ export async function getVendorDashboardDataAction(): Promise<{
 
     const availableBalance = Math.max(0, totalNetCompleted - pendingPaidPayouts)
 
-    // 5. Pesanan terbaru (5 item terakhir)
-    const recentOrders = allItems.slice(0, 5).map((item: any) => {
+    const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}/storage/v1/object/public/product-images`
+
+    // 5. Pesanan terbaru (5 item terakhir) dengan data relasional lengkap
+    const recentOrders: VendorRecentOrder[] = allItems.slice(0, 5).map((item: any) => {
       const order = Array.isArray(item.orders) ? item.orders[0] : item.orders
+      const buyerProfile = Array.isArray(order?.profiles) ? order.profiles[0] : order?.profiles
+      const product = Array.isArray(item.products) ? item.products[0] : item.products
+      const rawImages = Array.isArray(product?.product_images)
+        ? [...product.product_images]
+        : product?.product_images
+        ? [product.product_images]
+        : []
+
+      // Urutkan gambar berdasarkan sort_order terkecil agar gambar cover utama yang ditampilkan
+      rawImages.sort((a: any, b: any) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
+      const primaryPath = rawImages[0]?.path || null
+
+      let imageUrl: string | null = null
+      if (primaryPath) {
+        if (primaryPath.startsWith('http://') || primaryPath.startsWith('https://') || primaryPath.startsWith('/')) {
+          imageUrl = primaryPath
+        } else if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          imageUrl = `${storageBaseUrl}/${primaryPath.replace(/^product-images\//, '')}`
+        } else {
+          imageUrl = primaryPath
+        }
+      }
+
+      const shippingAddr = (order?.shipping_address as any) || {}
+      const buyerName =
+        buyerProfile?.display_name ||
+        shippingAddr.recipientName ||
+        shippingAddr.recipient_name ||
+        shippingAddr.name ||
+        shippingAddr.fullName ||
+        'Pembeli'
+
+      const title = item.title || product?.title || 'Produk'
+      const price = Number(item.price) || 0
+      const qty = Number(item.qty) || 1
+      const shippingCost = Number(item.shipping_cost) || 0
+      const totalPrice = price * qty
+
       return {
         id: item.id,
         orderId: item.order_id,
         orderCode: order?.code || '-',
-        itemTotal: Number(item.price) * Number(item.qty),
-        fulfilmentStatus: item.fulfilment_status,
-        createdAt: item.created_at,
-        shippingAddress: order?.shipping_address || {},
+        orderStatus: order?.status || 'pending_payment',
+        title,
+        imageUrl,
+        productType: (product?.type as 'physical' | 'digital') || 'physical',
+        productSlug: product?.slug || '',
+        price,
+        qty,
+        shippingCost,
+        totalPrice,
+        fulfilmentStatus: (item.fulfilment_status as FulfilmentStatus) || 'waiting',
+        buyerName,
+        buyerPhone: buyerProfile?.phone || shippingAddr.phone || '-',
+        createdAt: item.created_at || order?.created_at || new Date().toISOString(),
+        shippingAddress: shippingAddr,
+        itemTotal: totalPrice,
       }
     })
 
@@ -1043,7 +1131,7 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
           title,
           type,
           slug,
-          product_images (path)
+          product_images (path, sort_order)
         ),
         orders (
           id,
@@ -1072,13 +1160,31 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
 
     if (error) return { success: false, error: error.message }
 
+    const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}/storage/v1/object/public/product-images`
+
     const formatted = (data || []).map((it: any) => {
       const order = Array.isArray(it.orders) ? it.orders[0] : it.orders
       const buyerProfile = Array.isArray(order?.profiles) ? order.profiles[0] : order?.profiles
       const product = Array.isArray(it.products) ? it.products[0] : it.products
-      const images = Array.isArray(product?.product_images)
-        ? product.product_images
-        : [product?.product_images]
+      const rawImages = Array.isArray(product?.product_images)
+        ? [...product.product_images]
+        : product?.product_images
+        ? [product.product_images]
+        : []
+
+      rawImages.sort((a: any, b: any) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
+      const primaryPath = rawImages[0]?.path || null
+
+      let imageUrl: string | null = null
+      if (primaryPath) {
+        if (primaryPath.startsWith('http://') || primaryPath.startsWith('https://') || primaryPath.startsWith('/')) {
+          imageUrl = primaryPath
+        } else if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          imageUrl = `${storageBaseUrl}/${primaryPath.replace(/^product-images\//, '')}`
+        } else {
+          imageUrl = primaryPath
+        }
+      }
 
       return {
         id: it.id,
@@ -1097,7 +1203,7 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
         trackingNumber: it.tracking_number,
         productType: product?.type || 'physical',
         productSlug: product?.slug,
-        imageUrl: images?.[0]?.path || null,
+        imageUrl,
         shippingAddress: order?.shipping_address || {},
         buyer: {
           name: buyerProfile?.display_name || 'Pembeli',

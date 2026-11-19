@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import {
   TrendingUp,
   ShoppingBag,
@@ -10,6 +11,11 @@ import {
   ArrowRight,
   Sparkles,
   CheckCircle2,
+  Clock,
+  User,
+  Truck,
+  Loader2,
+  MapPin,
 } from 'lucide-react'
 import {
   DashboardDateFilter,
@@ -19,6 +25,10 @@ import {
 import { SalesChart } from '@/components/vendor/sales-chart'
 import { eachDayOfInterval, format, isSameDay, isWithinInterval, startOfDay } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
+import { formatTimeAgo } from '@/lib/utils'
+import { updateVendorFulfilmentAction, type VendorRecentOrder } from '@/actions/vendor'
+import type { FulfilmentStatus } from '@/types/database'
+import { toast } from 'sonner'
 
 interface VendorDashboardClientProps {
   shop: any
@@ -29,7 +39,7 @@ interface VendorDashboardClientProps {
     activeProductsCount: number
     availableBalance: number
   }
-  recentOrders: any[]
+  recentOrders: VendorRecentOrder[]
   initialChartData: { date: string; sales: number; orders: number }[]
   rawSales?: { createdAt: string; amount: number; isPaid: boolean }[]
   onboardingChecklist: {
@@ -48,6 +58,67 @@ export function VendorDashboardClient({
   rawSales = [],
   onboardingChecklist,
 }: VendorDashboardClientProps) {
+  const router = useRouter()
+  const [processingId, setProcessingId] = useState<string | null>(null)
+  const [optimisticStatusMap, setOptimisticStatusMap] = useState<Record<string, FulfilmentStatus>>({})
+
+  // Gabungkan data pesanan terbaru dari server dengan status pemenuhan optimistik lokal
+  const ordersList = useMemo(() => {
+    return recentOrders.map((ord) => ({
+      ...ord,
+      fulfilmentStatus: optimisticStatusMap[ord.id] || ord.fulfilmentStatus,
+    }))
+  }, [recentOrders, optimisticStatusMap])
+
+  const handleProcessOrder = async (e: React.MouseEvent, itemId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setProcessingId(itemId)
+    try {
+      const res = await updateVendorFulfilmentAction(itemId, 'processing')
+      if (res.success) {
+        toast.success('Pesanan berhasil diterima (Status: Sedang Dikemas)!')
+        setOptimisticStatusMap((prev) => ({
+          ...prev,
+          [itemId]: 'processing',
+        }))
+        router.refresh()
+      } else {
+        toast.error(res.error || 'Gagal memproses pesanan')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan saat memproses pesanan')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleRejectOrder = async (e: React.MouseEvent, itemId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const confirmed = window.confirm('Apakah Anda yakin ingin menolak pesanan ini?')
+    if (!confirmed) return
+
+    setProcessingId(itemId)
+    try {
+      const res = await updateVendorFulfilmentAction(itemId, 'cancelled')
+      if (res.success) {
+        toast.success('Pesanan telah ditolak')
+        setOptimisticStatusMap((prev) => ({
+          ...prev,
+          [itemId]: 'cancelled',
+        }))
+        router.refresh()
+      } else {
+        toast.error(res.error || 'Gagal menolak pesanan')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan saat memproses pesanan')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
   const [period, setPeriod] = useState<PeriodSelection>(() => ({
     key: 'thisMonth',
     label: 'Bulan Ini',
@@ -326,79 +397,215 @@ export function VendorDashboardClient({
         <SalesChart data={filteredChartData} periodLabel={period.label} />
       </div>
 
-      {/* 5. TABEL 5 PESANAN MASUK TERAKHIR */}
-      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-foreground">Pesanan Baru</h2>
+      {/* 5. KARTU PESANAN BARU (INFORMASI LENGKAP: PRODUK, TOTAL HARGA, STATUS, NAMA PEMBELI, JUMLAH, TIME-AGO, AKSI PROSES) */}
+      <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+        {/* Header Card */}
+        <div className="flex items-center justify-between pb-3 border-b border-border/60">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-[#00a699]" />
+            <h2 className="text-sm sm:text-base font-bold text-foreground">Pesanan Baru</h2>
+            <span className="text-muted-foreground/50 text-xs font-normal">
+              {ordersList.slice(0, 5).length}
+            </span>
           </div>
           <Link
             href="/vendor/orders"
-            className="text-xs font-bold text-[#00a699] hover:underline inline-flex items-center gap-1"
+            className="text-xs font-medium text-muted-foreground hover:text-[#00a699] inline-flex items-center gap-1 transition-colors"
           >
-            <span>Semua</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>Semua →</span>
           </Link>
         </div>
 
-        {recentOrders.length === 0 ? (
+        {ordersList.length === 0 ? (
           <div className="py-12 text-center text-xs text-muted-foreground space-y-2">
-            <ShoppingBag className="w-8 h-8 mx-auto text-muted-foreground/40" />
+            <ShoppingBag className="w-8 h-8 mx-auto text-muted-foreground/30" />
             <p>Belum ada pesanan masuk untuk toko Anda.</p>
           </div>
         ) : (
-          <div className="divide-y divide-border/60 overflow-x-auto">
-            {recentOrders.slice(0, 3).map((ord: any) => (
-              <div
-                key={ord.id}
-                className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-foreground bg-muted/60 px-2 py-0.5 rounded">
-                      {ord.orderCode}
-                    </span>
+          <div className="divide-y divide-border/60">
+            {ordersList.slice(0, 5).map((ord) => {
+              const isPhysical = ord.productType === 'physical'
+              const rawCourier = ord.shippingAddress?.courier || ord.shippingAddress?.courier_name || ''
+              const courierName = !rawCourier
+                ? 'Diantar Kurir'
+                : rawCourier.toLowerCase().startsWith('diantar')
+                ? rawCourier
+                : `Diantar ${rawCourier}`
+
+              const displayCode =
+                !ord.orderCode || ord.orderCode === '-'
+                  ? '-'
+                  : ord.orderCode.startsWith('#')
+                  ? ord.orderCode
+                  : `#${ord.orderCode}`
+
+              const orderLink =
+                ord.orderCode && ord.orderCode !== '-'
+                  ? `/vendor/orders?q=${encodeURIComponent(ord.orderCode)}`
+                  : '/vendor/orders'
+
+              return (
+                <div
+                  key={ord.id}
+                  className="py-3.5 space-y-2"
+                >
+                  {/* Baris Atas: Kode Pesanan + Pill Status (Kiri), Time-Ago (Kanan) */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={orderLink}
+                        className="font-mono text-xs font-bold text-[#00a699] hover:underline"
+                        title={displayCode !== '-' ? `Lihat ${displayCode}` : 'Lihat pesanan'}
+                      >
+                        {displayCode}
+                      </Link>
+
+                      {/* Pill Status Kecil */}
+                      {ord.fulfilmentStatus === 'waiting' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">
+                          <Clock className="w-3 h-3 text-blue-500" />
+                          <span>Baru</span>
+                        </span>
+                      )}
+                      {ord.fulfilmentStatus === 'processing' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          <Package className="w-3 h-3 text-amber-500" />
+                          <span>Sedang Dikemas</span>
+                        </span>
+                      )}
+                      {ord.fulfilmentStatus === 'shipped' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                          <Truck className="w-3 h-3 text-purple-500" />
+                          <span>Dalam Pengiriman</span>
+                        </span>
+                      )}
+                      {ord.fulfilmentStatus === 'completed' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                          <span>Selesai</span>
+                        </span>
+                      )}
+                      {ord.fulfilmentStatus === 'cancelled' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                          <span>Dibatalkan</span>
+                        </span>
+                      )}
+                    </div>
+
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        ord.fulfilmentStatus === 'completed'
-                          ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                          : ord.fulfilmentStatus === 'shipped'
-                          ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400'
-                          : ord.fulfilmentStatus === 'processing'
-                          ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
-                          : 'bg-muted text-muted-foreground'
-                      }`}
+                      className="text-[11px] text-muted-foreground/80 font-normal shrink-0"
+                      title={ord.createdAt ? new Date(ord.createdAt).toLocaleString('id-ID') : ''}
+                      suppressHydrationWarning
                     >
-                      {ord.fulfilmentStatus === 'waiting' && 'Menunggu Diproses'}
-                      {ord.fulfilmentStatus === 'processing' && 'Sedang Dikemas'}
-                      {ord.fulfilmentStatus === 'shipped' && 'Dalam Pengiriman'}
-                      {ord.fulfilmentStatus === 'completed' && 'Selesai'}
+                      {formatTimeAgo(ord.createdAt)}
                     </span>
                   </div>
-                  <p className="text-muted-foreground text-[11px]">
-                    {new Date(ord.createdAt).toLocaleString('id-ID', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                </div>
 
-                <div className="flex items-center justify-between sm:justify-end gap-4">
-                  <span className="font-bold text-foreground text-sm">
-                    {formatPrice(ord.itemTotal)}
-                  </span>
-                  <Link
-                    href="/vendor/orders"
-                    className="px-3 py-1.5 rounded-lg border border-border hover:bg-muted text-[11px] font-semibold text-foreground transition-colors"
-                  >
-                    Kelola Resi
-                  </Link>
+                  {/* Baris Tengah: Nama Produk & Jumlah (Kiri), Total Harga (Kanan) */}
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        href={orderLink}
+                        className="hover:underline block"
+                      >
+                        <h3 className="text-sm font-bold text-foreground truncate" title={ord.title}>
+                          {ord.title}
+                        </h3>
+                      </Link>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {ord.qty} item
+                      </p>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-sm sm:text-base font-bold text-foreground">
+                        {formatPrice(ord.totalPrice || ord.itemTotal || 0)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Baris Bawah: Pembeli (Kiri), Badge Kurir + Tombol Aksi (Kanan) */}
+                  <div className="flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 pt-0.5">
+                    {/* Sisi Kiri: Nama Pembeli */}
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
+                      {isPhysical ? (
+                        <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                      ) : (
+                        <User className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+                      )}
+                      <span className="truncate max-w-[150px] sm:max-w-[220px]" title={ord.buyerName}>
+                        {ord.buyerName || 'Pembeli'}
+                      </span>
+                    </div>
+
+                    {/* Sisi Kanan: Badge Kurir Pengiriman & Tombol Aksi */}
+                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                      {/* Badge Kurir */}
+                      <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground font-medium bg-muted/60 px-2 py-0.5 rounded">
+                        {!isPhysical ? (
+                          <span>⚡ Digital</span>
+                        ) : (
+                          <>
+                            <Truck className="w-3 h-3 text-muted-foreground" />
+                            <span>{courierName}</span>
+                          </>
+                        )}
+                      </span>
+
+                      {/* Tombol Aksi */}
+                      {ord.fulfilmentStatus === 'waiting' && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={Boolean(processingId)}
+                            onClick={(e) => handleRejectOrder(e, ord.id)}
+                            className="px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800/80 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                            title="Tolak pesanan"
+                          >
+                            Tolak
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(processingId)}
+                            onClick={(e) => handleProcessOrder(e, ord.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#00a699] hover:bg-[#008f84] active:scale-95 text-white text-xs font-semibold transition-all shadow-2xs cursor-pointer disabled:opacity-60"
+                            title="Terima pesanan (ubah status ke Sedang Dikemas)"
+                          >
+                            {processingId === ord.id ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : null}
+                            <span>Terima</span>
+                          </button>
+                        </>
+                      )}
+
+                      {ord.fulfilmentStatus === 'processing' && (
+                        <Link
+                          href={orderLink}
+                          className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#00a699] hover:bg-[#008f84] active:scale-95 text-white text-xs font-semibold transition-all shadow-2xs"
+                          title="Input nomor resi dan kirim pesanan"
+                        >
+                          <Truck className="w-3 h-3" />
+                          <span>Kirim</span>
+                        </Link>
+                      )}
+
+                      {(ord.fulfilmentStatus === 'shipped' ||
+                        ord.fulfilmentStatus === 'completed' ||
+                        ord.fulfilmentStatus === 'cancelled') && (
+                        <Link
+                          href={orderLink}
+                          className="px-2.5 py-1 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+                          title="Buka rincian pesanan"
+                        >
+                          Detail
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

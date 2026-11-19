@@ -7,8 +7,16 @@ export const metadata = {
   title: 'Pesanan Masuk | Krafita',
 }
 
-export default async function VendorOrdersPage() {
-  const res = await getVendorOrdersAction('all')
+interface VendorOrdersPageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}
+
+export default async function VendorOrdersPage({ searchParams }: VendorOrdersPageProps) {
+  const params = await searchParams
+  const initialStatus = typeof params.status === 'string' ? params.status : 'all'
+  const initialSearch = typeof params.q === 'string' ? params.q : typeof params.code === 'string' ? params.code : ''
+
+  const res = await getVendorOrdersAction(initialStatus !== 'all' ? initialStatus : 'all')
 
   if (!res.success || !res.orders) {
     return (
@@ -22,5 +30,11 @@ export default async function VendorOrdersPage() {
     )
   }
 
-  return <VendorOrdersClient initialOrders={res.orders} />
+  return (
+    <VendorOrdersClient
+      initialOrders={res.orders}
+      initialFilter={initialStatus}
+      initialSearchQuery={initialSearch}
+    />
+  )
 }
