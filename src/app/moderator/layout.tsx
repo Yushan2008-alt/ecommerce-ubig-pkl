@@ -3,7 +3,7 @@ import { SiteHeader } from '@/components/layout/site-header'
 import { SiteFooter } from '@/components/layout/site-footer'
 
 export const metadata = {
-  title: 'Moderator Center — Krafita',
+  title: 'Moderator Center | Krafita',
   description: 'Panel moderasi dan verifikasi toko marketplace Krafita.',
 }
 

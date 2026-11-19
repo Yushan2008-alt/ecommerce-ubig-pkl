@@ -41,6 +41,7 @@ import { cn } from '@/lib/utils'
 export async function SiteHeader() {
   const { user, profile } = await getUser()
   const supabase = await createClient()
+  const isVendor = profile?.role === 'vendor'
 
   // Ambil jumlah item keranjang jika user login
   let cartCount = 0
@@ -83,12 +84,12 @@ export async function SiteHeader() {
     : user?.email?.slice(0, 2).toUpperCase() || 'U'
 
   return (
-    <header className="w-full max-w-full overflow-x-hidden bg-background border-b border-border/80 sticky top-0 z-40 shadow-xs">
+    <header className="w-full max-w-full bg-background border-b border-border/80 sticky top-0 z-40 shadow-xs">
       {/* 1. TOP UTILITY BAR (Persis seperti di baris teratas gambar referensi) */}
       <div className="w-full bg-[#f8f9fa] dark:bg-card/40 border-b border-border/60 text-[11px] sm:text-[12px] text-muted-foreground py-1.5">
         <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between min-w-0">
           {/* Sisi Kiri: Contact | Sell on Krafita (Bilingual) */}
-          <HeaderTopLeftLinks />
+          <HeaderTopLeftLinks isVendor={isVendor} />
 
           {/* Sisi Kanan: Location, Currency, Language Switcher, Login/Register */}
           <HeaderTopRightControls
@@ -120,7 +121,7 @@ export async function SiteHeader() {
                   <span className="text-foreground">Krafita</span>
                 </SheetTitle>
               </SheetHeader>
-              <HeaderMobileCategories />
+              <HeaderMobileCategories isVendor={isVendor} />
             </SheetContent>
           </Sheet>
 
@@ -136,7 +137,7 @@ export async function SiteHeader() {
         <HeaderSearchBar />
 
         {/* Aksi Kanan: Cart, Wishlist, Sell Now Button (Bilingual) */}
-        <HeaderNavActions cartCount={cartCount} wishlistCount={wishlistCount} />
+        <HeaderNavActions cartCount={cartCount} wishlistCount={wishlistCount} isVendor={isVendor} />
       </div>
 
       {/* 3. INTERACTIVE CATEGORY SUB-BAR & MEGA MENU (Persis seperti Gambar 1 dan Gambar 2) */}

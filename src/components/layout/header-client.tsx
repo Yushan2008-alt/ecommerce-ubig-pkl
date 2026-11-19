@@ -20,7 +20,7 @@ import {
 } from 'lucide-react'
 import { CATALOG_CATEGORIES } from '@/lib/catalog-data'
 
-export function HeaderTopLeftLinks() {
+export function HeaderTopLeftLinks({ isVendor = false }: { isVendor?: boolean }) {
   const { t } = useLanguage()
 
   return (
@@ -28,15 +28,19 @@ export function HeaderTopLeftLinks() {
       <Link href="/contact" className="hover:text-foreground transition-colors">
         {t.contact}
       </Link>
-      <span className="text-border" aria-hidden="true">
-        |
-      </span>
-      <Link
-        href="/sell"
-        className="hover:text-primary transition-colors font-medium"
-      >
-        {t.sell_on_krafita}
-      </Link>
+      {!isVendor && (
+        <>
+          <span className="text-border" aria-hidden="true">
+            |
+          </span>
+          <Link
+            href="/sell"
+            className="hover:text-primary transition-colors font-medium"
+          >
+            {t.sell_on_krafita}
+          </Link>
+        </>
+      )}
     </div>
   )
 }
@@ -245,9 +249,11 @@ export function HeaderSearchBar() {
 export function HeaderNavActions({
   cartCount: initialCartCount = 0,
   wishlistCount: initialWishlistCount = 0,
+  isVendor = false,
 }: {
   cartCount?: number
   wishlistCount?: number
+  isVendor?: boolean
 }) {
   const { t } = useLanguage()
   const { cartCount, wishlistCount } = useCartWishlist()
@@ -296,18 +302,20 @@ export function HeaderNavActions({
         <span className="hidden sm:inline">{t.wishlist}</span>
       </Link>
 
-      {/* Sell Now Button */}
-      <Link
-        href="/sell"
-        className="bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2 sm:py-2.5 rounded-md transition-colors shadow-xs hover:shadow-sm shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
-      >
-        {t.sell_now}
-      </Link>
+      {/* Sell Now Button (Hanya tampil jika user belum menjadi vendor) */}
+      {!isVendor && (
+        <Link
+          href="/sell"
+          className="bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold px-4 sm:px-5 py-2 sm:py-2.5 rounded-md transition-colors shadow-xs hover:shadow-sm shrink-0 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+        >
+          {t.sell_now}
+        </Link>
+      )}
     </div>
   )
 }
 
-export function HeaderMobileCategories() {
+export function HeaderMobileCategories({ isVendor = false }: { isVendor?: boolean }) {
   const { t, locale } = useLanguage()
 
   return (
@@ -327,13 +335,17 @@ export function HeaderMobileCategories() {
           </Link>
         )
       })}
-      <hr className="my-2 border-border" />
-      <Link
-        href="/sell"
-        className="font-semibold text-primary flex items-center gap-2 py-1"
-      >
-        <Store className="w-4 h-4" /> {t.sell_now}
-      </Link>
+      {!isVendor && (
+        <>
+          <hr className="my-2 border-border" />
+          <Link
+            href="/sell"
+            className="font-semibold text-primary flex items-center gap-2 py-1"
+          >
+            <Store className="w-4 h-4" /> {t.sell_now}
+          </Link>
+        </>
+      )}
     </div>
   )
 }

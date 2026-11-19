@@ -4,7 +4,7 @@ import { VendorProductsClient } from '@/components/vendor/vendor-products-client
 import { AlertCircle } from 'lucide-react'
 
 export const metadata = {
-  title: 'Produk Saya | Krafita',
+  title: 'Produk | Krafita',
 }
 
 export default async function VendorProductsPage() {

@@ -281,10 +281,8 @@ export function CartWishlistProvider({ children }: { children: React.ReactNode }
     }
   }, [wishlistItems, isInitialized, userId])
 
-  // Counts & totals
-  const cartCount = useMemo(() => {
-    return cartItems.reduce((acc, item) => acc + item.qty, 0)
-  }, [cartItems])
+  // Counts & totals - dihitung berdasarkan jumlah produk di keranjang, bukan kuantitasnya
+  const cartCount = cartItems.length
 
   const wishlistCount = userId ? wishlistItems.length : 0
 

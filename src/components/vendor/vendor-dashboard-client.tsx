@@ -26,7 +26,12 @@ import {
 import { SalesChart } from '@/components/vendor/sales-chart'
 import { eachDayOfInterval, format, isSameDay, isWithinInterval, startOfDay } from 'date-fns'
 import { id as idLocale } from 'date-fns/locale'
-import { formatTimeAgo } from '@/lib/utils'
+import { formatTimeAgo, formatFullDate } from '@/lib/utils'
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+} from '@/components/ui/tooltip'
 import { updateVendorFulfilmentAction, type VendorRecentOrder } from '@/actions/vendor'
 import type { FulfilmentStatus } from '@/types/database'
 import { toast } from 'sonner'
@@ -306,7 +311,7 @@ export function VendorDashboardClient({
                 type="button"
                 onClick={handleDismissOnboarding}
                 className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition-colors cursor-pointer"
-                title="Tutup checklist onboarding"
+                aria-label="Tutup checklist onboarding"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -368,7 +373,7 @@ export function VendorDashboardClient({
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">
-              Penjualan ({period.label})
+              Penjualan
             </span>
             <div className="w-9 h-9 rounded-xl bg-[#00a699]/10 text-[#00a699] flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
@@ -480,17 +485,17 @@ export function VendorDashboardClient({
                 ? rawCourier
                 : `Diantar ${rawCourier}`
 
-              const displayCode =
-                !ord.orderCode || ord.orderCode === '-'
-                  ? '-'
-                  : ord.orderCode.startsWith('#')
-                  ? ord.orderCode
-                  : `#${ord.orderCode}`
+              const rawCode = ord.orderCode?.trim()
+              const hasValidCode = rawCode && rawCode !== '-' && rawCode !== '#-'
+              const displayCode = hasValidCode
+                ? rawCode.startsWith('#')
+                  ? rawCode
+                  : `#${rawCode}`
+                : null
 
-              const orderLink =
-                ord.orderCode && ord.orderCode !== '-'
-                  ? `/vendor/orders?q=${encodeURIComponent(ord.orderCode)}`
-                  : '/vendor/orders'
+              const orderLink = hasValidCode
+                ? `/vendor/orders?q=${encodeURIComponent(rawCode)}`
+                : '/vendor/orders'
 
               return (
                 <div
@@ -500,13 +505,14 @@ export function VendorDashboardClient({
                   {/* Baris Atas: Kode Pesanan + Pill Status (Kiri), Time-Ago (Kanan) */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <Link
-                        href={orderLink}
-                        className="font-mono text-xs font-bold text-[#00a699] hover:underline"
-                        title={displayCode !== '-' ? `Lihat ${displayCode}` : 'Lihat pesanan'}
-                      >
-                        {displayCode}
-                      </Link>
+                      {displayCode && (
+                        <Link
+                          href={orderLink}
+                          className="font-mono text-xs font-bold text-[#00a699] hover:underline"
+                        >
+                          {displayCode}
+                        </Link>
+                      )}
 
                       {/* Pill Status Kecil */}
                       {ord.fulfilmentStatus === 'waiting' && (
@@ -540,13 +546,18 @@ export function VendorDashboardClient({
                       )}
                     </div>
 
-                    <span
-                      className="text-[11px] text-muted-foreground/80 font-normal shrink-0"
-                      title={ord.createdAt ? new Date(ord.createdAt).toLocaleString('id-ID') : ''}
-                      suppressHydrationWarning
-                    >
-                      {formatTimeAgo(ord.createdAt)}
-                    </span>
+                    {/* Waktu Pesanan: Tooltip Custom Tanpa Tooltip Browser Bawaan */}
+                    <Tooltip>
+                      <TooltipTrigger
+                        className="text-[11px] text-muted-foreground/80 font-normal shrink-0 hover:text-foreground cursor-pointer transition-colors"
+                        suppressHydrationWarning
+                      >
+                        {formatTimeAgo(ord.createdAt)}
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="end" className="text-xs py-1.5 px-3">
+                        {formatFullDate(ord.createdAt)}
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
 
                   {/* Baris Tengah: Nama Produk & Jumlah (Kiri), Total Harga (Kanan) */}
@@ -556,7 +567,7 @@ export function VendorDashboardClient({
                         href={orderLink}
                         className="hover:underline block"
                       >
-                        <h3 className="text-sm font-bold text-foreground truncate" title={ord.title}>
+                        <h3 className="text-sm font-bold text-foreground truncate">
                           {ord.title}
                         </h3>
                       </Link>
@@ -581,7 +592,7 @@ export function VendorDashboardClient({
                       ) : (
                         <User className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
                       )}
-                      <span className="truncate max-w-[150px] sm:max-w-[220px]" title={ord.buyerName}>
+                      <span className="truncate max-w-[150px] sm:max-w-[220px]">
                         {ord.buyerName || 'Pembeli'}
                       </span>
                     </div>
@@ -608,7 +619,6 @@ export function VendorDashboardClient({
                             disabled={Boolean(processingId)}
                             onClick={(e) => handleRejectOrder(e, ord.id)}
                             className="px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800/80 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                            title="Tolak pesanan"
                           >
                             Tolak
                           </button>
@@ -617,7 +627,6 @@ export function VendorDashboardClient({
                             disabled={Boolean(processingId)}
                             onClick={(e) => handleProcessOrder(e, ord.id)}
                             className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#00a699] hover:bg-[#008f84] active:scale-95 text-white text-xs font-semibold transition-all shadow-2xs cursor-pointer disabled:opacity-60"
-                            title="Terima pesanan (ubah status ke Sedang Dikemas)"
                           >
                             {processingId === ord.id ? (
                               <Loader2 className="w-3 h-3 animate-spin" />
@@ -631,7 +640,6 @@ export function VendorDashboardClient({
                         <Link
                           href={orderLink}
                           className="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-[#00a699] hover:bg-[#008f84] active:scale-95 text-white text-xs font-semibold transition-all shadow-2xs"
-                          title="Input nomor resi dan kirim pesanan"
                         >
                           <Truck className="w-3 h-3" />
                           <span>Kirim</span>
@@ -644,7 +652,6 @@ export function VendorDashboardClient({
                         <Link
                           href={orderLink}
                           className="px-2.5 py-1 rounded-lg border border-border/80 hover:bg-muted text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-                          title="Buka rincian pesanan"
                         >
                           Detail
                         </Link>

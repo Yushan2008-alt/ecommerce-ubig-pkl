@@ -18,7 +18,6 @@ import {
   Truck,
   FileText,
   Check,
-  Sparkles,
 } from 'lucide-react'
 import { useCartWishlist, CartItem } from '@/context/cart-wishlist-context'
 import { useLanguage } from '@/context/language-context'
@@ -297,28 +296,14 @@ export default function CartPage() {
                               </Link>
                             </h3>
 
-                            {/* Badge Tipe Produk */}
-                            <div className="flex items-center gap-1.5 pt-0.5">
-                              {item.isDigital ? (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-500/10 text-purple-700 dark:text-purple-300 border border-purple-500/20">
-                                  <Sparkles className="w-2.5 h-2.5 mr-0.5" />
-                                  Digital
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20">
-                                  Fisik
-                                </span>
+                            {item.stock !== null &&
+                              item.stock !== undefined &&
+                              item.stock <= 5 &&
+                              !item.isDigital && (
+                                <p className="text-[10px] text-amber-600 font-medium pt-0.5">
+                                  Sisa {item.stock}
+                                </p>
                               )}
-
-                              {item.stock !== null &&
-                                item.stock !== undefined &&
-                                item.stock <= 5 &&
-                                !item.isDigital && (
-                                  <span className="text-[10px] text-amber-600 font-medium">
-                                    Sisa {item.stock}
-                                  </span>
-                                )}
-                            </div>
                           </div>
                         </div>
 

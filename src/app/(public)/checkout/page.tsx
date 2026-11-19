@@ -894,15 +894,6 @@ function CheckoutWizard() {
                           </div>
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
-                              <span
-                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                                  item.type === 'digital'
-                                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                                    : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                                }`}
-                              >
-                                {item.type === 'digital' ? '⚡ Produk Digital' : '📦 Produk Fisik'}
-                              </span>
                               <span className="text-xs text-slate-500">Toko: {item.shopName}</span>
                             </div>
                             <h4 className="text-xs sm:text-sm font-bold text-slate-900 leading-snug line-clamp-2">
@@ -1517,10 +1508,7 @@ function CheckoutWizard() {
                       <div className="col-span-8 space-y-0.5">
                         <strong className="text-slate-900 block font-bold">{it.title}</strong>
                         <span className="text-xs text-slate-500 block">
-                          Toko: {it.shopName} | {it.qty} x {formatPrice(it.price)} |{' '}
-                          <span className={it.type === 'digital' ? 'text-blue-600 font-semibold' : 'text-emerald-600 font-semibold'}>
-                            {it.type === 'digital' ? 'Digital' : 'Fisik'}
-                          </span>
+                          Toko: {it.shopName} | {it.qty} x {formatPrice(it.price)}
                         </span>
                       </div>
                       <div className="col-span-4 text-right font-medium text-slate-900">

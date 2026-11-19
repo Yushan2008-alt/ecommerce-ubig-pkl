@@ -19,6 +19,7 @@ import {
   Loader2,
 } from 'lucide-react'
 import { signOut } from '@/actions/auth'
+import { useLanguage } from '@/context/language-context'
 
 interface VendorSidebarProps {
   shop: {
@@ -36,43 +37,44 @@ interface VendorSidebarProps {
   }
 }
 
-const NAV_ITEMS = [
-  {
-    href: '/vendor',
-    label: 'Dashboard',
-    icon: LayoutDashboard,
-    exact: true,
-  },
-  {
-    href: '/vendor/products',
-    label: 'Produk Saya',
-    icon: Package,
-    exact: false,
-  },
-  {
-    href: '/vendor/orders',
-    label: 'Pesanan',
-    icon: ShoppingBag,
-    exact: false,
-  },
-  {
-    href: '/vendor/balance',
-    label: 'Saldo',
-    icon: Wallet,
-    exact: false,
-  },
-  {
-    href: '/vendor/settings',
-    label: 'Pengaturan',
-    icon: Settings,
-    exact: false,
-  },
-]
-
 export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
   const pathname = usePathname()
+  const { t, locale } = useLanguage()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [navigatingHref, setNavigatingHref] = useState<string | null>(null)
+
+  const navItems = [
+    {
+      href: '/vendor',
+      label: 'Dashboard',
+      icon: LayoutDashboard,
+      exact: true,
+    },
+    {
+      href: '/vendor/products',
+      label: t.products || (locale === 'en' ? 'Products' : 'Produk'),
+      icon: Package,
+      exact: false,
+    },
+    {
+      href: '/vendor/orders',
+      label: locale === 'en' ? 'Orders' : 'Pesanan',
+      icon: ShoppingBag,
+      exact: false,
+    },
+    {
+      href: '/vendor/balance',
+      label: locale === 'en' ? 'Balance' : 'Saldo',
+      icon: Wallet,
+      exact: false,
+    },
+    {
+      href: '/vendor/settings',
+      label: locale === 'en' ? 'Settings' : 'Pengaturan',
+      icon: Settings,
+      exact: false,
+    },
+  ]
 
   // Jika navigasi ke target href telah selesai, hapus status pending secara murni tanpa effect
   const pendingHref = navigatingHref !== pathname ? navigatingHref : null
@@ -128,7 +130,7 @@ export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
 
       {/* 2. Navigasi Menu */}
       <nav className="flex-1 p-3.5 space-y-1 overflow-y-auto">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href, item.exact)
           const isPendingItem = navigatingHref === item.href && pathname !== item.href
@@ -192,7 +194,7 @@ export function VendorSidebar({ shop, user, profile }: VendorSidebarProps) {
           <form action={signOut}>
             <button
               type="submit"
-              title="Keluar"
+              aria-label="Keluar"
               className="p-1.5 rounded-lg text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-colors cursor-pointer"
             >
               <LogOut className="w-4 h-4" />

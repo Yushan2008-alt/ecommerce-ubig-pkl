@@ -5,28 +5,25 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
-  Package,
-  FileCode,
   Star,
-  Truck,
-  ShieldCheck,
-  MessageCircle,
-  Share2,
   Heart,
   ShoppingCart,
-  Zap,
-  Store,
-  CheckCircle2,
-  Clock,
+  CreditCard,
+  ChevronLeft,
+  ChevronRight,
+  CircleDollarSign,
+  Layers,
+  Edit3,
+  Trash2,
+  ShieldCheck,
   AlertTriangle,
-  ArrowRight,
-  Info,
+  Store,
+  MessageSquare,
 } from 'lucide-react'
 import { ProductReviews } from './product-reviews'
 import { ProductComments } from './product-comments'
 import { ReportModal } from './report-modal'
-import { addToCartAction } from '@/actions/cart'
-import { toggleWishlistAction } from '@/actions/wishlist'
+import { useCartWishlist } from '@/context/cart-wishlist-context'
 import { useAuthModal } from '@/context/auth-modal-context'
 import { toast } from 'sonner'
 
@@ -36,10 +33,14 @@ interface ProductDetailViewProps {
   comments: any[]
   ratingAvg: number
   ratingCount: number
+  ordersCount?: number
   eligibleOrderItemId?: string | null
   currentUserId?: string | null
+  isOwner?: boolean
   isInWishlist?: boolean
 }
+
+const SIZE_OPTIONS = ['SM', 'MD', 'LG', 'XL', 'XXL']
 
 export function ProductDetailView({
   product,
@@ -47,30 +48,46 @@ export function ProductDetailView({
   comments,
   ratingAvg,
   ratingCount,
+  ordersCount = 0,
   eligibleOrderItemId,
   currentUserId,
+  isOwner = false,
   isInWishlist = false,
 }: ProductDetailViewProps) {
   const router = useRouter()
   const { openLoginModal } = useAuthModal()
-  const images: string[] = (product.product_images || []).map((img: any) => img.path || img)
+  const { addToCart, toggleWishlist } = useCartWishlist()
+
+  // Gambar produk
+  const rawImages = (product.product_images || []).map((img: any) => img.path || img)
+  const images: string[] = rawImages.length > 0 ? rawImages : ['/placeholder-product.jpg']
+  
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
-  const [activeTab, setActiveTab] = useState<'desc' | 'specs' | 'shipping' | 'reviews' | 'comments'>('desc')
+  const [selectedSize, setSelectedSize] = useState('MD')
   const [qty, setQty] = useState(1)
   const [addingToCart, setAddingToCart] = useState(false)
   const [isFavorited, setIsFavorited] = useState(isInWishlist)
   const [isReportOpen, setIsReportOpen] = useState(false)
+  const [bottomTab, setBottomTab] = useState<'reviews' | 'comments' | 'shipping'>('reviews')
 
-  const coverImage = images[selectedImageIndex] || '/placeholder-product.jpg'
+  const coverImage = images[selectedImageIndex] || images[0] || '/placeholder-product.jpg'
   const isPhysical = product.type === 'physical'
   const shop = product.shops || {}
   const category = product.categories || {}
 
-  const discountPercent =
-    product.compare_price && product.compare_price > product.price
-      ? Math.round(((product.compare_price - product.price) / product.compare_price) * 100)
-      : 0
+  // Format tanggal publikasi
+  const publishedDateStr = product.created_at
+    ? new Date(product.created_at).toLocaleDateString('en-GB', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      })
+    : '20 Oct, 2024'
 
+  // SKU generator/fallback
+  const skuStr = product.sku || `KRF-${product.id ? product.id.slice(0, 8).toUpperCase() : 'WH1000XM4'}`
+
+  // Format rupiah
   const formatPrice = (num: number) =>
     new Intl.NumberFormat('id-ID', {
       style: 'currency',
@@ -78,20 +95,51 @@ export function ProductDetailView({
       maximumFractionDigits: 0,
     }).format(num)
 
-  // Add to cart handler
+  // Carousel handlers
+  const handlePrevImage = () => {
+    setSelectedImageIndex((prev) => (prev > 0 ? prev - 1 : images.length - 1))
+  }
+
+  const handleNextImage = () => {
+    setSelectedImageIndex((prev) => (prev < images.length - 1 ? prev + 1 : 0))
+  }
+
+  // Add to cart handler (terhubung langsung ke CartWishlistContext untuk update realtime instan tanpa refresh)
   const handleAddToCart = async () => {
     if (!currentUserId) {
-      router.push(`/login?next=/products/${product.slug}`)
+      toast.info('Silakan masuk terlebih dahulu untuk menambahkan produk ke keranjang', {
+        action: {
+          label: 'Masuk',
+          onClick: () => openLoginModal(`/products/${product.slug}`),
+        },
+      })
+      openLoginModal(`/products/${product.slug}`)
       return
     }
 
     setAddingToCart(true)
     try {
-      const res = await addToCartAction(product.id, isPhysical ? qty : 1)
-      if (res.success) {
+      const ok = await addToCart(
+        {
+          id: product.id,
+          title: product.title,
+          price: product.price,
+          comparePrice: product.compare_price,
+          imageUrl: coverImage,
+          slug: product.slug,
+          vendor: shop.name,
+          isDigital: !isPhysical,
+          stock: product.stock,
+          shopId: shop.id,
+          shopName: shop.name,
+          shopSlug: shop.slug,
+          shopCity: shop.city,
+          flatShippingCost: shop.flat_shipping_cost,
+        },
+        isPhysical ? qty : 1
+      )
+      if (ok) {
         toast.success(`"${product.title}" berhasil dimasukkan ke keranjang belanja!`)
-      } else {
-        toast.error(res.error || 'Gagal menambahkan ke keranjang')
       }
     } catch {
       toast.error('Gagal menambahkan ke keranjang')
@@ -103,7 +151,13 @@ export function ProductDetailView({
   // Buy now handler (direct checkout)
   const handleBuyNow = () => {
     if (!currentUserId) {
-      router.push(`/login?next=/products/${product.slug}`)
+      toast.info('Silakan masuk terlebih dahulu untuk melanjutkan pembelian', {
+        action: {
+          label: 'Masuk',
+          onClick: () => openLoginModal(`/products/${product.slug}`),
+        },
+      })
+      openLoginModal(`/products/${product.slug}`)
       return
     }
 
@@ -122,7 +176,7 @@ export function ProductDetailView({
     router.push(`/checkout?${params.toString()}`)
   }
 
-  // Toggle wishlist handler
+  // Toggle wishlist handler (terhubung langsung ke CartWishlistContext untuk update realtime instan tanpa refresh)
   const handleToggleWishlist = async () => {
     if (!currentUserId) {
       toast.info('Silakan masuk terlebih dahulu untuk menambahkan produk ke wishlist', {
@@ -135,394 +189,427 @@ export function ProductDetailView({
       return
     }
 
-    setIsFavorited(!isFavorited)
     try {
-      const res = await toggleWishlistAction(product.id)
-      if (res.success) {
-        toast.success(res.isFavorited ? 'Ditambahkan ke wishlist' : 'Dihapus dari wishlist')
-      }
+      const isFav = await toggleWishlist({
+        id: product.id,
+        productId: product.id,
+        title: product.title,
+        price: product.price,
+        comparePrice: product.compare_price,
+        imageUrl: coverImage,
+        slug: product.slug,
+        vendor: shop.name,
+      })
+      setIsFavorited(isFav)
     } catch {
-      setIsFavorited(isFavorited)
+      toast.error('Gagal memperbarui status wishlist')
     }
   }
 
-  // WhatsApp Chat Link
-  const rawWa = shop.whatsapp?.replace(/[^0-9]/g, '') || ''
-  const waNumber = rawWa.startsWith('0') ? `62${rawWa.slice(1)}` : rawWa
-  const waText = encodeURIComponent(
-    `Halo ${shop.name}, saya tertarik dengan produk "${product.title}" di Krafita. Apakah produk ini masih tersedia?`
-  )
-  const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${waText}` : null
+  // Key Features parser
+  const keyFeatures = [
+    'Material pilihan berkualitas tinggi standar pengrajin UMKM',
+    'Pengerjaan rapi, presisi, dan nyaman digunakan sehari-hari',
+    'Kemasan protektif aman dan teruji sampai di tangan Anda',
+    'Garansi keaslian produk dan proteksi dana Krafita Escrow',
+  ]
 
   return (
-    <div className="space-y-10">
-      {/* 1. Breadcrumbs */}
-      <nav aria-label="Breadcrumb" className="text-xs text-muted-foreground">
-        <ol className="flex items-center space-x-1.5 flex-wrap">
-          <li>
-            <Link href="/" className="hover:text-foreground transition-colors">
-              Beranda
-            </Link>
-          </li>
-          <li>/</li>
-          <li>
-            <Link href="/products" className="hover:text-foreground transition-colors">
-              Produk
-            </Link>
-          </li>
-          <li>/</li>
-          {category.name && (
-            <>
-              <li>
-                <span className="text-foreground">{category.name}</span>
-              </li>
-              <li>/</li>
-            </>
-          )}
-          <li className="font-semibold text-foreground truncate max-w-xs">{product.title}</li>
-        </ol>
-      </nav>
+    <div className="space-y-8 w-full max-w-full">
+      {/* 1. Header Bagian Atas: Judul Produk & Metadata */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 pb-2 border-b border-border/60">
+        <div className="space-y-1.5 min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-snug">
+            {product.title}
+          </h1>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs sm:text-sm text-muted-foreground">
+            <span>
+              Seller :{' '}
+              <strong className="text-foreground font-semibold">
+                {shop.name || 'Krafita Official'}
+              </strong>
+            </span>
+            <span>Published : {publishedDateStr}</span>
+            <span>
+              SKU : <strong className="font-mono text-foreground font-semibold">{skuStr}</strong>
+            </span>
+          </div>
+        </div>
 
-      {/* 2. Top Main Section: Galeri (Kiri) & Detail Transaksi (Kanan) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-        {/* GALERI FOTO (Col 1-6) */}
-        <div className="lg:col-span-6 space-y-4">
-          {/* Main Large Image */}
-          <div className="relative aspect-square w-full rounded-2xl overflow-hidden bg-muted/40 border border-border/80 shadow-xs">
+        {/* Action button jika pemilik vendor / admin melihat */}
+        {isOwner && (
+          <div className="flex items-center gap-2 self-start shrink-0">
+            <Link
+              href={`/vendor/products`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+              <span>Edit</span>
+            </Link>
+            <button
+              type="button"
+              onClick={() =>
+                toast.info('Kelola atau arsipkan produk ini melalui menu Produk di Dashboard Vendor.')
+              }
+              className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 transition-colors cursor-pointer"
+              title="Hapus Produk"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 2. Main Section: 2 Kolom Besar (Galeri di Kiri, Detail & Stat Cards di Kanan) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+        {/* KOLOM KIRI: Galeri Foto dengan Carousel Panah & Thumbnails (Col 1-5) */}
+        <div className="lg:col-span-5 space-y-4">
+          {/* Foto Utama dengan Panah Carousel */}
+          <div className="relative aspect-square w-full rounded-2xl sm:rounded-3xl overflow-hidden bg-slate-100/80 dark:bg-slate-900 border border-border/80 flex items-center justify-center group shadow-xs">
             <Image
               src={coverImage}
               alt={product.title}
               fill
               priority
-              sizes="(max-width: 1024px) 100vw, 50vw"
-              className="object-cover object-center"
+              sizes="(max-width: 1024px) 100vw, 42vw"
+              className="object-contain p-4 transition-transform duration-300"
             />
 
-            {/* Badge Diskon */}
-            {discountPercent > 0 && (
-              <span className="absolute top-3 left-3 bg-rose-500 text-white text-xs font-bold px-2 py-1 rounded-md shadow-xs z-10">
-                -{discountPercent}%
-              </span>
+            {/* Tombol Panah Kiri (<) */}
+            {images.length > 1 && (
+              <button
+                type="button"
+                onClick={handlePrevImage}
+                aria-label="Foto Sebelumnya"
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 dark:bg-black/60 hover:bg-white dark:hover:bg-black shadow-md flex items-center justify-center text-foreground transition-all cursor-pointer hover:scale-105"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
             )}
 
-            {/* Floating Wishlist Button */}
-            <button
-              type="button"
-              onClick={handleToggleWishlist}
-              className={`absolute top-3 right-3 p-2.5 rounded-full backdrop-blur-xs transition-all shadow-md cursor-pointer ${
-                isFavorited
-                  ? 'bg-rose-50 text-rose-500 dark:bg-rose-950/80'
-                  : 'bg-white/80 hover:bg-white text-foreground/80 dark:bg-black/60 dark:hover:bg-black'
-              }`}
-              title="Simpan ke Wishlist"
-            >
-              <Heart className={`w-4 h-4 ${isFavorited ? 'fill-rose-500' : ''}`} />
-            </button>
+            {/* Tombol Panah Kanan (>) */}
+            {images.length > 1 && (
+              <button
+                type="button"
+                onClick={handleNextImage}
+                aria-label="Foto Berikutnya"
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/80 dark:bg-black/60 hover:bg-white dark:hover:bg-black shadow-md flex items-center justify-center text-foreground transition-all cursor-pointer hover:scale-105"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
-          {/* Thumbnails Picker */}
-          {images.length > 1 && (
-            <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none">
-              {images.map((imgUrl, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => setSelectedImageIndex(idx)}
-                  className={`relative w-20 h-20 rounded-xl overflow-hidden bg-muted border-2 transition-all shrink-0 cursor-pointer ${
-                    selectedImageIndex === idx
-                      ? 'border-[#00a699] ring-2 ring-[#00a699]/30 scale-102'
-                      : 'border-border/80 opacity-70 hover:opacity-100'
-                  }`}
-                >
-                  <Image
-                    src={imgUrl}
-                    alt={`Thumbnail ${idx + 1}`}
-                    fill
-                    sizes="80px"
-                    className="object-cover object-center"
-                  />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* KOLOM INFORMASI & BELI (Col 7-12) */}
-        <div className="lg:col-span-6 space-y-6">
-          {/* Header Info: Tipe, Kategori, Judul */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className={`inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full ${
-                  isPhysical
-                    ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                    : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800'
+          {/* Bar Thumbnail 4 Kotak di Bawah Foto Utama */}
+          <div className="grid grid-cols-4 gap-3">
+            {images.slice(0, 4).map((imgUrl, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setSelectedImageIndex(idx)}
+                className={`relative aspect-square rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 border-2 transition-all cursor-pointer ${
+                  selectedImageIndex === idx
+                    ? 'border-slate-900 dark:border-[#00a699] ring-2 ring-[#00a699]/30 scale-102 opacity-100'
+                    : 'border-border/80 opacity-70 hover:opacity-100'
                 }`}
               >
-                {isPhysical ? (
-                  <>
-                    <Package className="w-3.5 h-3.5" /> Produk Fisik
-                  </>
-                ) : (
-                  <>
-                    <FileCode className="w-3.5 h-3.5" /> Produk Digital (Unduhan)
-                  </>
-                )}
-              </span>
+                <Image
+                  src={imgUrl}
+                  alt={`Thumbnail ${idx + 1}`}
+                  fill
+                  sizes="120px"
+                  className="object-contain p-1"
+                />
+              </button>
+            ))}
 
-              {category.name && (
-                <span className="text-[11px] font-semibold text-muted-foreground">
-                  Kategori: {category.name}
+            {/* Placeholder jika foto kurang dari 4 agar tetap simetris sesuai desain referensi */}
+            {images.length < 4 &&
+              Array.from({ length: 4 - images.length }).map((_, phIdx) => (
+                <div
+                  key={`ph-${phIdx}`}
+                  className="relative aspect-square rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-dashed border-border/60 flex items-center justify-center opacity-40"
+                >
+                  <Store className="w-5 h-5 text-muted-foreground/50" />
+                </div>
+              ))}
+          </div>
+        </div>
+
+        {/* KOLOM KANAN: Stat Cards & Detail Spesifikasi (Col 6-12) */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* 3 Stat Cards Sejajar Horizontal: Price, Available Stocks, Rating */}
+          <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+            {/* Card 1: Price */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="w-7 h-7 rounded-full bg-slate-200/70 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                  <CircleDollarSign className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-medium">Price</span>
+              </div>
+              <div>
+                <span className="text-base sm:text-lg font-bold text-foreground tracking-tight block truncate">
+                  {formatPrice(product.price)}
                 </span>
-              )}
+                {product.compare_price && product.compare_price > product.price && (
+                  <span className="text-[11px] text-muted-foreground line-through block">
+                    {formatPrice(product.compare_price)}
+                  </span>
+                )}
+              </div>
             </div>
 
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-black text-foreground tracking-tight leading-snug">
-              {product.title}
-            </h1>
-
-            {/* Rating Stars & Reviews Count */}
-            <div className="flex items-center gap-2 pt-1">
-              <div className="flex items-center gap-0.5 text-amber-400">
-                {[1, 2, 3, 4, 5].map((s) => (
-                  <Star
-                    key={s}
-                    className={`w-4 h-4 ${
-                      s <= Math.round(ratingAvg)
-                        ? 'fill-amber-400 text-amber-400'
-                        : 'text-muted-foreground/30'
-                    }`}
-                  />
-                ))}
+            {/* Card 2: Available Stocks */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="w-7 h-7 rounded-full bg-slate-200/70 dark:bg-slate-800 flex items-center justify-center text-slate-700 dark:text-slate-300">
+                  <Layers className="w-4 h-4" />
+                </div>
+                <span className="text-xs font-medium">Available Stocks</span>
               </div>
-              <span className="text-xs font-bold text-foreground">
-                {ratingAvg > 0 ? ratingAvg.toFixed(1) : 'Baru'}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                ({ratingCount} ulasan pembeli)
-              </span>
+              <div>
+                <span className="text-base sm:text-lg font-bold text-foreground tracking-tight block truncate">
+                  {product.stock != null
+                    ? product.stock.toLocaleString('id-ID')
+                    : isPhysical
+                    ? '2,550'
+                    : 'Akses Aktif'}
+                </span>
+              </div>
+            </div>
+
+            {/* Card 3: Rating Produk */}
+            <div className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 dark:bg-slate-900/40 border border-slate-200/80 dark:border-slate-800 flex flex-col justify-between space-y-2">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <div className="w-7 h-7 rounded-full bg-slate-200/70 dark:bg-slate-800 flex items-center justify-center text-amber-500">
+                  <Star className="w-4 h-4 fill-amber-500" />
+                </div>
+                <span className="text-xs font-medium">Rating Produk</span>
+              </div>
+              <div>
+                <span className="text-base sm:text-lg font-bold text-foreground tracking-tight block truncate">
+                  {ratingAvg > 0 ? ratingAvg.toFixed(1) : '5.0'}{' '}
+                  <span className="text-xs font-normal text-muted-foreground">
+                    ({ratingCount || reviews.length})
+                  </span>
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Pricing Box */}
-          <div className="p-4 sm:p-5 rounded-2xl bg-muted/30 border border-border/80 space-y-1">
-            <div className="flex items-baseline gap-3">
-              <span className="text-2xl sm:text-3xl font-black text-[#00a699]">
-                {formatPrice(product.price)}
-              </span>
-              {product.compare_price && product.compare_price > product.price && (
-                <span className="text-sm text-muted-foreground line-through">
-                  {formatPrice(product.compare_price)}
-                </span>
-              )}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              {isPhysical
-                ? `Stok Tersedia: ${product.stock} unit • SKU: ${product.sku || '-'}`
-                : 'Akses unduhan instan langsung aktif setelah pembayaran terverifikasi'}
-            </p>
-          </div>
-
-          {/* Profil Toko Penjual Singkat */}
-          <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-xl bg-[#00a699]/10 text-[#00a699] flex items-center justify-center font-bold overflow-hidden shrink-0 border border-border">
-                {shop.logo_url ? (
-                  <Image
-                    src={shop.logo_url}
-                    alt={shop.name}
-                    width={44}
-                    height={44}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <Store className="w-5 h-5" />
-                )}
-              </div>
-              <div className="space-y-0.5 min-w-0">
-                <h3 className="text-xs font-bold text-foreground truncate">{shop.name}</h3>
-                <p className="text-[11px] text-muted-foreground">
-                  {shop.city || 'Indonesia'} • Penjual Terverifikasi
+          {/* Area Bawah Stat Cards: Grid 2 Sub-Kolom (Kiri: Deskripsi & Kontrol, Kanan: Tabel Spesifikasi) */}
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 pt-2 items-start">
+            {/* SUB-KOLOM KIRI (Col 1-8): Description, Key Features, Sizes, Actions */}
+            <div className="md:col-span-8 space-y-5">
+              {/* Description */}
+              <div className="space-y-1">
+                <h2 className="text-xs sm:text-sm font-bold text-foreground">Description:</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">
+                  {product.description ||
+                    'Produk pilihan terbaik persembahan pengrajin terverifikasi Krafita. Dikerjakan dengan ketelitian tinggi serta material premium untuk kenyamanan dan kebanggaan produk lokal.'}
                 </p>
               </div>
+
+              {/* Key Features */}
+              <div className="space-y-1.5">
+                <h3 className="text-xs sm:text-sm font-bold text-foreground">Key Features:</h3>
+                <ul className="space-y-1 text-xs text-muted-foreground list-disc list-inside">
+                  {keyFeatures.map((feat, idx) => (
+                    <li key={idx} className="leading-relaxed">
+                      {feat}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Sizes */}
+              <div className="space-y-2">
+                <h3 className="text-xs sm:text-sm font-bold text-foreground">Sizes:</h3>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {SIZE_OPTIONS.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      onClick={() => setSelectedSize(size)}
+                      className={`min-w-9 h-9 px-3 rounded-lg text-xs font-semibold flex items-center justify-center border transition-all cursor-pointer ${
+                        selectedSize === size
+                          ? 'border-slate-900 bg-slate-900 text-white dark:border-white dark:bg-white dark:text-black font-bold shadow-xs'
+                          : 'border-border/80 bg-background text-foreground hover:bg-muted'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Quantity Counter (untuk produk fisik) */}
+              {isPhysical && (
+                <div className="flex items-center gap-3 pt-1">
+                  <span className="text-xs font-bold text-foreground">Jumlah:</span>
+                  <div className="inline-flex items-center border border-border rounded-xl overflow-hidden bg-background">
+                    <button
+                      type="button"
+                      disabled={qty <= 1}
+                      onClick={() => setQty((q) => Math.max(1, q - 1))}
+                      className="w-8 h-8 flex items-center justify-center text-sm font-bold text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <span className="w-10 text-center text-xs font-bold font-mono">{qty}</span>
+                    <button
+                      type="button"
+                      disabled={qty >= (product.stock || 99)}
+                      onClick={() => setQty((q) => Math.min(product.stock || 99, q + 1))}
+                      className="w-8 h-8 flex items-center justify-center text-sm font-bold text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tombol Aksi: Sejajar 3 Memanjang Sedikit ke Samping Agar Teks Mendatar Satu Baris */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-2.5 pt-2 w-full max-w-xl">
+                {/* 1. Tombol Beli Sekarang */}
+                <button
+                  type="button"
+                  onClick={handleBuyNow}
+                  className="w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white dark:bg-slate-100 dark:hover:bg-white dark:text-black font-bold text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm hover:shadow cursor-pointer"
+                >
+                  <CreditCard className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Beli Sekarang</span>
+                </button>
+
+                {/* 2. Tombol Add to Cart (warna utama projek Krafita #00a699) */}
+                <button
+                  type="button"
+                  disabled={addingToCart}
+                  onClick={handleAddToCart}
+                  className="w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white font-bold text-xs sm:text-sm whitespace-nowrap transition-all shadow-sm hover:shadow cursor-pointer disabled:opacity-60"
+                >
+                  <ShoppingCart className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">Add to Cart</span>
+                </button>
+
+                {/* 3. Tombol Wishlist */}
+                <button
+                  type="button"
+                  onClick={handleToggleWishlist}
+                  className={`w-full inline-flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-3 rounded-xl border font-bold text-xs sm:text-sm whitespace-nowrap transition-all cursor-pointer ${
+                    isFavorited
+                      ? 'border-rose-300 bg-rose-50 text-rose-600 dark:bg-rose-950/60 dark:border-rose-800'
+                      : 'border-border/80 bg-background text-foreground hover:bg-muted'
+                  }`}
+                >
+                  <Heart
+                    className={`w-4 h-4 shrink-0 ${
+                      isFavorited ? 'fill-rose-500 text-rose-500' : ''
+                    }`}
+                  />
+                  <span className="whitespace-nowrap">Wishlist</span>
+                </button>
+              </div>
             </div>
 
-            {waUrl && (
-              <a
-                href={waUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs shrink-0 cursor-pointer"
-              >
-                <MessageCircle className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">WhatsApp</span>
-              </a>
-            )}
-          </div>
+            {/* SUB-KOLOM KANAN (Col 9-12): Tabel Spesifikasi Rapi */}
+            <div className="md:col-span-4 space-y-4">
+              <div className="rounded-2xl border border-border/80 overflow-hidden bg-card text-xs shadow-xs">
+                <div className="divide-y divide-border/60">
+                  <div className="py-2.5 px-4 flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Category</span>
+                    <span className="text-foreground font-semibold">
+                      {category.name || 'Pakaian & Kerajinan'}
+                    </span>
+                  </div>
+                  <div className="py-2.5 px-4 flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Brand</span>
+                    <span className="text-foreground font-semibold">
+                      {product.brands?.name || shop.name || 'Krafita Official'}
+                    </span>
+                  </div>
+                  <div className="py-2.5 px-4 flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Material</span>
+                    <span className="text-foreground font-semibold">
+                      {product.attributes?.Bahan || 'Kualitas Terpilih'}
+                    </span>
+                  </div>
+                  <div className="py-2.5 px-4 flex items-center justify-between">
+                    <span className="text-muted-foreground font-medium">Weight</span>
+                    <span className="text-foreground font-semibold">
+                      {product.weight || 140} Gr
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-          {/* Kuantitas & Action Buttons */}
-          <div className="space-y-3 pt-2">
-            {isPhysical && (
-              <div className="flex items-center gap-3">
-                <label className="text-xs font-bold text-foreground">Jumlah:</label>
-                <div className="flex items-center border border-border rounded-xl overflow-hidden bg-background">
+              {/* Garansi Pembayaran & Lapor Produk */}
+              <div className="p-3.5 rounded-2xl bg-slate-50/70 dark:bg-slate-900/30 border border-border/70 space-y-2 text-xs">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <ShieldCheck className="w-4 h-4 text-[#00a699] shrink-0" />
+                  <span>Garansi Pembayaran Aman Krafita Escrow</span>
+                </div>
+                <div className="pt-2 border-t border-border/50 flex items-center justify-between">
+                  <span className="text-[11px] text-muted-foreground">Ada kendala produk?</span>
                   <button
                     type="button"
-                    disabled={qty <= 1}
-                    onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="w-8 h-8 flex items-center justify-center text-sm font-bold text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer"
+                    onClick={() => setIsReportOpen(true)}
+                    className="text-[11px] text-muted-foreground hover:text-rose-600 font-semibold cursor-pointer flex items-center gap-1 transition-colors"
                   >
-                    -
-                  </button>
-                  <span className="w-10 text-center text-xs font-bold font-mono">{qty}</span>
-                  <button
-                    type="button"
-                    disabled={qty >= (product.stock || 99)}
-                    onClick={() => setQty((q) => Math.min(product.stock || 99, q + 1))}
-                    className="w-8 h-8 flex items-center justify-center text-sm font-bold text-foreground hover:bg-muted disabled:opacity-40 cursor-pointer"
-                  >
-                    +
+                    <AlertTriangle className="w-3 h-3" />
+                    Laporkan Produk
                   </button>
                 </div>
               </div>
-            )}
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                disabled={addingToCart}
-                onClick={handleAddToCart}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl border-2 border-[#00a699] text-[#00a699] hover:bg-[#00a699]/10 font-bold text-xs sm:text-sm transition-all cursor-pointer shadow-xs"
-              >
-                <ShoppingCart className="w-4 h-4" />
-                Tambah ke Keranjang
-              </button>
-
-              <button
-                type="button"
-                onClick={handleBuyNow}
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white font-bold text-xs sm:text-sm transition-all shadow-md hover:shadow-lg cursor-pointer"
-              >
-                <Zap className="w-4 h-4" />
-                Beli Sekarang
-              </button>
             </div>
-          </div>
-
-          {/* Keamanan Transaksi & Lapor Produk */}
-          <div className="pt-3 border-t border-border/60 flex items-center justify-between text-xs text-muted-foreground">
-            <span className="flex items-center gap-1.5">
-              <ShieldCheck className="w-4 h-4 text-[#00a699]" />
-              Garansi Pembayaran Aman Krafita Escrow
-            </span>
-
-            <button
-              type="button"
-              onClick={() => setIsReportOpen(true)}
-              className="text-muted-foreground/80 hover:text-rose-600 transition-colors cursor-pointer flex items-center gap-1 text-[11px]"
-            >
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Laporkan Produk
-            </button>
           </div>
         </div>
       </div>
 
-      {/* 3. Tab Navigasi Konten Lengkap */}
-      <div className="space-y-6 pt-6 border-t border-border/80">
-        {/* Tab Headers */}
-        <div className="flex items-center gap-2 border-b border-border/80 overflow-x-auto scrollbar-none pb-px">
-          {[
-            { id: 'desc', label: 'Deskripsi' },
-            { id: 'specs', label: 'Spesifikasi & Info' },
-            { id: 'shipping', label: 'Pengiriman & Ongkir' },
-            { id: 'reviews', label: `Ulasan (${reviews.length})` },
-            { id: 'comments', label: `Diskusi (${comments.length})` },
-          ].map((tab) => (
+      {/* 3. Section Bawah: Tab Reviews & Diskusi Pembeli */}
+      <div className="pt-8 border-t border-border/80 space-y-6">
+        {/* Header Tab */}
+        <div className="flex items-center justify-between border-b border-border/80 pb-2">
+          <div className="flex items-center gap-6">
             <button
-              key={tab.id}
               type="button"
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`pb-3 px-4 text-xs font-bold transition-all cursor-pointer border-b-2 whitespace-nowrap ${
-                activeTab === tab.id
-                  ? 'border-[#00a699] text-[#00a699]'
+              onClick={() => setBottomTab('reviews')}
+              className={`pb-2 text-base sm:text-lg font-bold transition-all border-b-2 cursor-pointer ${
+                bottomTab === 'reviews'
+                  ? 'border-[#00a699] text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              {tab.label}
+              Reviews ({reviews.length})
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={() => setBottomTab('comments')}
+              className={`pb-2 text-base sm:text-lg font-bold transition-all border-b-2 cursor-pointer ${
+                bottomTab === 'comments'
+                  ? 'border-[#00a699] text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Tanya Jawab ({comments.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setBottomTab('shipping')}
+              className={`pb-2 text-base sm:text-lg font-bold transition-all border-b-2 cursor-pointer ${
+                bottomTab === 'shipping'
+                  ? 'border-[#00a699] text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              Pengiriman
+            </button>
+          </div>
         </div>
 
-        {/* Tab 1: Deskripsi */}
-        {activeTab === 'desc' && (
-          <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 animate-in fade-in duration-200">
-            <h3 className="text-sm font-bold text-foreground">Deskripsi Produk</h3>
-            <div className="text-xs md:text-sm text-foreground/85 leading-relaxed whitespace-pre-line">
-              {product.description}
-            </div>
-          </div>
-        )}
-
-        {/* Tab 2: Spesifikasi Atribut */}
-        {activeTab === 'specs' && (
-          <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 animate-in fade-in duration-200">
-            <h3 className="text-sm font-bold text-foreground">Spesifikasi Tambahan</h3>
-            <div className="divide-y divide-border/60 text-xs">
-              <div className="py-2.5 flex justify-between">
-                <span className="text-muted-foreground">Tipe Produk:</span>
-                <span className="font-bold text-foreground capitalize">{product.type}</span>
-              </div>
-              {isPhysical && (
-                <>
-                  <div className="py-2.5 flex justify-between">
-                    <span className="text-muted-foreground">Berat Barang:</span>
-                    <span className="font-bold text-foreground">{product.weight || 0} gram</span>
-                  </div>
-                  <div className="py-2.5 flex justify-between">
-                    <span className="text-muted-foreground">SKU:</span>
-                    <span className="font-mono font-bold text-foreground">{product.sku || '-'}</span>
-                  </div>
-                </>
-              )}
-              {product.attributes &&
-                Object.entries(product.attributes).map(([k, v]) => (
-                  <div key={k} className="py-2.5 flex justify-between">
-                    <span className="text-muted-foreground">{k}:</span>
-                    <span className="font-bold text-foreground">{v as string}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
-        {/* Tab 3: Pengiriman */}
-        {activeTab === 'shipping' && (
-          <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 animate-in fade-in duration-200">
-            <h3 className="text-sm font-bold text-foreground">Informasi Ongkos Kirim & Layanan</h3>
-            <div className="space-y-3 text-xs leading-relaxed text-foreground/85">
-              <p>
-                <strong>Asal Pengiriman:</strong> {shop.city || 'Gudang Pusat'},{' '}
-                {shop.province || 'Indonesia'}
-              </p>
-              <p>
-                <strong>Tarif Flat Ongkos Kirim:</strong>{' '}
-                <span className="text-emerald-600 font-bold">
-                  {Number(shop.flat_shipping_cost) === 0
-                    ? 'Gratis Ongkir'
-                    : formatPrice(Number(shop.flat_shipping_cost || 15000))}
-                </span>
-              </p>
-              <p className="text-muted-foreground">
-                *Pengiriman produk fisik didukung ekspedisi terpercaya (JNE, SiCepat, J&T). Pesanan
-                akan dikemas aman dan nomor resi pengiriman dapat dipantau di halaman pesanan Anda.
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Tab 4: Reviews */}
-        {activeTab === 'reviews' && (
+        {/* Tab Konten: Reviews */}
+        {bottomTab === 'reviews' && (
           <div className="animate-in fade-in duration-200">
             <ProductReviews
               productId={product.id}
@@ -535,8 +622,8 @@ export function ProductDetailView({
           </div>
         )}
 
-        {/* Tab 5: Comments */}
-        {activeTab === 'comments' && (
+        {/* Tab Konten: Tanya Jawab / Comments */}
+        {bottomTab === 'comments' && (
           <div className="animate-in fade-in duration-200">
             <ProductComments
               productId={product.id}
@@ -544,6 +631,29 @@ export function ProductDetailView({
               currentUserId={currentUserId}
               vendorProfileId={shop.profile_id}
             />
+          </div>
+        )}
+
+        {/* Tab Konten: Pengiriman */}
+        {bottomTab === 'shipping' && (
+          <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-3 animate-in fade-in duration-200 text-xs text-foreground/85">
+            <h3 className="text-sm font-bold text-foreground">Informasi Ongkos Kirim & Layanan</h3>
+            <p>
+              <strong>Asal Pengiriman:</strong> {shop.city || 'Gudang Pusat'},{' '}
+              {shop.province || 'Indonesia'}
+            </p>
+            <p>
+              <strong>Tarif Flat Ongkos Kirim:</strong>{' '}
+              <span className="text-[#00a699] font-bold">
+                {Number(shop.flat_shipping_cost) === 0
+                  ? 'Gratis Ongkir'
+                  : formatPrice(Number(shop.flat_shipping_cost || 15000))}
+              </span>
+            </p>
+            <p className="text-muted-foreground">
+              *Pengiriman produk fisik didukung ekspedisi terpercaya (JNE, SiCepat, J&T). Pesanan
+              akan dikemas aman dan nomor resi pengiriman dapat dipantau di halaman pesanan Anda.
+            </p>
           </div>
         )}
       </div>

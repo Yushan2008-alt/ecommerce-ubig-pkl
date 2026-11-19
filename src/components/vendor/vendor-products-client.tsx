@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import { useLanguage } from '@/context/language-context'
 import {
   archiveProductAction,
   deleteProductAction,
@@ -68,6 +69,7 @@ const STATUS_ITEMS = {
 
 export function VendorProductsClient({ initialProducts }: VendorProductsClientProps) {
   const router = useRouter()
+  const { t, locale } = useLanguage()
   const [products, setProducts] = useState<any[]>(initialProducts)
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
@@ -274,10 +276,12 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
       <div className="flex items-center justify-between gap-4 pb-1">
         <div>
           <h1 className="text-base sm:text-lg font-bold text-foreground">
-            Produk Saya
+            {t.products || (locale === 'en' ? 'Products' : 'Produk')}
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Kelola katalog, stok, varian, dan etalase toko Anda
+            {locale === 'en'
+              ? 'Manage your catalog, stock, and store storefront'
+              : 'Kelola katalog, stok, varian, dan etalase toko Anda'}
           </p>
         </div>
         <Link
@@ -285,7 +289,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
           className="inline-flex items-center gap-1.5 bg-[#00a699] hover:bg-[#008f84] text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-xs transition-colors cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
-          <span>Tambah</span>
+          <span>{locale === 'en' ? 'Add Product' : 'Tambah'}</span>
         </Link>
       </div>
 
@@ -416,7 +420,6 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
                         className={`hover:bg-muted/40 transition-colors cursor-pointer group ${
                           isSelected ? 'bg-primary/5 dark:bg-primary/10' : ''
                         }`}
-                        title="Klik baris untuk melihat halaman detail produk"
                       >
                         {/* 1. Checkbox (stopPropagation agar tidak memicu onClick baris) */}
                         <td
@@ -496,7 +499,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
                           <DropdownMenu>
                             <DropdownMenuTrigger
                               className="w-7 h-7 inline-flex items-center justify-center rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                              title="Pilihan Aksi"
+                              aria-label="Pilihan Aksi"
                             >
                               <MoreHorizontal className="w-4 h-4" />
                             </DropdownMenuTrigger>
@@ -653,7 +656,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
                       <DropdownMenu>
                         <DropdownMenuTrigger
                           className="w-8 h-8 inline-flex items-center justify-center rounded-xl border border-border/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                          title="Pilihan Lainnya"
+                          aria-label="Pilihan Lainnya"
                         >
                           <MoreHorizontal className="w-4 h-4" />
                         </DropdownMenuTrigger>

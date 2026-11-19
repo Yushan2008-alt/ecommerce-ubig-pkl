@@ -293,7 +293,7 @@ export function VendorShippingModal({
                 </label>
                 <div
                   className="flex items-center justify-between h-10 px-3 bg-muted/40 border border-border/80 rounded-xl cursor-not-allowed select-none opacity-85"
-                  title="Asuransi terkunci dan diwajibkan oleh sistem"
+                  aria-label="Asuransi terkunci dan diwajibkan oleh sistem"
                 >
                   <div className="flex items-center gap-2 text-xs font-medium text-foreground">
                     <input
@@ -347,7 +347,7 @@ export function VendorShippingModal({
                       readOnly
                       value={formatPrice(totalAmount)}
                       className="w-full h-9.5 pl-3 pr-8 text-xs font-semibold bg-muted/40 text-foreground border border-border/80 rounded-xl cursor-not-allowed select-none opacity-85"
-                      title="Nilai barang terkunci otomatis dari subtotal pesanan"
+                      aria-label="Nilai barang terkunci otomatis dari subtotal pesanan"
                     />
                     <Lock className="w-3.5 h-3.5 text-muted-foreground absolute right-3 top-3 pointer-events-none" />
                   </div>

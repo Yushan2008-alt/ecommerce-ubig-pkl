@@ -158,7 +158,7 @@ export function ImageUploader({
                 type="button"
                 onClick={() => handleRemove(idx)}
                 className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-rose-600 text-white rounded-full p-1 opacity-90 group-hover:opacity-100 transition-all cursor-pointer shadow-xs"
-                title="Hapus gambar"
+                aria-label="Hapus gambar"
               >
                 <X className="w-3.5 h-3.5" />
               </button>

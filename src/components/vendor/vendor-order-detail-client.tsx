@@ -38,6 +38,12 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip'
 import { formatTimeAgo, formatFullDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { FulfilmentStatus } from '@/types/database'
@@ -338,7 +344,7 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
               type="button"
               onClick={() => handleCopyText(displayInvoice, 'Nomor Invoice')}
               className="text-muted-foreground hover:text-[#00a699] cursor-pointer transition-colors print:hidden"
-              title="Salin Nomor Invoice"
+              aria-label="Salin Nomor Invoice"
             >
               <Copy className="w-4 h-4" />
             </button>
@@ -563,7 +569,7 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
                                 type="button"
                                 onClick={() => handleCopyText(it.trackingNumber, 'Nomor Resi')}
                                 className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors p-0.5"
-                                title="Salin Nomor Resi"
+                                aria-label="Salin Nomor Resi"
                               >
                                 <Copy className="w-3.5 h-3.5 stroke-[1.5]" />
                               </button>
@@ -791,9 +797,19 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
               {order.paidAt && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Waktu Bayar</span>
-                  <span className="text-muted-foreground" suppressHydrationWarning>
-                    {formatTimeAgo(order.paidAt)}
-                  </span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger
+                        className="text-muted-foreground cursor-help underline decoration-dotted underline-offset-2 hover:text-foreground transition-colors inline-block"
+                        suppressHydrationWarning
+                      >
+                        {formatTimeAgo(order.paidAt)}
+                      </TooltipTrigger>
+                      <TooltipContent side="top" align="end" className="text-xs py-1.5 px-3">
+                        <p>{formatFullDate(order.paidAt)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               )}
 

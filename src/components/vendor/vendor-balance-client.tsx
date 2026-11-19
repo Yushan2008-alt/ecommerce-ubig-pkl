@@ -487,14 +487,13 @@ export function VendorBalanceClient({
                             <TooltipTrigger
                               type="button"
                               className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end"
-                              title={formatFullDate(req.created_at)}
                             >
                               <Clock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
                               <span suppressHydrationWarning>
                                 {formatTimeAgo(req.created_at)}
                               </span>
                             </TooltipTrigger>
-                            <TooltipContent side="top" align="end">
+                            <TooltipContent side="top" align="end" className="text-xs py-1.5 px-3">
                               {formatFullDate(req.created_at)}
                             </TooltipContent>
                           </Tooltip>
@@ -537,8 +536,18 @@ export function VendorBalanceClient({
                       </span>
                     </div>
 
-                    <div className="text-right text-[11px] text-muted-foreground pt-1" suppressHydrationWarning>
-                      {formatTimeAgo(req.created_at)}
+                    <div className="text-right text-[11px] text-muted-foreground pt-1">
+                      <Tooltip>
+                        <TooltipTrigger
+                          className="cursor-pointer hover:text-foreground transition-colors inline-block text-[11px] text-muted-foreground"
+                          suppressHydrationWarning
+                        >
+                          {formatTimeAgo(req.created_at)}
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="end" className="text-xs py-1.5 px-3">
+                          {formatFullDate(req.created_at)}
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 ))}

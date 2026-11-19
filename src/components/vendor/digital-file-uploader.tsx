@@ -110,7 +110,7 @@ export function DigitalFileUploader({ value, onChange }: DigitalFileUploaderProp
             type="button"
             onClick={() => onChange(null)}
             className="p-1.5 text-muted-foreground hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-lg transition-colors cursor-pointer"
-            title="Hapus berkas"
+            aria-label="Hapus berkas"
           >
             <X className="w-4 h-4" />
           </button>

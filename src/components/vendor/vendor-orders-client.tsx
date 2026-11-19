@@ -512,7 +512,7 @@ export function VendorOrdersClient({
                   setCurrentPage(1)
                 }}
                 className="hover:text-rose-500 cursor-pointer ml-0.5"
-                title="Hapus Filter"
+                aria-label="Hapus Filter"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -565,7 +565,6 @@ export function VendorOrdersClient({
                           key={ord.id}
                           onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
                           className="hover:bg-muted/40 transition-colors cursor-pointer group"
-                          title="Klik baris untuk melihat detail pesanan"
                         >
                           {/* 1. Pesanan (Nomor Invoice Klik Langsung Redirect ke Track / Detail) */}
                           <td className="py-5 px-4 align-middle">
@@ -573,7 +572,6 @@ export function VendorOrdersClient({
                               href={`/vendor/orders/${targetDetailId}`}
                               onClick={(e) => e.stopPropagation()}
                               className="font-mono font-bold text-xs text-[#00a699] hover:underline hover:text-[#008f84] transition-colors block"
-                              title={`Lihat detail & lacak paket pesanan ${displayInvoice}`}
                             >
                               {displayInvoice}
                             </Link>
@@ -592,10 +590,7 @@ export function VendorOrdersClient({
                                 />
                               </div>
                               <div className="space-y-1">
-                                <p
-                                  className="font-bold text-foreground text-xs leading-snug break-words group-hover:text-[#00a699] transition-colors"
-                                  title={ord.title}
-                                >
+                                <p className="font-bold text-foreground text-xs leading-snug break-words group-hover:text-[#00a699] transition-colors">
                                   {ord.title}
                                 </p>
                                 <span className="text-[11px] text-muted-foreground block">
@@ -610,7 +605,6 @@ export function VendorOrdersClient({
                             <Link
                               href={`/vendor/orders/${targetDetailId}/buyer`}
                               className="font-semibold text-foreground text-xs hover:text-[#00a699] transition-colors block leading-snug cursor-pointer"
-                              title="Lihat profil & alamat pembeli"
                             >
                               {ord.buyer?.name || 'Pelanggan'}
                             </Link>
@@ -624,10 +618,7 @@ export function VendorOrdersClient({
                           {/* 5. Total (Harga total & jumlah barang) */}
                           <td className="py-5 px-4 align-middle">
                             <div className="space-y-0.5">
-                              <span
-                                className="font-bold text-foreground text-xs block"
-                                title={formatPrice(ord.price * ord.qty)}
-                              >
+                              <span className="font-bold text-foreground text-xs block">
                                 {formatPrice(ord.price * ord.qty)}
                               </span>
                               <span className="text-[11px] text-muted-foreground block">
@@ -661,7 +652,6 @@ export function VendorOrdersClient({
                                       setRejectReason('')
                                     }}
                                     className="h-7.5 px-2.5 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer rounded-lg shrink-0 transition-colors shadow-2xs"
-                                    title="Tolak pesanan & batalkan transaksi"
                                   >
                                     Tolak
                                   </Button>
@@ -671,7 +661,6 @@ export function VendorOrdersClient({
                                     disabled={loadingItemId === ord.id}
                                     onClick={() => handleAcceptOrder(ord.id)}
                                     className="h-7.5 px-3 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shrink-0 transition-colors shadow-2xs"
-                                    title="Terima pesanan & masukkan saldo ke toko"
                                   >
                                     {loadingItemId === ord.id ? (
                                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -711,7 +700,6 @@ export function VendorOrdersClient({
                                         })
                                       }
                                       className="h-7.5 px-3.5 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shrink-0 shadow-2xs transition-colors"
-                                      title="Proses pengiriman pesanan via KiriminAja"
                                     >
                                       Proses
                                     </Button>
@@ -726,7 +714,6 @@ export function VendorOrdersClient({
                                   variant="outline"
                                   onClick={() => setPrintModalOrder(ord)}
                                   className="h-7.5 px-2.5 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0 flex items-center gap-1.5 border-border/80 text-foreground shadow-2xs"
-                                  title="Cetak label resi pengiriman"
                                 >
                                   <Printer className="w-3.5 h-3.5 text-muted-foreground" />
                                   <span>Cetak Resi</span>
@@ -740,7 +727,6 @@ export function VendorOrdersClient({
                                   variant="outline"
                                   onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
                                   className="h-7.5 px-2.5 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0 flex items-center gap-1.5 border-border/80 text-foreground shadow-2xs"
-                                  title="Lacak paket & lihat riwayat perjalanan"
                                 >
                                   <Truck className="w-3.5 h-3.5 text-[#00a699]" />
                                   <span>Tracking</span>
@@ -762,14 +748,13 @@ export function VendorOrdersClient({
                             <Tooltip>
                               <TooltipTrigger
                                 className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end"
-                                title={formatFullDate(ord.orderDate)}
                               >
                                 <Clock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
                                 <span suppressHydrationWarning>
                                   {formatTimeAgo(ord.orderDate)}
                                 </span>
                               </TooltipTrigger>
-                              <TooltipContent side="top" align="end">
+                              <TooltipContent side="top" align="end" className="text-xs py-1.5 px-3">
                                 {formatFullDate(ord.orderDate)}
                               </TooltipContent>
                             </Tooltip>
@@ -802,16 +787,20 @@ export function VendorOrdersClient({
                         href={`/vendor/orders/${targetDetailId}`}
                         onClick={(e) => e.stopPropagation()}
                         className="font-mono font-bold text-xs text-[#00a699] hover:underline"
-                        title={displayInvoice}
                       >
                         {displayInvoice}
                       </Link>
-                      <span
-                        className="text-[11px] text-muted-foreground whitespace-nowrap"
-                        suppressHydrationWarning
-                      >
-                        {formatTimeAgo(ord.orderDate)}
-                      </span>
+                      <Tooltip>
+                        <TooltipTrigger
+                          className="text-[11px] text-muted-foreground whitespace-nowrap cursor-pointer hover:text-foreground transition-colors inline-block"
+                          suppressHydrationWarning
+                        >
+                          {formatTimeAgo(ord.orderDate)}
+                        </TooltipTrigger>
+                        <TooltipContent side="top" align="end" className="text-xs py-1.5 px-3">
+                          {formatFullDate(ord.orderDate)}
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
 
                     {/* Baris 2: Foto Produk & Nama Produk & Qty */}
@@ -1002,7 +991,7 @@ export function VendorOrdersClient({
                     disabled={currentPage <= 1}
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     className="h-8 w-8 p-0 cursor-pointer rounded-lg disabled:opacity-40"
-                    title="Halaman Sebelumnya"
+                    aria-label="Halaman Sebelumnya"
                   >
                     <ChevronLeft className="w-4 h-4" />
                   </Button>
@@ -1014,7 +1003,7 @@ export function VendorOrdersClient({
                     disabled={currentPage >= totalPages}
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     className="h-8 w-8 p-0 cursor-pointer rounded-lg disabled:opacity-40"
-                    title="Halaman Berikutnya"
+                    aria-label="Halaman Berikutnya"
                   >
                     <ChevronRight className="w-4 h-4" />
                   </Button>

@@ -93,7 +93,6 @@ export function SalesChart({ data, periodLabel }: SalesChartProps) {
         <Link
           href="/vendor/orders"
           className="inline-flex items-center gap-1 text-xs font-semibold text-[#00a699] hover:underline transition-colors w-fit"
-          title="Buka daftar semua pesanan"
         >
           <span>Rincian Pesanan</span>
           <ArrowRight className="w-3.5 h-3.5" />

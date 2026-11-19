@@ -156,7 +156,7 @@ export function DashboardDateFilter({ value, onChange }: DashboardDateFilterProp
     >
       <PopoverTrigger
         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted/60 text-xs font-semibold text-foreground transition-all shadow-xs cursor-pointer"
-        title="Pilih Periode Waktu"
+        aria-label="Pilih Periode Waktu"
       >
         <CalendarIcon className="w-3.5 h-3.5 text-[#00a699]" />
         <span>{value.label}</span>

@@ -23,7 +23,7 @@ export async function generateMetadata({
 
   if (prod) {
     return {
-      title: `${prod.title} — Krafita`,
+      title: `${prod.title} | Krafita`,
       description: prod.description.slice(0, 160),
     }
   }
@@ -31,13 +31,13 @@ export async function generateMetadata({
   const fallback = CATALOG_PRODUCTS.find((p) => p.slug === slug)
   if (fallback) {
     return {
-      title: `${fallback.title_id} — Krafita`,
+      title: `${fallback.title_id} | Krafita`,
       description: `Beli ${fallback.title_id} berkualitas harga terbaik di Krafita.`,
     }
   }
 
   return {
-    title: 'Detail Produk — Krafita',
+    title: 'Detail Produk | Krafita',
   }
 }
 
@@ -112,11 +112,17 @@ export default async function ProductDetailPage({
     notFound()
   }
 
-  // 2. Ambil reviews & comments
-  const [reviewRes, commentRes] = await Promise.all([
+  // 2. Ambil reviews, comments, dan jumlah pesanan (orders_count)
+  const [reviewRes, commentRes, ordersCountRes] = await Promise.all([
     getProductReviewsAction(product.id),
     getProductCommentsAction(product.id, product.shops?.profile_id),
+    supabase
+      .from('order_items')
+      .select('*', { count: 'exact', head: true })
+      .eq('product_id', product.id),
   ])
+
+  const ordersCount = ordersCountRes.count ?? (product.orders_count || 0)
 
   // 3. Cek apakah user berhak menulis ulasan (memiliki pesanan completed)
   let eligibleOrderItemId: string | null = null
@@ -163,8 +169,10 @@ export default async function ProductDetailPage({
         comments={commentRes.comments || []}
         ratingAvg={reviewRes.ratingAvg || Number(product.rating_avg) || 0}
         ratingCount={reviewRes.ratingCount || Number(product.rating_count) || 0}
+        ordersCount={ordersCount}
         eligibleOrderItemId={eligibleOrderItemId}
         currentUserId={user?.id || null}
+        isOwner={Boolean(user?.id && product.shops?.profile_id && user.id === product.shops.profile_id)}
         isInWishlist={isInWishlist}
       />
     </div>
