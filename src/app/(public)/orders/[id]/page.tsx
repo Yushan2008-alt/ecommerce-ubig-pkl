@@ -466,15 +466,16 @@ export default function OrderDetailsPage({
                       {formatPrice(item.price * item.qty)}
                     </span>
 
-                    {/* Tombol Konfirmasi Diterima */}
+                    {/* Tombol Selesaikan Pesanan (Opsi 1 Pembeli) */}
                     {isShipped && (
                       <button
                         type="button"
                         disabled={confirmingReceiptId === item.id}
                         onClick={() => handleConfirmReceived(item.id)}
                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                        title="Klik untuk menyelesaikan pesanan setelah paket diterima"
                       >
-                        {confirmingReceiptId === item.id ? 'Memproses...' : 'Konfirmasi Diterima'}
+                        {confirmingReceiptId === item.id ? 'Memproses...' : 'Selesaikan Pesanan'}
                       </button>
                     )}
 

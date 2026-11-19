@@ -17,6 +17,7 @@ import {
   ChevronLeft,
   ChevronRight,
   AlertTriangle,
+  Printer,
 } from 'lucide-react'
 import {
   Dialog,
@@ -42,6 +43,11 @@ import { createClient } from '@/lib/supabase/client'
 import { formatTimeAgo, formatFullDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { FulfilmentStatus } from '@/types/database'
+import {
+  VendorShippingModal,
+  type ShippingModalOrder,
+} from './vendor-shipping-modal'
+import { VendorPrintReceiptModal } from './vendor-print-receipt-modal'
 
 interface VendorOrdersClientProps {
   initialOrders: any[]
@@ -69,7 +75,10 @@ export function VendorOrdersClient({
   const [rejectModalOrder, setRejectModalOrder] = useState<any | null>(null)
   const [rejectReason, setRejectReason] = useState('')
 
-  // State Dialog Resi Pengiriman
+  // State Dialog Resi Pengiriman & Proses Pengiriman KiriminAja
+  const [shippingModalOrder, setShippingModalOrder] = useState<ShippingModalOrder | null>(null)
+  const [isShippingSubmitting, setIsShippingSubmitting] = useState(false)
+  const [printModalOrder, setPrintModalOrder] = useState<any | null>(null)
   const [activeTrackingModal, setActiveTrackingModal] = useState<{
     itemId: string
     title: string
@@ -219,6 +228,55 @@ export function VendorOrdersClient({
     }
   }
 
+  // Handler Proses Pengiriman (Step 2 Modal KiriminAja -> Shipped)
+  const handleProcessShipping = async (
+    itemId: string,
+    trackingNumber: string,
+    shippingInfo: {
+      serviceName: string
+      serviceCode: string
+      shortName: string
+      shippingCost: number
+      weight: number
+      schedule: string
+    }
+  ) => {
+    setIsShippingSubmitting(true)
+    try {
+      const chosenCourier = shippingInfo.shortName || shippingInfo.serviceName
+      const res = await updateVendorFulfilmentAction(itemId, 'shipped', trackingNumber, chosenCourier)
+      if (res.success) {
+        toast.success(
+          `Pengiriman berhasil diproses! Resi: ${trackingNumber} (${chosenCourier}).`
+        )
+        setOrders((prev) =>
+          prev.map((ord) =>
+            ord.id === itemId
+              ? {
+                  ...ord,
+                  fulfilmentStatus: 'shipped' as FulfilmentStatus,
+                  trackingNumber,
+                  shippingAddress: {
+                    ...(ord.shippingAddress || {}),
+                    courier: chosenCourier,
+                    courier_name: chosenCourier,
+                    shippingService: chosenCourier,
+                  },
+                }
+              : ord
+          )
+        )
+        setShippingModalOrder(null)
+      } else {
+        toast.error(res.error || 'Gagal memproses pengiriman')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setIsShippingSubmitting(false)
+    }
+  }
+
   // Hitung jumlah per status dari orders (data lengkap toko)
   const counts = useMemo(() => {
     const res = {
@@ -291,15 +349,15 @@ export function VendorOrdersClient({
       )
     }
 
-    const courier =
+    const rawCourier =
       ord.shippingAddress?.courier ||
       ord.shippingAddress?.courier_name ||
       ord.shippingAddress?.shippingService ||
       'JNE'
 
     const isPickup =
-      courier.toLowerCase().includes('pickup') ||
-      courier.toLowerCase().includes('ambil') ||
+      rawCourier.toLowerCase().includes('pickup') ||
+      rawCourier.toLowerCase().includes('ambil') ||
       ord.shippingAddress?.delivery_method === 'pickup'
 
     const distance = ord.shippingAddress?.distance ? ` · ${ord.shippingAddress.distance}` : ''
@@ -313,10 +371,44 @@ export function VendorOrdersClient({
       )
     }
 
+    // Singkat nama layanan kurir agar enak dibaca
+    const formatShortCourier = (str: string) => {
+      const cleaned = str.replace(/^(Diantar Kurir\s*[-·:]\s*)/i, '').trim()
+      const lower = cleaned.toLowerCase()
+
+      if (lower.includes('anteraja') && (lower.includes('next') || lower.includes('nd'))) {
+        return 'AnterAja ND'
+      }
+      if (lower.includes('anteraja') && (lower.includes('reg') || lower.includes('regular'))) {
+        return 'AnterAja Reg'
+      }
+      if (lower.includes('anteraja')) {
+        return 'AnterAja'
+      }
+      if (lower.includes('jtcargo') || lower.includes('j&t cargo')) {
+        return 'J&T Cargo'
+      }
+      if (lower.includes('j&t') || lower.includes('jnt')) {
+        return lower.includes('ez') ? 'J&T EZ' : 'J&T'
+      }
+      if (lower.includes('sicepat')) {
+        return 'SiCepat'
+      }
+      if (lower.includes('jne')) {
+        return 'JNE'
+      }
+      if (lower.includes('idx')) {
+        return 'idx'
+      }
+      return cleaned
+    }
+
+    const shortCourier = formatShortCourier(rawCourier)
+
     return (
       <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap shadow-2xs">
         <Truck className="w-3.5 h-3.5 shrink-0" />
-        <span>{courier}</span>
+        <span>Diantar Kurir - {shortCourier}</span>
       </span>
     )
   }
@@ -548,7 +640,7 @@ export function VendorOrdersClient({
                             </div>
                           </td>
 
-                          {/* 7. Aksi (Tolak/Terima saat waiting, Kirim/Detail saat processing) */}
+                          {/* 7. Aksi (Tolak/Terima saat waiting, Proses saat processing, Tracking saat shipped/selesai) */}
                           <td
                             className="py-5 px-3 text-center align-middle"
                             onClick={(e) => e.stopPropagation()}
@@ -595,45 +687,69 @@ export function VendorOrdersClient({
                                       size="sm"
                                       disabled={loadingItemId === ord.id}
                                       onClick={() => handleUpdateStatus(ord.id, 'completed')}
-                                      className="h-7.5 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer shrink-0"
+                                      className="h-7.5 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer shrink-0"
                                     >
                                       Selesai
                                     </Button>
                                   ) : (
                                     <Button
                                       size="sm"
-                                      disabled={loadingItemId === ord.id}
+                                      disabled={loadingItemId === ord.id || isShippingSubmitting}
                                       onClick={() =>
-                                        setActiveTrackingModal({ itemId: ord.id, title: ord.title })
+                                        setShippingModalOrder({
+                                          id: ord.id,
+                                          orderId: ord.orderId,
+                                          invoiceNumber: ord.invoiceNumber,
+                                          orderCode: ord.orderCode,
+                                          title: ord.title,
+                                          price: Number(ord.price),
+                                          qty: Number(ord.qty),
+                                          total: Number(ord.price) * Number(ord.qty),
+                                        })
                                       }
-                                      className="h-7.5 px-2.5 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shrink-0"
+                                      className="h-7.5 px-3.5 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shrink-0 shadow-2xs transition-colors"
+                                      title="Proses pengiriman pesanan via KiriminAja"
                                     >
-                                      Kirim
+                                      Proses
                                     </Button>
                                   )}
-
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
-                                    className="h-7.5 px-2.5 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0"
-                                  >
-                                    Detail
-                                  </Button>
                                 </>
                               )}
 
-                              {/* Status Selesai, Dikirim, atau Batal: Tombol Detail */}
+                              {/* Status Dikirim (shipped): Aksi Cetak Resi Saja Sesuai Permintaan */}
+                              {ord.fulfilmentStatus === 'shipped' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => setPrintModalOrder(ord)}
+                                  className="h-7.5 px-2.5 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0 flex items-center gap-1.5 border-border/80 text-foreground shadow-2xs"
+                                  title="Cetak label resi pengiriman"
+                                >
+                                  <Printer className="w-3.5 h-3.5 text-muted-foreground" />
+                                  <span>Cetak Resi</span>
+                                </Button>
+                              )}
+
+                              {/* Status Selesai (completed): Aksi Tracking Saja Sesuai Permintaan */}
+                              {ord.fulfilmentStatus === 'completed' && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
+                                  className="h-7.5 px-2.5 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0 flex items-center gap-1.5 border-border/80 text-foreground shadow-2xs"
+                                  title="Lacak paket & lihat riwayat perjalanan"
+                                >
+                                  <Truck className="w-3.5 h-3.5 text-[#00a699]" />
+                                  <span>Tracking</span>
+                                </Button>
+                              )}
+
+                              {/* Status Tanpa Aksi Tambahan (Dibatalkan atau lainnya) */}
                               {ord.fulfilmentStatus !== 'waiting' &&
-                                ord.fulfilmentStatus !== 'processing' && (
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
-                                    className="h-7.5 px-3 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0"
-                                  >
-                                    Detail
-                                  </Button>
+                                ord.fulfilmentStatus !== 'processing' &&
+                                ord.fulfilmentStatus !== 'shipped' &&
+                                ord.fulfilmentStatus !== 'completed' && (
+                                  <span className="text-muted-foreground text-xs font-medium">-</span>
                                 )}
                             </div>
                           </td>
@@ -911,6 +1027,22 @@ export function VendorOrdersClient({
             </div>
           </div>
         )}
+
+        {/* MODAL 2-LANGKAH PROSES PENGIRIMAN (KIRIMINAJA PICKUP) */}
+        <VendorShippingModal
+          isOpen={Boolean(shippingModalOrder)}
+          onClose={() => setShippingModalOrder(null)}
+          order={shippingModalOrder}
+          onProcessShipping={handleProcessShipping}
+          isSubmitting={isShippingSubmitting}
+        />
+
+        {/* MODAL CETAK LABEL RESI PENGIRIMAN */}
+        <VendorPrintReceiptModal
+          isOpen={Boolean(printModalOrder)}
+          onClose={() => setPrintModalOrder(null)}
+          order={printModalOrder}
+        />
       </div>
     </TooltipProvider>
   )

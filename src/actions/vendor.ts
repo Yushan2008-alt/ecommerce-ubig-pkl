@@ -567,6 +567,7 @@ export async function getVendorDashboardDataAction(): Promise<{
           title,
           type,
           slug,
+          categories (id, name),
           product_images (path, sort_order)
         ),
         orders (
@@ -1132,6 +1133,7 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
           title,
           type,
           slug,
+          categories (id, name),
           product_images (path, sort_order)
         ),
         orders (
@@ -1238,6 +1240,7 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
         trackingNumber: it.tracking_number,
         productType: product?.type || 'physical',
         productSlug: product?.slug,
+        categoryName: (Array.isArray(product?.categories) ? product?.categories[0]?.name : product?.categories?.name) || 'Umum',
         imageUrl,
         shippingAddress: shippingAddr,
         buyer: {
@@ -1414,6 +1417,7 @@ export async function getVendorOrderDetailAction(id: string): Promise<{
         trackingNumber: it.tracking_number,
         productType: product?.type || 'physical',
         productSlug: product?.slug,
+        categoryName: (Array.isArray(product?.categories) ? product?.categories[0]?.name : product?.categories?.name) || 'Umum',
         imageUrl,
       }
     })
@@ -1460,7 +1464,8 @@ export async function getVendorOrderDetailAction(id: string): Promise<{
 export async function updateVendorFulfilmentAction(
   itemId: string,
   status: FulfilmentStatus,
-  trackingNumber?: string
+  trackingNumber?: string,
+  courierName?: string
 ): Promise<{
   success: boolean
   error?: string
@@ -1481,6 +1486,14 @@ export async function updateVendorFulfilmentAction(
 
     if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
 
+    // Ambil order_item untuk mengetahui order_id
+    const { data: item } = await admin
+      .from('order_items')
+      .select('id, order_id')
+      .eq('id', itemId)
+      .eq('shop_id', shop.id)
+      .maybeSingle()
+
     const updatePayload: { fulfilment_status: FulfilmentStatus; updated_at: string; tracking_number?: string | null } = {
       fulfilment_status: status,
       updated_at: new Date().toISOString(),
@@ -1497,6 +1510,29 @@ export async function updateVendorFulfilmentAction(
 
     if (error) {
       return { success: false, error: error.message || 'Gagal memperbarui status pengiriman' }
+    }
+
+    // Update courier di shipping_address order jika diberikan
+    if (courierName && item?.order_id) {
+      const { data: currentOrder } = await admin
+        .from('orders')
+        .select('shipping_address')
+        .eq('id', item.order_id)
+        .maybeSingle()
+
+      const currentShipping = (currentOrder?.shipping_address as any) || {}
+      await admin
+        .from('orders')
+        .update({
+          shipping_address: {
+            ...currentShipping,
+            courier: courierName,
+            courier_name: courierName,
+            shippingService: courierName,
+          },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', item.order_id)
     }
 
     revalidatePath('/vendor/orders')

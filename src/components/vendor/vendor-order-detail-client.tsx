@@ -41,6 +41,10 @@ import { Button } from '@/components/ui/button'
 import { formatTimeAgo, formatFullDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { FulfilmentStatus } from '@/types/database'
+import {
+  VendorShippingModal,
+  type ShippingModalOrder,
+} from './vendor-shipping-modal'
 
 interface VendorOrderDetailClientProps {
   initialOrder: any
@@ -51,7 +55,9 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
   const [order, setOrder] = useState<any>(initialOrder)
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null)
 
-  // Tracking modal state
+  // Tracking modal state & Proses Pengiriman KiriminAja
+  const [shippingModalOrder, setShippingModalOrder] = useState<ShippingModalOrder | null>(null)
+  const [isShippingSubmitting, setIsShippingSubmitting] = useState(false)
   const [activeTrackingModal, setActiveTrackingModal] = useState<{
     itemId: string
     title: string
@@ -177,6 +183,57 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
       toast.error('Gagal menghubungi server')
     } finally {
       setLoadingItemId(null)
+    }
+  }
+
+  // Handler Proses Pengiriman (Step 2 Modal KiriminAja -> Shipped)
+  const handleProcessShipping = async (
+    itemId: string,
+    trackingNumber: string,
+    shippingInfo: {
+      serviceName: string
+      serviceCode: string
+      shortName: string
+      shippingCost: number
+      weight: number
+      schedule: string
+    }
+  ) => {
+    setIsShippingSubmitting(true)
+    try {
+      const chosenCourier = shippingInfo.shortName || shippingInfo.serviceName
+      const res = await updateVendorFulfilmentAction(itemId, 'shipped', trackingNumber, chosenCourier)
+      if (res.success) {
+        toast.success(
+          `Pengiriman berhasil diproses! Resi: ${trackingNumber} (${chosenCourier}).`
+        )
+        setOrder((prev: any) => ({
+          ...prev,
+          shippingAddress: {
+            ...(prev.shippingAddress || {}),
+            courier: chosenCourier,
+            courier_name: chosenCourier,
+            shippingService: chosenCourier,
+          },
+          items: (prev.items || []).map((it: any) =>
+            it.id === itemId
+              ? {
+                  ...it,
+                  fulfilmentStatus: 'shipped' as FulfilmentStatus,
+                  trackingNumber,
+                }
+              : it
+          ),
+        }))
+        setShippingModalOrder(null)
+        router.refresh()
+      } else {
+        toast.error(res.error || 'Gagal memproses pengiriman')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setIsShippingSubmitting(false)
     }
   }
 
@@ -449,14 +506,8 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
                       </div>
                       <div className="space-y-1 min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span
-                            className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                              isPhysical
-                                ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400'
-                                : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400'
-                            }`}
-                          >
-                            {isPhysical ? 'Fisik' : 'Digital'}
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                            {it.categoryName || 'Kategori'}
                           </span>
                           <span
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
@@ -502,19 +553,21 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 text-xs border-t border-border/40">
                       <div>
                         {it.trackingNumber ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">No. Resi:</span>
-                            <span className="font-mono font-bold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border">
-                              {it.trackingNumber}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyText(it.trackingNumber, 'Nomor Resi')}
-                              className="text-[#00a699] hover:underline cursor-pointer"
-                              title="Salin Resi"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="space-y-0.5">
+                            <span className="text-muted-foreground text-[11px] block">Nomor resi</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono font-bold text-foreground text-sm">
+                                {it.trackingNumber}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyText(it.trackingNumber, 'Nomor Resi')}
+                                className="text-muted-foreground hover:text-foreground cursor-pointer transition-colors p-0.5"
+                                title="Salin Nomor Resi"
+                              >
+                                <Copy className="w-3.5 h-3.5 stroke-[1.5]" />
+                              </button>
+                            </div>
                           </div>
                         ) : (
                           <span className="text-muted-foreground text-[11px]">
@@ -557,18 +610,27 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
                           </>
                         )}
 
-                        {/* Aksi saat Status PROCESSING: Input Resi & Kirim (Fisik) atau Tandai Selesai (Digital) */}
+                        {/* Aksi saat Status PROCESSING: Proses Pengiriman via KiriminAja (Fisik) */}
                         {it.fulfilmentStatus === 'processing' && isPhysical && (
                           <Button
                             size="sm"
-                            disabled={loadingItemId === it.id}
+                            disabled={loadingItemId === it.id || isShippingSubmitting}
                             onClick={() =>
-                              setActiveTrackingModal({ itemId: it.id, title: it.title })
+                              setShippingModalOrder({
+                                id: it.id,
+                                orderId: it.orderId || order.id,
+                                invoiceNumber: order.invoiceNumber,
+                                orderCode: order.code,
+                                title: it.title,
+                                price: Number(it.price),
+                                qty: Number(it.qty),
+                                total: Number(it.price) * Number(it.qty),
+                              })
                             }
-                            className="h-8 px-3.5 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer"
+                            className="h-8 px-4 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shadow-xs"
                           >
-                            <Truck className="w-3.5 h-3.5 mr-1" />
-                            Input Resi & Kirim
+                            <Package className="w-3.5 h-3.5 mr-1.5" />
+                            Proses Pengiriman
                           </Button>
                         )}
 
@@ -698,19 +760,6 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
                 )}
               </div>
             </div>
-
-            {order.buyer?.phone && order.buyer?.phone !== '-' && (
-              <div className="pt-2 border-t border-border/60 print:hidden">
-                <a
-                  href={`https://wa.me/${order.buyer.phone.replace(/^0/, '62').replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
-                >
-                  Hubungi via WhatsApp
-                </a>
-              </div>
-            )}
           </div>
 
           {/* Card Pembayaran & Finansial Toko */}
@@ -919,6 +968,15 @@ export function VendorOrderDetailClient({ initialOrder }: VendorOrderDetailClien
           </div>
         </div>
       )}
+
+      {/* MODAL 2-LANGKAH PROSES PENGIRIMAN (KIRIMINAJA PICKUP) */}
+      <VendorShippingModal
+        isOpen={Boolean(shippingModalOrder)}
+        onClose={() => setShippingModalOrder(null)}
+        order={shippingModalOrder}
+        onProcessShipping={handleProcessShipping}
+        isSubmitting={isShippingSubmitting}
+      />
     </div>
   )
 }

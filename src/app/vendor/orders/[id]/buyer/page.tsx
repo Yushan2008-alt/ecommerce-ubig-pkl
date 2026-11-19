@@ -114,10 +114,6 @@ export default async function VendorBuyerProfilePage({
 
   const fullAddress = addressParts.length > 0 ? addressParts.join(', ') : 'Alamat pengiriman tidak tersedia'
 
-  // Link WhatsApp jika ada nomor telepon
-  const cleanPhone = phone !== '-' ? phone.replace(/^0/, '62').replace(/\D/g, '') : ''
-  const waLink = cleanPhone ? `https://wa.me/${cleanPhone}` : null
-
   // Status Badge Helper
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -225,19 +221,7 @@ export default async function VendorBuyerProfilePage({
           {/* Nomor Telepon */}
           <div className="flex items-center gap-3 text-muted-foreground">
             <Phone className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-            <div className="flex items-center gap-2">
-              <span className="text-foreground font-medium">{phone}</span>
-              {waLink && (
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800 transition-colors"
-                >
-                  WhatsApp
-                </a>
-              )}
-            </div>
+            <span className="text-foreground font-medium">{phone}</span>
           </div>
 
           {/* Alamat Pengiriman */}
