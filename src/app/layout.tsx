@@ -36,9 +36,9 @@ export default function RootLayout({
     <html
       lang="id"
       suppressHydrationWarning
-      className={`${plusJakartaSans.variable} ${geistMono.variable} font-sans h-full antialiased`}
+      className={`${plusJakartaSans.variable} ${geistMono.variable} font-sans min-h-screen w-full max-w-full overflow-x-hidden antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-background text-foreground font-sans" suppressHydrationWarning>
+      <body className="min-h-screen w-full max-w-full overflow-x-hidden flex flex-col bg-background text-foreground font-sans" suppressHydrationWarning>
         <LanguageProvider>
           <CartWishlistProvider>
             <AuthModalProvider>

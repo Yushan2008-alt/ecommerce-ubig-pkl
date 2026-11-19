@@ -290,7 +290,7 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
       </div>
 
       {/* 2. Filter Status Dropdown (Shadcn UI Select) & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full min-w-0">
         {/* Shadcn UI Select untuk Filter Status */}
         <div className="w-full sm:w-52">
           <Select
@@ -373,10 +373,11 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+        <div className="space-y-4 w-full min-w-0">
+          {/* Desktop Table View (Hidden on mobile) */}
+          <div className="hidden md:block rounded-xl border border-border/80 bg-card overflow-hidden shadow-xs w-full max-w-full min-w-0">
+            <div className="w-full max-w-full min-w-0 overflow-x-auto">
+              <table className="w-full text-left text-xs min-w-[760px] h-auto">
                 {/* Header Kolom dengan Checkbox Select All */}
                 <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/80">
                   <tr>
@@ -550,6 +551,146 @@ export function VendorProductsClient({ initialProducts }: VendorProductsClientPr
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Mobile Product Card View (md:hidden) */}
+          <div className="md:hidden space-y-3.5 w-full">
+            {paginatedProducts.map((prod) => {
+              const coverImage =
+                prod.product_images?.[0]?.path || '/placeholder-product.jpg'
+              const categoryName = prod.categories?.name || 'Umum'
+              const isSelected = selectedIds.includes(prod.id)
+
+              return (
+                <div
+                  key={prod.id}
+                  onClick={() => router.push(`/products/${prod.slug || prod.id}`)}
+                  className={`rounded-2xl border border-border/80 bg-card p-4 space-y-3 shadow-xs hover:border-[#00a699]/40 transition-all cursor-pointer ${
+                    isSelected ? 'bg-primary/5 dark:bg-primary/10 border-primary/50' : ''
+                  }`}
+                >
+                  {/* Baris 1: Checkbox & SKU (Kiri) + Status Badge (Kanan) */}
+                  <div className="flex items-center justify-between gap-2">
+                    <div
+                      className="flex items-center gap-2"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Checkbox
+                        checked={isSelected}
+                        onCheckedChange={() => handleToggleSelectItem(prod.id)}
+                        aria-label={`Pilih ${prod.title}`}
+                        className="cursor-pointer"
+                      />
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {prod.sku || '-'}
+                      </span>
+                    </div>
+
+                    <div>
+                      {prod.status === 'published' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-600 border border-emerald-500/20">
+                          Publikasi
+                        </span>
+                      ) : prod.status === 'archived' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-muted text-muted-foreground border border-border">
+                          Arsip
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                          Draf
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Baris 2: Foto & Nama Produk & Kategori */}
+                  <div className="flex items-start gap-3">
+                    <div className="relative w-14 h-14 rounded-xl overflow-hidden bg-muted shrink-0 border border-border shadow-2xs">
+                      <Image
+                        src={coverImage}
+                        alt={prod.title}
+                        fill
+                        sizes="56px"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <p className="font-bold text-foreground text-xs leading-snug line-clamp-2">
+                        {prod.title}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-block text-[10px] font-medium px-2 py-0.5 rounded-md bg-muted/60 text-muted-foreground">
+                          {categoryName}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          {formatDate(prod.created_at)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Baris 3: Harga Dasar (Kiri) & Tombol Aksi (Kanan) */}
+                  <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block">Harga Dasar</span>
+                      <span className="font-black text-sm text-[#00a699]">
+                        {formatPrice(prod.price)}
+                      </span>
+                    </div>
+
+                    <div
+                      className="flex items-center gap-1.5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Link
+                        href={`/vendor/products/${prod.id}/edit`}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border/80 bg-background hover:bg-muted text-xs font-semibold text-foreground transition-colors shadow-2xs"
+                      >
+                        <Edit2 className="w-3.5 h-3.5 text-[#00a699]" />
+                        <span>Edit</span>
+                      </Link>
+
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          className="w-8 h-8 inline-flex items-center justify-center rounded-xl border border-border/80 hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                          title="Pilihan Lainnya"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-36 text-xs shadow-md">
+                          {prod.status === 'archived' ? (
+                            <DropdownMenuItem
+                              onClick={() => handleUnarchive(prod.id)}
+                              className="flex items-center gap-2 cursor-pointer text-emerald-600 px-2.5 py-1.5"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Tampilkan</span>
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem
+                              onClick={() => handleArchive(prod.id)}
+                              className="flex items-center gap-2 cursor-pointer text-amber-600 px-2.5 py-1.5"
+                            >
+                              <Archive className="w-3.5 h-3.5" />
+                              <span>Arsipkan</span>
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setDeleteTarget({ id: prod.id, title: prod.title })
+                            }
+                            className="flex items-center gap-2 cursor-pointer text-rose-600 px-2.5 py-1.5"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Hapus</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
 
           {/* 5. Pagination Bar Client-side (10 item per halaman) */}

@@ -57,13 +57,13 @@ const NAV_ITEMS = [
   },
   {
     href: '/vendor/balance',
-    label: 'Saldo & Payout',
+    label: 'Saldo',
     icon: Wallet,
     exact: false,
   },
   {
     href: '/vendor/settings',
-    label: 'Pengaturan Toko',
+    label: 'Pengaturan',
     icon: Settings,
     exact: false,
   },

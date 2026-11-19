@@ -235,7 +235,7 @@ export function VendorBalanceClient({
         </div>
 
         {/* 2. 3 Kartu Saldo */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 w-full min-w-0">
           {/* Saldo Tersedia */}
           <div className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs space-y-2">
             <div className="flex items-center justify-between">
@@ -418,7 +418,7 @@ export function VendorBalanceClient({
         </div>
 
         {/* 4. Tabel Riwayat Pengajuan */}
-        <div className="rounded-2xl bg-card border border-border/80 shadow-xs overflow-hidden">
+        <div className="rounded-2xl bg-card border border-border/80 shadow-xs overflow-hidden w-full max-w-full min-w-0">
           <div className="p-5 border-b border-border/60">
             <h2 className="text-sm font-bold text-foreground">
               Riwayat Pengajuan
@@ -430,78 +430,120 @@ export function VendorBalanceClient({
               Belum ada riwayat pengajuan penarikan dana.
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
-              <table className="w-full text-left text-xs min-w-[640px]">
-                <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/80">
-                  <tr>
-                    <th className="py-3.5 px-4 w-[35%]">Rekening Tujuan</th>
-                    <th className="py-3.5 px-4 w-[25%]">Nominal</th>
-                    <th className="py-3.5 px-4 w-[20%] text-center">Status</th>
-                    <th className="py-3.5 px-4 w-[20%] text-right whitespace-nowrap">Waktu Pengajuan</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/60">
-                  {balanceData.payoutHistory.map((req: PayoutHistoryItem) => (
-                    <tr key={req.id} className="hover:bg-muted/30 transition-colors">
-                      {/* Rekening Tujuan */}
-                      <td className="py-4 px-4 align-middle">
-                        <div className="space-y-0.5">
-                          <span className="font-bold text-foreground block">
-                            {getBankLabel(req.bank_name) || req.bank_name || 'Bank'} • {req.account_no}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground block">
-                            a.n. {req.account_holder}
-                          </span>
-                        </div>
-                      </td>
-
-                      {/* Nominal */}
-                      <td className="py-4 px-4 align-middle">
-                        <span className="font-bold text-foreground text-xs">
-                          {formatPrice(Number(req.amount))}
-                        </span>
-                      </td>
-
-                      {/* Status */}
-                      <td className="py-4 px-4 text-center align-middle">
-                        <span
-                          className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                            req.status === 'paid'
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
-                              : req.status === 'pending'
-                              ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
-                              : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'
-                          }`}
-                        >
-                          {req.status === 'paid' && 'Paid'}
-                          {req.status === 'pending' && 'Pending'}
-                          {req.status === 'rejected' && 'Rejected'}
-                        </span>
-                      </td>
-
-                      {/* Waktu Pengajuan (time-ago + tooltip waktu lengkap) */}
-                      <td className="py-4 px-4 text-right align-middle">
-                        <Tooltip>
-                          <TooltipTrigger
-                            type="button"
-                            className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end"
-                            title={formatFullDate(req.created_at)}
-                          >
-                            <Clock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                            <span suppressHydrationWarning>
-                              {formatTimeAgo(req.created_at)}
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" align="end">
-                            {formatFullDate(req.created_at)}
-                          </TooltipContent>
-                        </Tooltip>
-                      </td>
+            <>
+              {/* Desktop Table View (Hidden on mobile) */}
+              <div className="hidden md:block w-full max-w-full min-w-0 overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[640px] h-auto">
+                  <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/80">
+                    <tr>
+                      <th className="py-3.5 px-4 w-[35%]">Rekening Tujuan</th>
+                      <th className="py-3.5 px-4 w-[25%]">Nominal</th>
+                      <th className="py-3.5 px-4 w-[20%] text-center">Status</th>
+                      <th className="py-3.5 px-4 w-[20%] text-right whitespace-nowrap">Waktu Pengajuan</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {balanceData.payoutHistory.map((req: PayoutHistoryItem) => (
+                      <tr key={req.id} className="hover:bg-muted/30 transition-colors">
+                        {/* Rekening Tujuan */}
+                        <td className="py-4 px-4 align-middle">
+                          <div className="space-y-0.5">
+                            <span className="font-bold text-foreground block">
+                              {getBankLabel(req.bank_name) || req.bank_name || 'Bank'} • {req.account_no}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground block">
+                              a.n. {req.account_holder}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Nominal */}
+                        <td className="py-4 px-4 align-middle">
+                          <span className="font-bold text-foreground text-xs">
+                            {formatPrice(Number(req.amount))}
+                          </span>
+                        </td>
+
+                        {/* Status */}
+                        <td className="py-4 px-4 text-center align-middle">
+                          <span
+                            className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                              req.status === 'paid'
+                                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                                : req.status === 'pending'
+                                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                                : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'
+                            }`}
+                          >
+                            {req.status === 'paid' && 'Paid'}
+                            {req.status === 'pending' && 'Pending'}
+                            {req.status === 'rejected' && 'Rejected'}
+                          </span>
+                        </td>
+
+                        {/* Waktu Pengajuan (time-ago + tooltip waktu lengkap) */}
+                        <td className="py-4 px-4 text-right align-middle">
+                          <Tooltip>
+                            <TooltipTrigger
+                              type="button"
+                              className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end"
+                              title={formatFullDate(req.created_at)}
+                            >
+                              <Clock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                              <span suppressHydrationWarning>
+                                {formatTimeAgo(req.created_at)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" align="end">
+                              {formatFullDate(req.created_at)}
+                            </TooltipContent>
+                          </Tooltip>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Mobile Card View (md:hidden) */}
+              <div className="md:hidden divide-y divide-border/60">
+                {balanceData.payoutHistory.map((req: PayoutHistoryItem) => (
+                  <div key={req.id} className="p-4 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-bold text-xs text-foreground">
+                        {getBankLabel(req.bank_name) || req.bank_name || 'Bank'} • {req.account_no}
+                      </span>
+                      <span
+                        className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          req.status === 'paid'
+                            ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400'
+                            : req.status === 'pending'
+                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400'
+                            : 'bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400'
+                        }`}
+                      >
+                        {req.status === 'paid' && 'Paid'}
+                        {req.status === 'pending' && 'Pending'}
+                        {req.status === 'rejected' && 'Rejected'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-muted-foreground text-[11px]">
+                        a.n. {req.account_holder}
+                      </span>
+                      <span className="font-black text-sm text-[#00a699]">
+                        {formatPrice(Number(req.amount))}
+                      </span>
+                    </div>
+
+                    <div className="text-right text-[11px] text-muted-foreground pt-1" suppressHydrationWarning>
+                      {formatTimeAgo(req.created_at)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
         </div>
 

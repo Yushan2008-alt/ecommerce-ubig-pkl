@@ -6,7 +6,7 @@ import { AlertCircle } from 'lucide-react'
 import { parseShopMetadata } from '@/lib/shop-helper'
 
 export const metadata = {
-  title: 'Pengaturan Toko | Krafita',
+  title: 'Pengaturan | Krafita',
 }
 
 export default async function VendorSettingsPage() {

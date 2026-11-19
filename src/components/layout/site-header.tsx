@@ -83,10 +83,10 @@ export async function SiteHeader() {
     : user?.email?.slice(0, 2).toUpperCase() || 'U'
 
   return (
-    <header className="w-full bg-background border-b border-border/80 sticky top-0 z-40 shadow-xs">
+    <header className="w-full max-w-full overflow-x-hidden bg-background border-b border-border/80 sticky top-0 z-40 shadow-xs">
       {/* 1. TOP UTILITY BAR (Persis seperti di baris teratas gambar referensi) */}
-      <div className="bg-[#f8f9fa] dark:bg-card/40 border-b border-border/60 text-[11px] sm:text-[12px] text-muted-foreground py-1.5">
-        <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between">
+      <div className="w-full bg-[#f8f9fa] dark:bg-card/40 border-b border-border/60 text-[11px] sm:text-[12px] text-muted-foreground py-1.5">
+        <div className="container mx-auto px-4 max-w-7xl flex items-center justify-between min-w-0">
           {/* Sisi Kiri: Contact | Sell on Krafita (Bilingual) */}
           <HeaderTopLeftLinks />
 
@@ -100,7 +100,7 @@ export async function SiteHeader() {
       </div>
 
       {/* 2. MAIN NAVBAR: Logo, Search Bar Minimalis, Cart, Wishlist, Sell Now */}
-      <div className="container mx-auto px-4 max-w-7xl h-18 sm:h-20 flex items-center justify-between gap-4 sm:gap-8">
+      <div className="container mx-auto px-4 max-w-7xl h-18 sm:h-20 flex items-center justify-between gap-4 sm:gap-8 min-w-0">
         {/* Mobile Hamburger & Logo */}
         <div className="flex items-center gap-3">
           {/* Hamburger Mobile */}

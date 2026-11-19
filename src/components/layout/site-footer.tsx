@@ -21,9 +21,9 @@ export function SiteFooter() {
     )
   }
   return (
-    <footer className="w-full bg-[#fdfdfd] dark:bg-card/40 border-t border-border/80 text-muted-foreground mt-auto">
+    <footer className="w-full max-w-full overflow-x-hidden bg-[#fdfdfd] dark:bg-card/40 border-t border-border/80 text-muted-foreground mt-auto">
       {/* Container Utama 4 Kolom Sesuai Gambar Referensi */}
-      <div className="container mx-auto px-4 max-w-7xl py-12 md:py-16">
+      <div className="container mx-auto px-4 max-w-7xl py-12 md:py-16 min-w-0">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-12">
           {/* KOLOM 1: Logo Brand, Deskripsi Singkat & 10 Ikon Media Sosial */}
           <div className="space-y-4">

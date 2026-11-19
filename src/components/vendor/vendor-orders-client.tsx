@@ -18,6 +18,7 @@ import {
   ChevronRight,
   AlertTriangle,
   Printer,
+  MapPin,
 } from 'lucide-react'
 import {
   Dialog,
@@ -461,24 +462,24 @@ export function VendorOrdersClient({
         </div>
 
         {/* 2. Search Bar & Tombol Filter */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Kolom Pencarian */}
-          <div className="relative flex-1 max-w-md">
-            <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-3" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value)
-                setCurrentPage(1)
-              }}
-              placeholder="Cari no. Invoice, pembeli, atau produk..."
-              className="w-full h-10 pl-10 pr-4 text-xs bg-card border border-border/80 rounded-xl focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] transition-all placeholder:text-muted-foreground text-foreground shadow-xs"
-            />
-          </div>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 w-full min-w-0">
+          <div className="flex items-center gap-2.5 w-full sm:w-auto flex-1 min-w-0">
+            {/* Kolom Pencarian */}
+            <div className="relative flex-1 min-w-0 max-w-md">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-3" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value)
+                  setCurrentPage(1)
+                }}
+                placeholder="Cari no. invoice, pembeli, atau produk..."
+                className="w-full h-10 pl-10 pr-4 text-xs bg-card border border-border/80 rounded-xl focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] transition-all placeholder:text-muted-foreground text-foreground shadow-xs truncate"
+              />
+            </div>
 
-          {/* Tombol Filter & Badge Filter Aktif */}
-          <div className="flex items-center gap-2">
+            {/* Tombol Filter di Mobile tepat di sebelah kolom pencarian */}
             <Button
               type="button"
               variant="outline"
@@ -486,7 +487,7 @@ export function VendorOrdersClient({
                 setTempStatusFilter(statusFilter)
                 setIsFilterModalOpen(true)
               }}
-              className={`h-10 px-4 text-xs font-semibold rounded-xl flex items-center gap-2 cursor-pointer transition-all ${
+              className={`h-10 px-3.5 text-xs font-semibold rounded-xl flex items-center gap-1.5 shrink-0 cursor-pointer transition-all ${
                 statusFilter !== 'all'
                   ? 'bg-[#00a699]/10 border-[#00a699] text-[#00a699] hover:bg-[#00a699]/20'
                   : 'bg-card border-border/80 hover:bg-muted text-foreground'
@@ -498,24 +499,25 @@ export function VendorOrdersClient({
                 <span className="w-2 h-2 rounded-full bg-[#00a699]" />
               )}
             </Button>
-
-            {statusFilter !== 'all' && (
-              <div className="flex items-center gap-1.5 bg-[#00a699]/10 border border-[#00a699]/30 text-[#00a699] px-2.5 py-1.5 rounded-xl text-xs font-semibold">
-                <span>{STATUS_OPTIONS.find((o) => o.id === statusFilter)?.label}</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStatusFilter('all')
-                    setCurrentPage(1)
-                  }}
-                  className="hover:text-rose-500 cursor-pointer ml-0.5"
-                  title="Hapus Filter"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* Badge Filter Aktif */}
+          {statusFilter !== 'all' && (
+            <div className="flex items-center gap-1.5 bg-[#00a699]/10 border border-[#00a699]/30 text-[#00a699] px-2.5 py-1.5 rounded-xl text-xs font-semibold self-start sm:self-auto">
+              <span>{STATUS_OPTIONS.find((o) => o.id === statusFilter)?.label}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  setStatusFilter('all')
+                  setCurrentPage(1)
+                }}
+                className="hover:text-rose-500 cursor-pointer ml-0.5"
+                title="Hapus Filter"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* 3. Tampilan Halaman Berupa Tabel Data (Tanpa Digeser / Muat Penuh) */}
@@ -532,10 +534,11 @@ export function VendorOrdersClient({
             </div>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
-              <div className="w-full overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[1020px]">
+          <div className="space-y-4 w-full min-w-0">
+            {/* Desktop Table View (Hidden on mobile) */}
+            <div className="hidden md:block rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs w-full max-w-full min-w-0">
+              <div className="w-full max-w-full min-w-0 overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[1020px] h-auto">
                   {/* Header Tabel Responsif (Sesuai Referensi Gambar) */}
                   <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/80">
                     <tr>
@@ -777,6 +780,199 @@ export function VendorOrdersClient({
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            {/* Mobile Card View (md:hidden) - Persis Referensi Gambar Desain Mobile */}
+            <div className="md:hidden space-y-3.5 w-full">
+              {paginatedOrders.map((ord) => {
+                const coverImage = ord.imageUrl || '/placeholder-product.jpg'
+                const targetDetailId = ord.orderId || ord.id
+                const displayInvoice = ord.invoiceNumber || ord.orderCode || '-'
+                const buyerName = ord.buyer?.name || 'Pelanggan'
+
+                return (
+                  <div
+                    key={ord.id}
+                    onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
+                    className="rounded-2xl border border-border/80 bg-card p-4 space-y-3 shadow-xs hover:border-[#00a699]/40 transition-all cursor-pointer"
+                  >
+                    {/* Baris 1: No. Invoice (Kiri) & Waktu (Kanan) */}
+                    <div className="flex items-center justify-between gap-2">
+                      <Link
+                        href={`/vendor/orders/${targetDetailId}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="font-mono font-bold text-xs text-[#00a699] hover:underline"
+                        title={displayInvoice}
+                      >
+                        {displayInvoice}
+                      </Link>
+                      <span
+                        className="text-[11px] text-muted-foreground whitespace-nowrap"
+                        suppressHydrationWarning
+                      >
+                        {formatTimeAgo(ord.orderDate)}
+                      </span>
+                    </div>
+
+                    {/* Baris 2: Foto Produk & Nama Produk & Qty */}
+                    <div className="flex items-start gap-3">
+                      <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-muted shrink-0 border border-border shadow-2xs">
+                        <Image
+                          src={coverImage}
+                          alt={ord.title}
+                          fill
+                          sizes="48px"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="space-y-0.5 min-w-0 flex-1">
+                        <p className="font-bold text-foreground text-xs leading-snug line-clamp-2">
+                          {ord.title}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {ord.qty} Barang
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Baris 3: Nama Pembeli (Kiri) & Badge Layanan Pengiriman (Kanan) */}
+                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/50">
+                      <div
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground min-w-0 truncate"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MapPin className="w-3.5 h-3.5 shrink-0 text-muted-foreground/70" />
+                        <Link
+                          href={`/vendor/orders/${targetDetailId}/buyer`}
+                          className="truncate hover:text-[#00a699] transition-colors"
+                        >
+                          {buyerName}
+                        </Link>
+                      </div>
+                      <div className="shrink-0">
+                        {getShippingBadge(ord)}
+                      </div>
+                    </div>
+
+                    {/* Baris 4: Status (Kiri) & Total Harga (Kanan) */}
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <div>
+                        {getStatusBadge(ord.fulfilmentStatus)}
+                      </div>
+                      <div className="text-right">
+                        <span className="font-black text-sm text-foreground">
+                          {formatPrice(ord.price * ord.qty)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Baris 5: Tombol Aksi (Jika Ada Aksi) */}
+                    {(ord.fulfilmentStatus === 'waiting' ||
+                      ord.fulfilmentStatus === 'processing' ||
+                      ord.fulfilmentStatus === 'shipped' ||
+                      ord.fulfilmentStatus === 'completed') && (
+                      <div
+                        className="flex items-center justify-end gap-2 pt-2.5 border-t border-border/40"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {/* Waiting: Tolak & Terima */}
+                        {ord.fulfilmentStatus === 'waiting' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={loadingItemId === ord.id}
+                              onClick={() => {
+                                setRejectModalOrder(ord)
+                                setRejectReason('')
+                              }}
+                              className="h-8 px-3 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 rounded-xl cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5 mr-1" />
+                              Tolak
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={loadingItemId === ord.id}
+                              onClick={() => handleAcceptOrder(ord.id)}
+                              className="h-8 px-4 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-xl cursor-pointer shadow-xs"
+                            >
+                              {loadingItemId === ord.id ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                              ) : (
+                                <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                              )}
+                              Terima
+                            </Button>
+                          </>
+                        )}
+
+                        {/* Processing: Selesai (Digital) / Proses (Physical KiriminAja) */}
+                        {ord.fulfilmentStatus === 'processing' && (
+                          <>
+                            {ord.productType === 'digital' ? (
+                              <Button
+                                size="sm"
+                                disabled={loadingItemId === ord.id}
+                                onClick={() => handleUpdateStatus(ord.id, 'completed')}
+                                className="h-8 px-4 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl cursor-pointer"
+                              >
+                                Selesai
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                disabled={loadingItemId === ord.id || isShippingSubmitting}
+                                onClick={() =>
+                                  setShippingModalOrder({
+                                    id: ord.id,
+                                    orderId: ord.orderId,
+                                    invoiceNumber: ord.invoiceNumber,
+                                    orderCode: ord.orderCode,
+                                    title: ord.title,
+                                    price: Number(ord.price),
+                                    qty: Number(ord.qty),
+                                    total: Number(ord.price) * Number(ord.qty),
+                                  })
+                                }
+                                className="h-8 px-4 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-xl cursor-pointer shadow-xs"
+                              >
+                                Proses
+                              </Button>
+                            )}
+                          </>
+                        )}
+
+                        {/* Shipped: Cetak Resi */}
+                        {ord.fulfilmentStatus === 'shipped' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setPrintModalOrder(ord)}
+                            className="h-8 px-3.5 text-xs rounded-xl cursor-pointer hover:bg-muted flex items-center gap-1.5 border-border/80 text-foreground shadow-xs"
+                          >
+                            <Printer className="w-3.5 h-3.5 text-muted-foreground" />
+                            <span>Cetak Resi</span>
+                          </Button>
+                        )}
+
+                        {/* Completed: Tracking */}
+                        {ord.fulfilmentStatus === 'completed' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
+                            className="h-8 px-3.5 text-xs rounded-xl cursor-pointer hover:bg-muted flex items-center gap-1.5 border-border/80 text-foreground shadow-xs"
+                          >
+                            <Truck className="w-3.5 h-3.5 text-[#00a699]" />
+                            <span>Tracking</span>
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             {/* 4. Footer Tabel: Info Data & Pagination Client-side 10 per halaman */}
@@ -1028,7 +1224,7 @@ export function VendorOrdersClient({
           </div>
         )}
 
-        {/* MODAL 2-LANGKAH PROSES PENGIRIMAN (KIRIMINAJA PICKUP) */}
+      {/* MODAL 2-LANGKAH PROSES PENGIRIMAN (KIRIMINAJA PICKUP) */}
         <VendorShippingModal
           isOpen={Boolean(shippingModalOrder)}
           onClose={() => setShippingModalOrder(null)}

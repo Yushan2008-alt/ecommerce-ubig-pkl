@@ -1,24 +1,20 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { ImageUploader } from './image-uploader'
 import { updateShopSettingsAction } from '@/actions/vendor'
 import type { ShopSettingsInput } from '@/lib/validators'
 import {
   Store,
-  Truck,
-  MessageCircle,
-  Save,
   Loader2,
   AlertCircle,
-  Building,
-  ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatNumberWithDots, unformatNumber } from '@/lib/utils'
-import { NumberInput } from '@/components/ui/number-input'
 import { SearchableSelect } from '@/components/ui/searchSelect'
-import { INDONESIA_BANKS, resolveBankValue } from '@/lib/shop-helper'
+import {
+  INDONESIA_PROVINCES,
+  getCitiesByProvinceName,
+} from '@/data/indonesia-regions'
 
 export interface ShopSettingsData {
   name: string
@@ -40,24 +36,100 @@ interface VendorSettingsClientProps {
   initialShop: ShopSettingsData
 }
 
+function cleanPhoneDigits(value: string, country = '+62'): string {
+  let digits = value.replace(/\D/g, '')
+
+  if (country === '+62') {
+    while (digits.startsWith('62') || digits.startsWith('0')) {
+      if (digits.startsWith('62')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  } else if (country === '+60') {
+    while (digits.startsWith('60') || digits.startsWith('0')) {
+      if (digits.startsWith('60')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  } else if (country === '+65') {
+    while (digits.startsWith('65') || digits.startsWith('0')) {
+      if (digits.startsWith('65')) {
+        digits = digits.slice(2)
+      } else if (digits.startsWith('0')) {
+        digits = digits.slice(1)
+      }
+    }
+  }
+
+  return digits
+}
+
+function formatPhoneNumber(value: string, country = '+62'): string {
+  let digits = cleanPhoneDigits(value, country)
+  const maxDigits = country === '+62' ? 13 : 12
+  digits = digits.slice(0, maxDigits)
+
+  if (digits.length <= 3) return digits
+  if (digits.length <= 7) return `${digits.slice(0, 3)}-${digits.slice(3)}`
+  if (digits.length <= 11) return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`
+  return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}-${digits.slice(11)}`
+}
+
 export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps) {
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  // Deteksi kode negara dan format nomor telepon awal
+  const initialRawPhone = initialShop.phone || initialShop.whatsapp || ''
+  let initialCountry = '+62'
+  if (initialRawPhone.startsWith('+60') || initialRawPhone.startsWith('60')) {
+    initialCountry = '+60'
+  } else if (initialRawPhone.startsWith('+65') || initialRawPhone.startsWith('65')) {
+    initialCountry = '+65'
+  }
+  const initialFormattedPhone = formatPhoneNumber(initialRawPhone, initialCountry)
+
+  const [countryCode, setCountryCode] = useState(initialCountry)
+  const [phone, setPhone] = useState(initialFormattedPhone)
+
   const [formData, setFormData] = useState({
     name: initialShop.name || '',
     slug: initialShop.slug || '',
-    description: initialShop.description || '',
     logoUrl: initialShop.logo_url || '',
-    flatShippingCost: formatNumberWithDots(initialShop.flat_shipping_cost),
-    whatsapp: initialShop.whatsapp || '',
-    phone: initialShop.phone || '',
-    city: initialShop.city || '',
     province: initialShop.province || '',
-    bankName: resolveBankValue(initialShop.bank_name) || initialShop.bank_name || '',
-    bankAccountNumber: initialShop.bank_account_number || '',
-    bankAccountHolder: initialShop.bank_account_holder || '',
+    city: initialShop.city || '',
   })
+
+  // Master Data Wilayah (Provinsi & Kota)
+  const provinceOptions = useMemo(() => {
+    return INDONESIA_PROVINCES.map((p) => ({
+      value: p.name,
+      label: p.name,
+    }))
+  }, [])
+
+  const cityOptions = useMemo(() => {
+    if (!formData.province) return []
+    return getCitiesByProvinceName(formData.province).map((c) => ({
+      value: c.name,
+      label: c.name,
+    }))
+  }, [formData.province])
+
+  const handleCountryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCode = e.target.value
+    setCountryCode(newCode)
+    setPhone(formatPhoneNumber(phone, newCode))
+  }
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhoneNumber(e.target.value, countryCode)
+    setPhone(formatted)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -68,29 +140,55 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
       return
     }
 
+    const phoneDigits = cleanPhoneDigits(phone, countryCode)
+    if (!phoneDigits) {
+      toast.error('Nomor telepon toko wajib diisi.')
+      return
+    }
+    if (phoneDigits.length < 8) {
+      toast.error('Nomor telepon toko minimal 8 digit.')
+      return
+    }
+    if (countryCode === '+62' && phoneDigits.length > 13) {
+      toast.error('Nomor telepon toko maksimal 13 digit.')
+      return
+    }
+
+    if (!formData.province) {
+      toast.error('Silakan pilih provinsi toko.')
+      return
+    }
+
+    if (!formData.city) {
+      toast.error('Silakan pilih kota / kabupaten toko.')
+      return
+    }
+
     setSubmitting(true)
+
+    const fullPhone = countryCode === '+62' ? `0${phoneDigits}` : `${countryCode}${phoneDigits}`
 
     try {
       const payload: ShopSettingsInput = {
         name: formData.name.trim(),
-        description: formData.description.trim() || null,
-        logoUrl: formData.logoUrl || null,
-        flatShippingCost: unformatNumber(formData.flatShippingCost),
-        whatsapp: formData.whatsapp.trim() || null,
-        phone: formData.phone.trim() || null,
+        description: initialShop.description || null,
+        logoUrl: formData.logoUrl?.trim() || null,
+        flatShippingCost: Number(initialShop.flat_shipping_cost || 0),
+        whatsapp: fullPhone,
+        phone: fullPhone,
         city: formData.city.trim() || null,
         province: formData.province.trim() || null,
-        bankName: formData.bankName.trim() || null,
-        bankAccountNumber: formData.bankAccountNumber.trim() || null,
-        bankAccountHolder: formData.bankAccountHolder.trim() || null,
+        bankName: initialShop.bank_name || null,
+        bankAccountNumber: initialShop.bank_account_number || null,
+        bankAccountHolder: initialShop.bank_account_holder || null,
       }
 
       const res = await updateShopSettingsAction(payload)
 
       if (res.success) {
-        toast.success('Pengaturan profil toko berhasil diperbarui!')
+        toast.success('Profil toko berhasil disimpan!')
       } else {
-        setErrorMsg(res.error || 'Gagal menyimpan pengaturan toko.')
+        setErrorMsg(res.error || 'Gagal menyimpan profil')
         toast.error(res.error || 'Gagal menyimpan')
       }
     } catch {
@@ -103,34 +201,11 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border/80">
-        <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-            Pengaturan Toko
-          </h1>
-          <p className="text-xs text-muted-foreground">
-            Perbarui informasi etalase toko, logo, kontak WhatsApp, dan tarif flat ongkir.
-          </p>
-        </div>
-
-        <button
-          type="submit"
-          disabled={submitting}
-          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-60 self-start sm:self-auto"
-        >
-          {submitting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Menyimpan...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Simpan Pengaturan
-            </>
-          )}
-        </button>
+      {/* 1. Header Toolbar (Hapus Subtitle & Hapus Tombol Atas) */}
+      <div className="pb-4 border-b border-border/80">
+        <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+          Pengaturan
+        </h1>
       </div>
 
       {errorMsg && (
@@ -140,14 +215,28 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
         </div>
       )}
 
-      {/* 2. Profil Toko & Logo */}
-      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-        <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5 flex items-center gap-2">
-          <Store className="w-4 h-4 text-[#00a699]" />
-          Identitas & Etalase Toko
-        </h2>
+      {/* 2. Card Identitas Toko (Satu Card Saja) */}
+      <div className="p-4 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-5 w-full max-w-full min-w-0">
+        <div className="border-b border-border/60 pb-3">
+          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
+            <Store className="w-4 h-4 text-[#00a699]" />
+            Identitas
+          </h2>
+        </div>
+
+        {/* Logo Toko */}
+        <div className="space-y-1.5">
+          <ImageUploader
+            bucket="shop-assets"
+            value={formData.logoUrl}
+            onChange={(url) => setFormData((prev) => ({ ...prev, logoUrl: url as string }))}
+            label="Logo Toko"
+            description="Format WebP, PNG, atau JPG. Disarankan rasio 1:1."
+          />
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Nama Toko */}
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">
               Nama Toko <span className="text-rose-500">*</span>
@@ -157,212 +246,119 @@ export function VendorSettingsClient({ initialShop }: VendorSettingsClientProps)
               required
               value={formData.name}
               onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="Contoh: Toko Krafita Sejahtera"
               className="w-full h-10 px-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
             />
           </div>
 
-          <div className="space-y-1.5">
+          {/* Domain / Slug Toko */}
+          <div className="space-y-1.5 min-w-0">
             <label className="text-xs font-bold text-foreground">Domain / Slug Toko</label>
-            <div className="flex items-center">
-              <span className="h-10 px-3 flex items-center text-xs font-mono bg-muted/60 text-muted-foreground border border-r-0 border-border rounded-l-lg select-none">
+            <div className="flex items-center w-full min-w-0">
+              <span className="h-10 px-2.5 sm:px-3 shrink-0 flex items-center text-[11px] sm:text-xs font-mono bg-muted/60 text-muted-foreground border border-r-0 border-border rounded-l-lg select-none">
                 krafita.com/shop/
               </span>
               <input
                 type="text"
                 disabled
                 value={formData.slug}
-                className="w-full h-10 px-3.5 text-xs font-mono bg-muted/40 text-muted-foreground border border-border rounded-r-lg cursor-not-allowed"
+                className="flex-1 min-w-0 w-full h-10 px-3.5 text-xs font-mono bg-muted/40 text-muted-foreground border border-border rounded-r-lg cursor-not-allowed"
               />
             </div>
-            <p className="text-[10px] text-muted-foreground">
-              *Slug toko bersifat permanen untuk memastikan tautan etalase Anda tidak rusak.
-            </p>
           </div>
         </div>
 
+        {/* Nomor Telepon Toko (Dropdown default +62, tipe teks, auto '-') */}
         <div className="space-y-1.5">
-          <label className="text-xs font-bold text-foreground">Deskripsi Toko</label>
-          <textarea
-            rows={3}
-            value={formData.description}
-            onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
-            placeholder="Jelaskan jenis karya dan produk yang Anda pasarkan..."
-            className="w-full p-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] resize-none"
-          />
-        </div>
-
-        <div className="space-y-1.5 pt-1">
-          <ImageUploader
-            bucket="shop-assets"
-            value={formData.logoUrl}
-            onChange={(url) => setFormData((prev) => ({ ...prev, logoUrl: url as string }))}
-            label="Logo / Avatar Toko"
-            description="Format WebP/PNG/JPG. Otomatis dikompresi ≤ 1600px."
-          />
-        </div>
-      </div>
-
-      {/* 3. Pengiriman & Kontak */}
-      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
-        <h2 className="text-sm font-bold text-foreground border-b border-border/60 pb-2.5 flex items-center gap-2">
-          <Truck className="w-4 h-4 text-[#00a699]" />
-          Pengiriman & Komunikasi
-        </h2>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">
-              Tarif Flat Ongkir Toko (Rp) <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-xs font-semibold text-muted-foreground z-10">
-                Rp
-              </span>
-              <NumberInput
-                required
-                value={formData.flatShippingCost}
-                onChange={(e) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    flatShippingCost: e.target.value,
-                  }))
-                }}
-                placeholder="0"
-                className="w-full h-10 pl-10 pr-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-              />
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Tarif flat per pesanan toko untuk produk fisik. Isi 0 jika gratis ongkir.
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">
-              Nomor WhatsApp Toko <span className="text-rose-500">*</span>
-            </label>
-            <div className="relative">
-              <MessageCircle className="w-4 h-4 text-emerald-600 absolute left-3.5 top-3" />
+          <label className="text-xs font-bold text-foreground">
+            Nomor Telepon Toko <span className="text-rose-500">*</span>
+          </label>
+          <div className="flex items-center h-10 border border-border rounded-lg bg-background overflow-hidden focus-within:border-[#00a699] transition-all">
+            <select
+              value={countryCode}
+              onChange={handleCountryChange}
+              className="h-full px-2.5 bg-muted/30 border-r border-border text-xs font-semibold text-foreground focus:outline-none cursor-pointer"
+            >
+              <option value="+62">🇮🇩 +62</option>
+              <option value="+60">🇲🇾 +60</option>
+              <option value="+65">🇸🇬 +65</option>
+            </select>
+            <div className="relative flex-1 flex items-center h-full">
               <input
-                type="tel"
+                type="text"
+                inputMode="tel"
                 required
-                value={formData.whatsapp}
-                onChange={(e) => setFormData((prev) => ({ ...prev, whatsapp: e.target.value }))}
-                placeholder="08123456789"
-                className="w-full h-10 pl-10 pr-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+                value={phone}
+                onChange={handlePhoneChange}
+                placeholder={
+                  countryCode === '+62'
+                    ? '812-3456-7890'
+                    : countryCode === '+60'
+                    ? '12-345-6789'
+                    : '8123-4567'
+                }
+                className="w-full h-full px-3.5 text-xs font-mono bg-transparent focus:outline-none placeholder:text-muted-foreground/60"
               />
             </div>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            {countryCode === '+62'
+              ? 'Format otomatis: nomor telepon aktif toko (8-13 digit setelah +62).'
+              : 'Nomor telepon aktif toko untuk koordinasi pesanan.'}
+          </p>
         </div>
 
+        {/* Master Data: Provinsi & Kota */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Kota Asal Pickup</label>
-            <input
-              type="text"
-              value={formData.city}
-              onChange={(e) => setFormData((prev) => ({ ...prev, city: e.target.value }))}
-              placeholder="Contoh: Bandung"
-              className="w-full h-10 px-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">Provinsi</label>
-            <input
-              type="text"
-              value={formData.province}
-              onChange={(e) => setFormData((prev) => ({ ...prev, province: e.target.value }))}
-              placeholder="Contoh: Jawa Barat"
-              className="w-full h-10 px-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Rekening Bank Penarikan Saldo */}
-      <div id="bank" className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 scroll-mt-6">
-        <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
-          <h2 className="text-sm font-bold text-foreground flex items-center gap-2">
-            <Building className="w-4 h-4 text-[#00a699]" />
-            Rekening Bank Penarikan Saldo
-          </h2>
-          <span className="text-[10px] text-muted-foreground font-medium">
-            Untuk pencairan dana toko
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">
-              Bank Tujuan
+              Provinsi <span className="text-rose-500">*</span>
             </label>
             <SearchableSelect
-              options={INDONESIA_BANKS}
-              value={formData.bankName}
-              onChange={(val) => setFormData((prev) => ({ ...prev, bankName: val }))}
-              placeholder="Pilih Bank..."
-              searchPlaceholder="Cari nama bank (BCA, Mandiri, BRI, BSI, dll)..."
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-xs font-bold text-foreground">
-              Nomor Rekening
-            </label>
-            <input
-              type="text"
-              value={formData.bankAccountNumber}
-              onChange={(e) =>
+              options={provinceOptions}
+              value={formData.province}
+              onChange={(val) => {
                 setFormData((prev) => ({
                   ...prev,
-                  bankAccountNumber: e.target.value.replace(/[^0-9]/g, ''),
+                  province: val,
+                  city: '', // Reset kota jika ganti provinsi
                 }))
-              }
-              placeholder="Contoh: 1234567890"
-              className="w-full h-10 px-3.5 text-xs font-mono bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+              }}
+              placeholder="Pilih Provinsi..."
+              searchPlaceholder="Cari provinsi..."
             />
           </div>
 
           <div className="space-y-1.5">
             <label className="text-xs font-bold text-foreground">
-              Nama Pemilik Rekening
+              Kota / Kabupaten <span className="text-rose-500">*</span>
             </label>
-            <input
-              type="text"
-              value={formData.bankAccountHolder}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, bankAccountHolder: e.target.value }))
-              }
-              placeholder="Nama sesuai buku tabungan"
-              className="w-full h-10 px-3.5 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
+            <SearchableSelect
+              options={cityOptions}
+              value={formData.city}
+              onChange={(val) => setFormData((prev) => ({ ...prev, city: val }))}
+              placeholder={formData.province ? 'Pilih Kota/Kabupaten...' : 'Pilih provinsi terlebih dahulu'}
+              searchPlaceholder="Cari kota/kabupaten..."
+              disabled={!formData.province}
             />
           </div>
-        </div>
-
-        <div className="p-3 rounded-xl bg-muted/40 border border-border/60 text-[11px] text-muted-foreground flex items-center gap-2">
-          <ShieldCheck className="w-4 h-4 text-[#00a699] shrink-0" />
-          <span>
-            Rekening ini digunakan sebagai tujuan pencairan saldo saat Anda mengajukan penarikan di menu Saldo.
-          </span>
         </div>
       </div>
 
+      {/* 3. Button Simpan 1 Aja Di Bawah */}
       <div className="flex justify-end pt-2">
         <button
           type="submit"
           disabled={submitting}
-          className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-60"
+          className="inline-flex items-center justify-center min-w-[100px] px-6 py-2.5 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-60"
         >
           {submitting ? (
             <>
-              <Loader2 className="w-4 h-4 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin mr-1.5" />
               Menyimpan...
             </>
           ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Simpan Pengaturan
-            </>
+            'Simpan'
           )}
         </button>
       </div>

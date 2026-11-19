@@ -336,7 +336,7 @@ export function VendorDashboardClient({
       )}
 
       {/* 3. 4 METRIK KPI CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full min-w-0">
         {/* Card 1: Penjualan (Tersinkronisasi dengan Filter Rentang Waktu) */}
         <Link
           href="/vendor/orders"
@@ -421,12 +421,12 @@ export function VendorDashboardClient({
       </div>
 
       {/* 4. SALES CHART (SINKRON DENGAN PERIODE, FILTER 7/14/30 HARI DIHAPUS) */}
-      <div className="p-6 rounded-2xl bg-card border border-border/80 shadow-xs">
+      <div className="p-4 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xs w-full max-w-full min-w-0 overflow-hidden">
         <SalesChart data={filteredChartData} periodLabel={period.label} />
       </div>
 
       {/* 5. KARTU PESANAN BARU (INFORMASI LENGKAP: PRODUK, TOTAL HARGA, STATUS, NAMA PEMBELI, JUMLAH, TIME-AGO, AKSI PROSES) */}
-      <div className="p-5 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4">
+      <div className="p-4 sm:p-6 rounded-2xl bg-card border border-border/80 shadow-xs space-y-4 w-full max-w-full min-w-0">
         {/* Header Card */}
         <div className="flex items-center justify-between pb-3 border-b border-border/60">
           <div className="flex items-center gap-2">
