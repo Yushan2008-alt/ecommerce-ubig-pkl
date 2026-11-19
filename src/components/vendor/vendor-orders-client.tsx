@@ -1,21 +1,45 @@
 'use client'
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import {
   ShoppingBag,
   Truck,
   CheckCircle2,
   Clock,
   Package,
-  MapPin,
-  MessageSquare,
   Search,
   Loader2,
-  Copy,
+  ListFilter,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
 } from 'lucide-react'
-import { updateVendorFulfilmentAction, getVendorOrdersAction } from '@/actions/vendor'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip'
+import { Button } from '@/components/ui/button'
+import {
+  acceptVendorOrderAction,
+  rejectVendorOrderAction,
+  updateVendorFulfilmentAction,
+  getVendorOrdersAction,
+} from '@/actions/vendor'
 import { createClient } from '@/lib/supabase/client'
+import { formatTimeAgo, formatFullDate } from '@/lib/utils'
 import { toast } from 'sonner'
 import type { FulfilmentStatus } from '@/types/database'
 
@@ -25,17 +49,34 @@ interface VendorOrdersClientProps {
   initialSearchQuery?: string
 }
 
+const ITEMS_PER_PAGE = 10
+
 export function VendorOrdersClient({
   initialOrders,
   initialFilter = 'all',
   initialSearchQuery = '',
 }: VendorOrdersClientProps) {
+  const router = useRouter()
   const [orders, setOrders] = useState<any[]>(initialOrders)
   const [statusFilter, setStatusFilter] = useState<string>(initialFilter)
+  const [tempStatusFilter, setTempStatusFilter] = useState<string>(initialFilter)
+  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState<string>(initialSearchQuery)
   const [loadingItemId, setLoadingItemId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  // Supabase Realtime Subscription untuk pesanan masuk toko
+  // State Dialog Tolak Pesanan
+  const [rejectModalOrder, setRejectModalOrder] = useState<any | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+
+  // State Dialog Resi Pengiriman
+  const [activeTrackingModal, setActiveTrackingModal] = useState<{
+    itemId: string
+    title: string
+  } | null>(null)
+  const [inputResi, setInputResi] = useState('')
+
+  // Supabase Realtime Subscription untuk sinkronisasi pesanan toko
   useEffect(() => {
     const supabase = createClient()
     const channel = supabase
@@ -44,7 +85,7 @@ export function VendorOrdersClient({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'order_items' },
         async () => {
-          const res = await getVendorOrdersAction(statusFilter)
+          const res = await getVendorOrdersAction('all')
           if (res.success && res.orders) {
             setOrders(res.orders)
           }
@@ -54,7 +95,7 @@ export function VendorOrdersClient({
         'postgres_changes',
         { event: '*', schema: 'public', table: 'orders' },
         async () => {
-          const res = await getVendorOrdersAction(statusFilter)
+          const res = await getVendorOrdersAction('all')
           if (res.success && res.orders) {
             setOrders(res.orders)
           }
@@ -65,14 +106,7 @@ export function VendorOrdersClient({
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [statusFilter])
-
-  // State Dialog Resi Pengiriman
-  const [activeTrackingModal, setActiveTrackingModal] = useState<{
-    itemId: string
-    title: string
-  } | null>(null)
-  const [inputResi, setInputResi] = useState('')
+  }, [])
 
   const formatPrice = (num: number) =>
     new Intl.NumberFormat('id-ID', {
@@ -81,6 +115,70 @@ export function VendorOrdersClient({
       maximumFractionDigits: 0,
     }).format(num)
 
+  // Handler Terima Pesanan (waiting -> processing + Saldo masuk dompet)
+  const handleAcceptOrder = async (itemId: string) => {
+    setLoadingItemId(itemId)
+    try {
+      const res = await acceptVendorOrderAction(itemId)
+      if (res.success) {
+        toast.success(
+          res.creditedAmount
+            ? `Pesanan diterima! Saldo sebesar ${formatPrice(res.creditedAmount)} telah masuk ke kantong toko Anda.`
+            : 'Pesanan berhasil diterima dan siap dikemas.'
+        )
+
+        setOrders((prev) =>
+          prev.map((ord) =>
+            ord.id === itemId
+              ? {
+                  ...ord,
+                  fulfilmentStatus: 'processing' as FulfilmentStatus,
+                }
+              : ord
+          )
+        )
+      } else {
+        toast.error(res.error || 'Gagal menerima pesanan')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setLoadingItemId(null)
+    }
+  }
+
+  // Handler Tolak Pesanan (waiting -> cancelled + Refund otomatis)
+  const handleRejectOrder = async () => {
+    if (!rejectModalOrder) return
+    const itemId = rejectModalOrder.id
+    setLoadingItemId(itemId)
+    try {
+      const res = await rejectVendorOrderAction(itemId, rejectReason.trim() || undefined)
+      if (res.success) {
+        toast.success('Pesanan berhasil ditolak. Dana pembeli otomatis diproses refund.')
+        setOrders((prev) =>
+          prev.map((ord) =>
+            ord.id === itemId
+              ? {
+                  ...ord,
+                  fulfilmentStatus: 'cancelled' as FulfilmentStatus,
+                }
+              : ord
+          )
+        )
+        setRejectModalOrder(null)
+        setRejectReason('')
+      } else {
+        toast.error(res.error || 'Gagal menolak pesanan')
+      }
+    } catch {
+      toast.error('Gagal menghubungi server')
+    } finally {
+      setLoadingItemId(null)
+    }
+  }
+
+  // Handler Update Fulfilment (misal Input Resi)
   const handleUpdateStatus = async (
     itemId: string,
     targetStatus: FulfilmentStatus,
@@ -121,380 +219,699 @@ export function VendorOrdersClient({
     }
   }
 
-  const handleCopyResi = (resi: string) => {
-    navigator.clipboard.writeText(resi)
-    toast.success('Nomor resi disalin ke papan klip!')
+  // Hitung jumlah per status dari orders (data lengkap toko)
+  const counts = useMemo(() => {
+    const res = {
+      all: orders.length,
+      waiting: 0,
+      processing: 0,
+      shipped: 0,
+      completed: 0,
+      cancelled: 0,
+    }
+    for (const ord of orders) {
+      if (ord.fulfilmentStatus === 'waiting') res.waiting++
+      else if (ord.fulfilmentStatus === 'processing') res.processing++
+      else if (ord.fulfilmentStatus === 'shipped') res.shipped++
+      else if (ord.fulfilmentStatus === 'completed') res.completed++
+      else if (ord.fulfilmentStatus === 'cancelled') res.cancelled++
+    }
+    return res
+  }, [orders])
+
+  const STATUS_OPTIONS = [
+    { id: 'all', label: 'Semua', count: counts.all },
+    { id: 'waiting', label: 'Belum Diproses', count: counts.waiting },
+    { id: 'processing', label: 'Sedang Dikemas', count: counts.processing },
+    { id: 'shipped', label: 'Dalam Pengiriman', count: counts.shipped },
+    { id: 'completed', label: 'Selesai', count: counts.completed },
+    { id: 'cancelled', label: 'Dibatalkan', count: counts.cancelled },
+  ]
+
+  // Filter Data berdasarkan status dan kata kunci
+  const filtered = useMemo(() => {
+    return orders.filter((ord) => {
+      const matchesStatus = statusFilter === 'all' || ord.fulfilmentStatus === statusFilter
+      const query = searchQuery.trim().toLowerCase()
+      if (!query) return matchesStatus
+
+      const cleanQuery = query.replace(/^#/, '')
+      const code = (ord.orderCode || '').toLowerCase()
+      const invoice = (ord.invoiceNumber || '').toLowerCase()
+      const title = (ord.title || '').toLowerCase()
+      const buyerName = (ord.buyer?.name || '').toLowerCase()
+      const tracking = (ord.trackingNumber || '').toLowerCase()
+
+      const matchesSearch =
+        code.includes(query) ||
+        code.includes(cleanQuery) ||
+        invoice.includes(query) ||
+        title.includes(query) ||
+        buyerName.includes(query) ||
+        tracking.includes(query)
+
+      return matchesStatus && matchesSearch
+    })
+  }, [orders, statusFilter, searchQuery])
+
+  // Pagination client-side (10 item per halaman)
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
+  const paginatedOrders = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE
+    return filtered.slice(start, start + ITEMS_PER_PAGE)
+  }, [filtered, currentPage])
+
+  // Helper badge metode pengiriman
+  const getShippingBadge = (ord: any) => {
+    if (ord.productType === 'digital') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800 whitespace-nowrap shadow-2xs">
+          ⚡ Digital
+        </span>
+      )
+    }
+
+    const courier =
+      ord.shippingAddress?.courier ||
+      ord.shippingAddress?.courier_name ||
+      ord.shippingAddress?.shippingService ||
+      'JNE'
+
+    const isPickup =
+      courier.toLowerCase().includes('pickup') ||
+      courier.toLowerCase().includes('ambil') ||
+      ord.shippingAddress?.delivery_method === 'pickup'
+
+    const distance = ord.shippingAddress?.distance ? ` · ${ord.shippingAddress.distance}` : ''
+
+    if (isPickup) {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400 border border-purple-200 dark:border-purple-800 whitespace-nowrap shadow-2xs">
+          <Package className="w-3.5 h-3.5" />
+          <span>Ambil Sendiri{distance}</span>
+        </span>
+      )
+    }
+
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap shadow-2xs">
+        <Truck className="w-3.5 h-3.5 shrink-0" />
+        <span>{courier}</span>
+      </span>
+    )
   }
 
-  // Filter Data
-  const filtered = orders.filter((ord) => {
-    const matchesStatus = statusFilter === 'all' || ord.fulfilmentStatus === statusFilter
-    const matchesSearch =
-      ord.orderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ord.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (ord.buyer?.name && ord.buyer.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (ord.trackingNumber && ord.trackingNumber.toLowerCase().includes(searchQuery.toLowerCase()))
-
-    return matchesStatus && matchesSearch
-  })
+  // Helper status badge pemenuhan pesanan
+  const getStatusBadge = (status: FulfilmentStatus) => {
+    switch (status) {
+      case 'completed':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 whitespace-nowrap shadow-2xs">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" /> Selesai
+          </span>
+        )
+      case 'shipped':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800 whitespace-nowrap shadow-2xs">
+            <Truck className="w-3.5 h-3.5 shrink-0" /> Dikirim
+          </span>
+        )
+      case 'processing':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800 whitespace-nowrap shadow-2xs">
+            <Package className="w-3.5 h-3.5 shrink-0" /> Sedang Dikemas
+          </span>
+        )
+      case 'cancelled':
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-400 border border-rose-200 dark:border-rose-800 whitespace-nowrap shadow-2xs">
+            <X className="w-3.5 h-3.5 shrink-0" /> Dibatalkan
+          </span>
+        )
+      case 'waiting':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-200 dark:border-slate-700 whitespace-nowrap shadow-2xs">
+            <Clock className="w-3.5 h-3.5 shrink-0" /> Belum Diproses
+          </span>
+        )
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-              Pesanan Masuk
-            </h1>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Real-time
-            </span>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Kelola pesanan masuk toko Anda, proses kemasan, dan input nomor resi pengiriman ({orders.length} pesanan).
-          </p>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* 1. Header Toolbar */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <h1 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+            Pesanan
+          </h1>
         </div>
-      </div>
 
-      {/* 2. Filter Tabs & Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-card border border-border/80 shadow-xs">
-        {/* Status Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-          {[
-            { id: 'all', label: 'Semua' },
-            { id: 'waiting', label: 'Menunggu Dikemas' },
-            { id: 'processing', label: 'Sedang Dikemas' },
-            { id: 'shipped', label: 'Dikirim' },
-            { id: 'completed', label: 'Selesai' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
+        {/* 2. Search Bar & Tombol Filter */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {/* Kolom Pencarian */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-3" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value)
+                setCurrentPage(1)
+              }}
+              placeholder="Cari no. Invoice, pembeli, atau produk..."
+              className="w-full h-10 pl-10 pr-4 text-xs bg-card border border-border/80 rounded-xl focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699] transition-all placeholder:text-muted-foreground text-foreground shadow-xs"
+            />
+          </div>
+
+          {/* Tombol Filter & Badge Filter Aktif */}
+          <div className="flex items-center gap-2">
+            <Button
               type="button"
-              onClick={() => setStatusFilter(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                statusFilter === tab.id
-                  ? 'bg-[#00a699] text-white shadow-xs'
-                  : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground'
+              variant="outline"
+              onClick={() => {
+                setTempStatusFilter(statusFilter)
+                setIsFilterModalOpen(true)
+              }}
+              className={`h-10 px-4 text-xs font-semibold rounded-xl flex items-center gap-2 cursor-pointer transition-all ${
+                statusFilter !== 'all'
+                  ? 'bg-[#00a699]/10 border-[#00a699] text-[#00a699] hover:bg-[#00a699]/20'
+                  : 'bg-card border-border/80 hover:bg-muted text-foreground'
               }`}
             >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+              <ListFilter className="w-4 h-4" />
+              <span>Filter</span>
+              {statusFilter !== 'all' && (
+                <span className="w-2 h-2 rounded-full bg-[#00a699]" />
+              )}
+            </Button>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-3" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Cari kode pesanan / resi / pembeli..."
-            className="w-full h-9 pl-9 pr-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699]"
-          />
-        </div>
-      </div>
-
-      {/* 3. Orders List */}
-      {filtered.length === 0 ? (
-        <div className="p-12 text-center rounded-2xl bg-card border border-border space-y-3">
-          <ShoppingBag className="w-10 h-10 text-muted-foreground/40 mx-auto" />
-          <div className="space-y-1">
-            <h3 className="text-sm font-bold text-foreground">Tidak Ada Pesanan</h3>
-            <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-              {searchQuery || statusFilter !== 'all'
-                ? 'Tidak ada pesanan yang sesuai dengan filter atau kata kunci pencarian.'
-                : 'Belum ada pesanan masuk untuk toko Anda saat ini.'}
-            </p>
+            {statusFilter !== 'all' && (
+              <div className="flex items-center gap-1.5 bg-[#00a699]/10 border border-[#00a699]/30 text-[#00a699] px-2.5 py-1.5 rounded-xl text-xs font-semibold">
+                <span>{STATUS_OPTIONS.find((o) => o.id === statusFilter)?.label}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter('all')
+                    setCurrentPage(1)
+                  }}
+                  className="hover:text-rose-500 cursor-pointer ml-0.5"
+                  title="Hapus Filter"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((ord) => {
-            const isPhysical = ord.productType === 'physical'
-            const coverImage = ord.imageUrl || '/placeholder-product.jpg'
-            const shipping = ord.shippingAddress || {}
 
-            return (
-              <div
-                key={ord.id}
-                className="p-5 rounded-2xl bg-card border border-border/80 shadow-xs hover:border-border transition-all space-y-4"
-              >
-                {/* Header Card: Kode Order, Tanggal, Status */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-border/60">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-mono font-bold text-xs text-foreground bg-muted/60 px-2.5 py-1 rounded-md border border-border">
-                      {ord.orderCode}
-                    </span>
-                    <span className="text-[11px] text-muted-foreground">
-                      {new Date(ord.orderDate).toLocaleString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
+        {/* 3. Tampilan Halaman Berupa Tabel Data (Tanpa Digeser / Muat Penuh) */}
+        {filtered.length === 0 ? (
+          <div className="p-12 text-center rounded-2xl bg-card border border-border space-y-3">
+            <ShoppingBag className="w-10 h-10 text-muted-foreground/40 mx-auto" />
+            <div className="space-y-1">
+              <h3 className="text-sm font-bold text-foreground">Tidak Ada Pesanan</h3>
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                {searchQuery || statusFilter !== 'all'
+                  ? 'Tidak ada pesanan yang sesuai dengan filter atau kata kunci pencarian.'
+                  : 'Belum ada pesanan untuk toko Anda saat ini.'}
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[1020px]">
+                  {/* Header Tabel Responsif (Sesuai Referensi Gambar) */}
+                  <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/80">
+                    <tr>
+                      <th className="py-4 px-4 w-[13%]">Pesanan</th>
+                      <th className="py-4 px-4 w-[24%]">Produk</th>
+                      <th className="py-4 px-4 w-[14%]">Pembeli</th>
+                      <th className="py-4 px-4 w-[16%]">Pengiriman</th>
+                      <th className="py-4 px-4 w-[11%]">Total</th>
+                      <th className="py-4 px-3 w-[11%] text-center">Status</th>
+                      <th className="py-4 px-3 w-[11%] text-center">Aksi</th>
+                      <th className="py-4 px-4 w-[12%] text-right whitespace-nowrap">Waktu Pesanan</th>
+                    </tr>
+                  </thead>
 
-                  {/* Status Badge */}
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold self-start sm:self-auto ${
-                      ord.fulfilmentStatus === 'completed'
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                        : ord.fulfilmentStatus === 'shipped'
-                        ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400 border border-blue-200 dark:border-blue-800'
-                        : ord.fulfilmentStatus === 'processing'
-                        ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
-                        : 'bg-muted text-muted-foreground border border-border'
-                    }`}
+                  {/* Body Tabel: Flexible height, tidak ada teks terpotong */}
+                  <tbody className="divide-y divide-border/60">
+                    {paginatedOrders.map((ord) => {
+                      const coverImage = ord.imageUrl || '/placeholder-product.jpg'
+                      const targetDetailId = ord.orderId || ord.id
+                      const displayInvoice = ord.invoiceNumber || ord.orderCode || '-'
+
+                      return (
+                        <tr
+                          key={ord.id}
+                          onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
+                          className="hover:bg-muted/40 transition-colors cursor-pointer group"
+                          title="Klik baris untuk melihat detail pesanan"
+                        >
+                          {/* 1. Pesanan (Nomor Invoice Klik Langsung Redirect ke Track / Detail) */}
+                          <td className="py-5 px-4 align-middle">
+                            <Link
+                              href={`/vendor/orders/${targetDetailId}`}
+                              onClick={(e) => e.stopPropagation()}
+                              className="font-mono font-bold text-xs text-[#00a699] hover:underline hover:text-[#008f84] transition-colors block"
+                              title={`Lihat detail & lacak paket pesanan ${displayInvoice}`}
+                            >
+                              {displayInvoice}
+                            </Link>
+                          </td>
+
+                          {/* 2. Produk (Thumbnail + Nama Produk + Jumlah Barang - Flexible Height, Tanpa Terpotong) */}
+                          <td className="py-5 px-4 align-middle">
+                            <div className="flex items-center gap-3">
+                              <div className="relative w-11 h-11 rounded-lg overflow-hidden bg-muted shrink-0 border border-border shadow-2xs">
+                                <Image
+                                  src={coverImage}
+                                  alt={ord.title}
+                                  fill
+                                  sizes="44px"
+                                  className="object-cover group-hover:scale-105 transition-transform duration-200"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <p
+                                  className="font-bold text-foreground text-xs leading-snug break-words group-hover:text-[#00a699] transition-colors"
+                                  title={ord.title}
+                                >
+                                  {ord.title}
+                                </p>
+                                <span className="text-[11px] text-muted-foreground block">
+                                  {ord.qty} Barang
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* 3. Pembeli (Hanya Nama Akun Tanpa Avatar, Klik Redirect ke Halaman Profil Pembeli) */}
+                          <td className="py-5 px-4 align-middle" onClick={(e) => e.stopPropagation()}>
+                            <Link
+                              href={`/vendor/orders/${targetDetailId}/buyer`}
+                              className="font-semibold text-foreground text-xs hover:text-[#00a699] transition-colors block leading-snug cursor-pointer"
+                              title="Lihat profil & alamat pembeli"
+                            >
+                              {ord.buyer?.name || 'Pelanggan'}
+                            </Link>
+                          </td>
+
+                          {/* 4. Pengiriman (Badge kurir / Digital Lengkap Tanpa Terpotong) */}
+                          <td className="py-5 px-4 align-middle">
+                            {getShippingBadge(ord)}
+                          </td>
+
+                          {/* 5. Total (Harga total & jumlah barang) */}
+                          <td className="py-5 px-4 align-middle">
+                            <div className="space-y-0.5">
+                              <span
+                                className="font-bold text-foreground text-xs block"
+                                title={formatPrice(ord.price * ord.qty)}
+                              >
+                                {formatPrice(ord.price * ord.qty)}
+                              </span>
+                              <span className="text-[11px] text-muted-foreground block">
+                                {ord.qty} Barang
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 6. Status (Badge pill) */}
+                          <td className="py-5 px-3 text-center align-middle">
+                            <div className="flex justify-center">
+                              {getStatusBadge(ord.fulfilmentStatus)}
+                            </div>
+                          </td>
+
+                          {/* 7. Aksi (Tolak/Terima saat waiting, Kirim/Detail saat processing) */}
+                          <td
+                            className="py-5 px-3 text-center align-middle"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <div className="flex items-center justify-center gap-1.5 flex-wrap">
+                              {/* Alur Pesanan Baru (WAITING): Tombol Tolak & Terima */}
+                              {ord.fulfilmentStatus === 'waiting' && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={loadingItemId === ord.id}
+                                    onClick={() => {
+                                      setRejectModalOrder(ord)
+                                      setRejectReason('')
+                                    }}
+                                    className="h-7.5 px-2.5 text-xs font-semibold border-rose-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700 dark:border-rose-900/60 dark:text-rose-400 dark:hover:bg-rose-950/40 cursor-pointer rounded-lg shrink-0 transition-colors shadow-2xs"
+                                    title="Tolak pesanan & batalkan transaksi"
+                                  >
+                                    Tolak
+                                  </Button>
+
+                                  <Button
+                                    size="sm"
+                                    disabled={loadingItemId === ord.id}
+                                    onClick={() => handleAcceptOrder(ord.id)}
+                                    className="h-7.5 px-3 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shrink-0 transition-colors shadow-2xs"
+                                    title="Terima pesanan & masukkan saldo ke toko"
+                                  >
+                                    {loadingItemId === ord.id ? (
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    ) : (
+                                      'Terima'
+                                    )}
+                                  </Button>
+                                </>
+                              )}
+
+                              {/* Alur Pesanan Diproses (PROCESSING) */}
+                              {ord.fulfilmentStatus === 'processing' && (
+                                <>
+                                  {ord.productType === 'digital' ? (
+                                    <Button
+                                      size="sm"
+                                      disabled={loadingItemId === ord.id}
+                                      onClick={() => handleUpdateStatus(ord.id, 'completed')}
+                                      className="h-7.5 px-2.5 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg cursor-pointer shrink-0"
+                                    >
+                                      Selesai
+                                    </Button>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      disabled={loadingItemId === ord.id}
+                                      onClick={() =>
+                                        setActiveTrackingModal({ itemId: ord.id, title: ord.title })
+                                      }
+                                      className="h-7.5 px-2.5 text-xs bg-[#00a699] hover:bg-[#008f84] text-white font-bold rounded-lg cursor-pointer shrink-0"
+                                    >
+                                      Kirim
+                                    </Button>
+                                  )}
+
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
+                                    className="h-7.5 px-2.5 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0"
+                                  >
+                                    Detail
+                                  </Button>
+                                </>
+                              )}
+
+                              {/* Status Selesai, Dikirim, atau Batal: Tombol Detail */}
+                              {ord.fulfilmentStatus !== 'waiting' &&
+                                ord.fulfilmentStatus !== 'processing' && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => router.push(`/vendor/orders/${targetDetailId}`)}
+                                    className="h-7.5 px-3 text-xs rounded-lg cursor-pointer hover:bg-muted shrink-0"
+                                  >
+                                    Detail
+                                  </Button>
+                                )}
+                            </div>
+                          </td>
+
+                          {/* 8. Waktu Pesanan (Kolom posisi paling kanan, time-ago + tooltip waktu lengkap) */}
+                          <td className="py-5 px-4 text-right align-middle">
+                            <Tooltip>
+                              <TooltipTrigger
+                                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end"
+                                title={formatFullDate(ord.orderDate)}
+                              >
+                                <Clock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                                <span suppressHydrationWarning>
+                                  {formatTimeAgo(ord.orderDate)}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" align="end">
+                                {formatFullDate(ord.orderDate)}
+                              </TooltipContent>
+                            </Tooltip>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* 4. Footer Tabel: Info Data & Pagination Client-side 10 per halaman */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-muted-foreground pt-2 px-1">
+              <div>
+                Menampilkan{' '}
+                <span className="font-semibold text-foreground">
+                  {filtered.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}
+                </span>{' '}
+                -{' '}
+                <span className="font-semibold text-foreground">
+                  {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)}
+                </span>{' '}
+                dari <span className="font-semibold text-foreground">{filtered.length}</span> pesanan
+              </div>
+
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <span className="text-xs text-muted-foreground">
+                  Hal <strong className="text-foreground">{currentPage}</strong>/{totalPages}
+                </span>
+
+                <div className="flex items-center gap-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage <= 1}
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className="h-8 w-8 p-0 cursor-pointer rounded-lg disabled:opacity-40"
+                    title="Halaman Sebelumnya"
                   >
-                    {ord.fulfilmentStatus === 'waiting' && (
-                      <>
-                        <Clock className="w-3.5 h-3.5" /> Menunggu Dikemas
-                      </>
-                    )}
-                    {ord.fulfilmentStatus === 'processing' && (
-                      <>
-                        <Package className="w-3.5 h-3.5" /> Sedang Dikemas
-                      </>
-                    )}
-                    {ord.fulfilmentStatus === 'shipped' && (
-                      <>
-                        <Truck className="w-3.5 h-3.5" /> Sedang Dikirim
-                      </>
-                    )}
-                    {ord.fulfilmentStatus === 'completed' && (
-                      <>
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Selesai
-                      </>
-                    )}
-                  </span>
-                </div>
+                    <ChevronLeft className="w-4 h-4" />
+                  </Button>
 
-                {/* Konten Utama Pesanan: Produk & Rincian Finansial */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-start">
-                  {/* Info Barang (Col 1-7) */}
-                  <div className="md:col-span-7 flex items-start gap-3.5 min-w-0">
-                    <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-muted shrink-0 border border-border">
-                      <Image
-                        src={coverImage}
-                        alt={ord.title}
-                        fill
-                        sizes="64px"
-                        className="object-cover object-center"
-                      />
-                    </div>
-
-                    <div className="space-y-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            isPhysical
-                              ? 'bg-blue-50 text-blue-700 dark:bg-blue-950/60 dark:text-blue-400'
-                              : 'bg-purple-50 text-purple-700 dark:bg-purple-950/60 dark:text-purple-400'
-                          }`}
-                        >
-                          {isPhysical ? 'Fisik' : 'Digital'}
-                        </span>
-                        <h2 className="text-xs sm:text-sm font-bold text-foreground truncate">
-                          {ord.title}
-                        </h2>
-                      </div>
-
-                      <p className="text-xs text-muted-foreground">
-                        {ord.qty} x {formatPrice(ord.price)} ={' '}
-                        <strong className="text-foreground">{formatPrice(ord.price * ord.qty)}</strong>
-                      </p>
-
-                      {/* Catatan Pembeli jika ada */}
-                      {ord.buyerNote && (
-                        <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[11px] text-amber-800 dark:text-amber-300 flex items-start gap-1.5 mt-1.5">
-                          <MessageSquare className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
-                          <span>
-                            <strong>Catatan Pembeli:</strong> {ord.buyerNote}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Info Pembeli & Alamat (Col 8-12) */}
-                  <div className="md:col-span-5 p-3 rounded-xl bg-muted/30 border border-border/60 text-xs space-y-1.5">
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-muted-foreground">Pembeli:</span>
-                      <span className="font-bold text-foreground">
-                        {ord.buyer?.name || 'Pelanggan'}
-                      </span>
-                    </div>
-
-                    {isPhysical && (
-                      <div className="space-y-0.5 pt-1 border-t border-border/40 text-[11px]">
-                        <span className="text-muted-foreground flex items-center gap-1">
-                          <MapPin className="w-3 h-3 text-[#00a699]" /> Alamat Pengiriman:
-                        </span>
-                        <p className="text-foreground leading-snug">
-                          {shipping.recipientName || 'Penerima'} ({shipping.phone || '-'})
-                          <br />
-                          {shipping.addressLine || '-'}, {shipping.city || ''} {shipping.province || ''}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-[11px] pt-1 border-t border-border/40">
-                      <span className="text-muted-foreground">Pendapatan Bersih Toko:</span>
-                      <span className="font-extrabold text-[#00a699]">
-                        {formatPrice(ord.netAmount)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Footer Resi & Action Buttons */}
-                <div className="pt-3 border-t border-border/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  {/* Resi Kurir */}
-                  <div>
-                    {ord.trackingNumber ? (
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="text-muted-foreground">No. Resi Pengiriman:</span>
-                        <span className="font-mono font-bold text-foreground bg-muted/60 px-2 py-0.5 rounded border border-border">
-                          {ord.trackingNumber}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyResi(ord.trackingNumber)}
-                          className="text-[#00a699] hover:underline cursor-pointer"
-                          title="Salin Resi"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-muted-foreground">
-                        {isPhysical
-                          ? 'Belum ada nomor resi pengiriman yang dimasukkan.'
-                          : 'Produk digital terkirim instan ke halaman My Downloads pembeli.'}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Tombol Aksi Fulfilment */}
-                  <div className="flex items-center gap-2 self-end sm:self-auto">
-                    {/* Kemas Pesanan (waiting -> processing) */}
-                    {ord.fulfilmentStatus === 'waiting' && isPhysical && (
-                      <button
-                        type="button"
-                        disabled={loadingItemId === ord.id}
-                        onClick={() => handleUpdateStatus(ord.id, 'processing')}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60"
-                      >
-                        {loadingItemId === ord.id ? (
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : (
-                          <Package className="w-3.5 h-3.5" />
-                        )}
-                        Kemas Pesanan
-                      </button>
-                    )}
-
-                    {/* Kirim Pesanan & Input Resi (processing/waiting -> shipped) */}
-                    {(ord.fulfilmentStatus === 'processing' ||
-                      (ord.fulfilmentStatus === 'waiting' && isPhysical)) && (
-                      <button
-                        type="button"
-                        disabled={loadingItemId === ord.id}
-                        onClick={() =>
-                          setActiveTrackingModal({ itemId: ord.id, title: ord.title })
-                        }
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-60"
-                      >
-                        <Truck className="w-3.5 h-3.5" />
-                        Input Resi & Kirim
-                      </button>
-                    )}
-
-                    {ord.fulfilmentStatus === 'shipped' && (
-                      <span className="text-xs text-muted-foreground italic">
-                        Menunggu konfirmasi penerimaan pembeli...
-                      </span>
-                    )}
-
-                    {ord.fulfilmentStatus === 'completed' && (
-                      <span className="text-xs text-emerald-600 font-bold flex items-center gap-1">
-                        <CheckCircle2 className="w-3.5 h-3.5" /> Transaksi Selesai
-                      </span>
-                    )}
-                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={currentPage >= totalPages}
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className="h-8 w-8 p-0 cursor-pointer rounded-lg disabled:opacity-40"
+                    title="Halaman Berikutnya"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
                 </div>
               </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* MODAL INPUT RESI PENGIRIMAN */}
-      {activeTrackingModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
-          <div className="bg-card border border-border w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
-            <div className="space-y-1">
-              <h2 className="text-base font-bold text-foreground flex items-center gap-2">
-                <Truck className="w-4 h-4 text-[#00a699]" />
-                Input Nomor Resi Pengiriman
-              </h2>
-              <p className="text-xs text-muted-foreground line-clamp-1">
-                Produk: {activeTrackingModal.title}
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-xs font-bold text-foreground">
-                Nomor Resi / Pelacakan Kurir <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type="text"
-                autoFocus
-                value={inputResi}
-                onChange={(e) => setInputResi(e.target.value)}
-                placeholder="Contoh: JNE-9876543210 atau SIC-00123"
-                className="w-full h-10 px-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699]"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Nomor resi ini akan langsung dapat dilacak oleh pembeli di halaman detail pesanan.
-              </p>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setActiveTrackingModal(null)
-                  setInputResi('')
-                }}
-                className="px-4 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted"
-              >
-                Batal
-              </button>
-              <button
-                type="button"
-                disabled={!inputResi.trim() || loadingItemId !== null}
-                onClick={() =>
-                  handleUpdateStatus(activeTrackingModal.itemId, 'shipped', inputResi.trim())
-                }
-                className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
-              >
-                {loadingItemId ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                )}
-                Simpan & Tandai Dikirim
-              </button>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+        {/* DIALOG KONFIRMASI TOLAK PESANAN */}
+        {rejectModalOrder && (
+          <Dialog
+            open={Boolean(rejectModalOrder)}
+            onOpenChange={(open) => {
+              if (!open) {
+                setRejectModalOrder(null)
+                setRejectReason('')
+              }
+            }}
+          >
+            <DialogContent className="sm:max-w-md p-6 space-y-4">
+              <DialogHeader>
+                <DialogTitle className="text-base font-bold text-foreground flex items-center gap-2 text-rose-600">
+                  <AlertTriangle className="w-5 h-5 text-rose-600" />
+                  Tolak Pesanan Ini?
+                </DialogTitle>
+              </DialogHeader>
+
+              <div className="space-y-3 text-xs">
+                <p className="text-muted-foreground leading-relaxed">
+                  Pesanan <strong className="text-foreground font-mono">{rejectModalOrder.invoiceNumber || rejectModalOrder.orderCode}</strong>{' '}
+                  untuk produk <strong className="text-foreground">{rejectModalOrder.title}</strong> akan dibatalkan, dan pembayaran sebesar{' '}
+                  <strong className="text-rose-600 font-bold">{formatPrice(rejectModalOrder.price * rejectModalOrder.qty)}</strong>{' '}
+                  akan secara otomatis direfund kembali ke akun pembeli.
+                </p>
+
+                <div className="space-y-1.5 pt-1">
+                  <label className="font-semibold text-foreground block">
+                    Alasan Penolakan (Opsional):
+                  </label>
+                  <input
+                    type="text"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    placeholder="Contoh: Stok barang habis / Toko sedang libur"
+                    className="w-full h-9 px-3 text-xs bg-background border border-border rounded-lg focus:outline-none focus:border-rose-500 focus:ring-1 focus:ring-rose-500"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="flex flex-row items-center justify-end gap-2 pt-3 border-t border-border/60">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={loadingItemId !== null}
+                  onClick={() => {
+                    setRejectModalOrder(null)
+                    setRejectReason('')
+                  }}
+                  className="text-xs cursor-pointer h-9 px-4 rounded-xl"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  disabled={loadingItemId !== null}
+                  onClick={handleRejectOrder}
+                  className="text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white cursor-pointer h-9 px-5 rounded-xl shadow-xs"
+                >
+                  {loadingItemId ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                  ) : null}
+                  Tolak & Refund
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
+
+        {/* DIALOG MODAL FILTER PESANAN */}
+        <Dialog open={isFilterModalOpen} onOpenChange={setIsFilterModalOpen}>
+          <DialogContent className="sm:max-w-md p-6 space-y-5">
+            <DialogHeader>
+              <DialogTitle className="text-base font-bold text-foreground">
+                Filter Pesanan
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3">
+              <label className="text-xs font-bold text-foreground block">
+                Status Pesanan
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {STATUS_OPTIONS.map((opt) => {
+                  const isSelected = tempStatusFilter === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => setTempStatusFilter(opt.id)}
+                      className={`px-3.5 py-2 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-[#00a699] text-white border-[#00a699] shadow-xs'
+                          : 'bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground border-border/80'
+                      }`}
+                    >
+                      {opt.label} ({opt.count})
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <DialogFooter className="flex flex-row items-center justify-between sm:justify-between gap-2 pt-3 border-t border-border/60">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setTempStatusFilter('all')}
+                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer px-2"
+              >
+                Reset
+              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsFilterModalOpen(false)}
+                  className="text-xs cursor-pointer h-9 px-4 rounded-xl"
+                >
+                  Batal
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(tempStatusFilter)
+                    setCurrentPage(1)
+                    setIsFilterModalOpen(false)
+                  }}
+                  className="text-xs font-bold bg-[#00a699] hover:bg-[#008f84] text-white cursor-pointer h-9 px-5 rounded-xl shadow-xs"
+                >
+                  Terapkan
+                </Button>
+              </div>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* MODAL INPUT RESI PENGIRIMAN */}
+        {activeTrackingModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-150">
+            <div className="bg-card border border-border w-full max-w-md rounded-2xl shadow-2xl p-6 space-y-4">
+              <div className="space-y-1">
+                <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#00a699]" />
+                  Input Nomor Resi Pengiriman
+                </h2>
+                <p className="text-xs text-muted-foreground line-clamp-1">
+                  Produk: {activeTrackingModal.title}
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-foreground">
+                  Nomor Resi / Pelacakan Kurir <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  autoFocus
+                  value={inputResi}
+                  onChange={(e) => setInputResi(e.target.value)}
+                  placeholder="Contoh: JNE-9876543210 atau SIC-00123"
+                  className="w-full h-10 px-3.5 text-xs font-mono font-bold bg-background border border-border rounded-lg focus:outline-none focus:border-[#00a699] focus:ring-1 focus:ring-[#00a699]"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Nomor resi ini akan langsung dapat dilacak oleh pembeli di halaman detail pesanan.
+                </p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveTrackingModal(null)
+                    setInputResi('')
+                  }}
+                  className="px-4 py-2 rounded-lg border border-border text-xs font-semibold text-foreground hover:bg-muted cursor-pointer"
+                >
+                  Batal
+                </button>
+                <button
+                  type="button"
+                  disabled={!inputResi.trim() || loadingItemId !== null}
+                  onClick={() =>
+                    handleUpdateStatus(activeTrackingModal.itemId, 'shipped', inputResi.trim())
+                  }
+                  className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-[#00a699] hover:bg-[#008f84] text-white text-xs font-bold transition-all shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {loadingItemId ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                  )}
+                  Simpan & Tandai Dikirim
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </TooltipProvider>
   )
 }

@@ -21,6 +21,16 @@ export interface ShopMetadata {
   bank_account_holder?: string
   moderator_notes?: string
   verified_at?: string
+  balance?: number
+  ledger?: Array<{
+    id: string
+    type: 'credit' | 'debit'
+    amount: number
+    description: string
+    orderId?: string
+    itemId?: string
+    createdAt: string
+  }>
 }
 
 export type ProductType = 'physical' | 'digital'

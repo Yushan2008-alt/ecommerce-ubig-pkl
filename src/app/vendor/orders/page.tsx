@@ -4,7 +4,7 @@ import { VendorOrdersClient } from '@/components/vendor/vendor-orders-client'
 import { AlertCircle } from 'lucide-react'
 
 export const metadata = {
-  title: 'Pesanan Masuk | Krafita',
+  title: 'Pesanan | Krafita',
 }
 
 interface VendorOrdersPageProps {
@@ -16,7 +16,8 @@ export default async function VendorOrdersPage({ searchParams }: VendorOrdersPag
   const initialStatus = typeof params.status === 'string' ? params.status : 'all'
   const initialSearch = typeof params.q === 'string' ? params.q : typeof params.code === 'string' ? params.code : ''
 
-  const res = await getVendorOrdersAction(initialStatus !== 'all' ? initialStatus : 'all')
+  // Ambil seluruh pesanan toko agar filter status dan jumlah count akurat di client
+  const res = await getVendorOrdersAction('all')
 
   if (!res.success || !res.orders) {
     return (
@@ -24,7 +25,7 @@ export default async function VendorOrdersPage({ searchParams }: VendorOrdersPag
         <AlertCircle className="w-10 h-10 text-destructive mx-auto mb-2" />
         <h1 className="text-base font-bold text-foreground">Gagal Memuat Pesanan</h1>
         <p className="text-xs text-muted-foreground mt-1">
-          {res.error || 'Terjadi kesalahan sistem saat memuat pesanan masuk toko Anda.'}
+          {res.error || 'Terjadi kesalahan sistem saat memuat pesanan toko Anda.'}
         </p>
       </div>
     )

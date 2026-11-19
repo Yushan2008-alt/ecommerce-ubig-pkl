@@ -95,7 +95,7 @@ export function formatTimeAgo(dateInput: string | number | Date | null | undefin
 
   const diffInMinutes = Math.floor(diffInSeconds / 60)
   if (diffInMinutes < 60) {
-    return `${diffInMinutes} menit yang lalu`
+    return `${diffInMinutes} menit lalu`
   }
 
   const diffInHours = Math.floor(diffInSeconds / 3600)
@@ -121,4 +121,55 @@ export function formatTimeAgo(dateInput: string | number | Date | null | undefin
   const diffInYears = Math.floor(diffInDays / 365)
   return `${Math.max(1, diffInYears)} tahun lalu`
 }
+
+/**
+ * Memformat tanggal menjadi format tanggal dan waktu lengkap Bahasa Indonesia.
+ * Contoh: "18 November 2026, 21.52"
+ */
+export function formatFullDate(dateInput: string | number | Date | null | undefined): string {
+  if (!dateInput) return '-'
+
+  const date = typeof dateInput === 'object' && dateInput instanceof Date ? dateInput : new Date(dateInput)
+  if (isNaN(date.getTime())) return '-'
+
+  const day = date.getDate()
+  const months = [
+    'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+    'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+  ]
+  const month = months[date.getMonth()]
+  const year = date.getFullYear()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+
+  return `${day} ${month} ${year}, ${hours}.${minutes}`
+}
+
+/**
+ * Memformat kode pesanan menjadi nomor invoice standar (contoh: INV-2026-XXXXX)
+ */
+export function formatOrderInvoice(
+  code: string | undefined | null,
+  createdAt?: string,
+  fallbackId?: string
+): string {
+  const year = createdAt ? new Date(createdAt).getFullYear() : 2026
+  const fallbackSuffix = fallbackId ? fallbackId.replace(/-/g, '').slice(0, 6).toUpperCase() : '00001'
+
+  if (!code || code === '-' || code.trim() === '') {
+    return `INV-${year}-${fallbackSuffix}`
+  }
+  if (code.startsWith('INV-')) return code
+
+  const clean = code.replace(/^[#A-Za-z]+-/, '').trim()
+  if (!clean) {
+    return `INV-${year}-${fallbackSuffix}`
+  }
+
+  const parts = clean.split('-').filter(Boolean)
+  const suffix = parts.length > 0 ? parts[parts.length - 1] : clean.slice(-6)
+  const finalSuffix = (suffix || fallbackSuffix).toUpperCase()
+  return `INV-${year}-${finalSuffix}`
+}
+
 

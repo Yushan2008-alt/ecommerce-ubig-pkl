@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getUser } from '@/lib/auth'
 import { parseShopMetadata, serializeShopMetadata } from '@/lib/shop-helper'
 import { formatAddressLine } from '@/lib/address-helper'
+import { formatOrderInvoice } from '@/lib/utils'
 import type { Database, FulfilmentStatus, ProductStatus, ProductType, ShopMetadata } from '@/types/database'
 
 type Shop = Database['public']['Tables']['shops']['Row']
@@ -1112,9 +1113,9 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
       return { success: false, error: 'Unauthorized' }
     }
 
-    const supabase = await createClient()
+    const admin = createAdminClient()
 
-    const { data: shop } = await supabase
+    const { data: shop } = await admin
       .from('shops')
       .select('id')
       .eq('profile_id', user.id)
@@ -1122,7 +1123,7 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
 
     if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
 
-    let query = supabase
+    let query = admin
       .from('order_items')
       .select(`
         *,
@@ -1135,18 +1136,13 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
         ),
         orders (
           id,
+          profile_id,
           code,
           status,
           total,
           created_at,
           paid_at,
-          shipping_address,
-          profiles (
-            id,
-            display_name,
-            phone,
-            avatar_url
-          )
+          shipping_address
         )
       `)
       .eq('shop_id', shop.id)
@@ -1160,11 +1156,229 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
 
     if (error) return { success: false, error: error.message }
 
+    // Ambil profile pembeli untuk semua orders
+    const buyerProfileIds = Array.from(
+      new Set(
+        (data || [])
+          .map((it: any) => {
+            const ord = Array.isArray(it.orders) ? it.orders[0] : it.orders
+            return ord?.profile_id
+          })
+          .filter(Boolean)
+      )
+    )
+
+    const profilesMap = new Map<string, any>()
+    if (buyerProfileIds.length > 0) {
+      const { data: profileRows } = await admin
+        .from('profiles')
+        .select('id, display_name, phone, avatar_url')
+        .in('id', buyerProfileIds)
+
+      if (profileRows) {
+        for (const p of profileRows) {
+          profilesMap.set(p.id, p)
+        }
+      }
+    }
+
     const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}/storage/v1/object/public/product-images`
 
     const formatted = (data || []).map((it: any) => {
       const order = Array.isArray(it.orders) ? it.orders[0] : it.orders
-      const buyerProfile = Array.isArray(order?.profiles) ? order.profiles[0] : order?.profiles
+      const buyerProfile = order?.profile_id ? profilesMap.get(order.profile_id) : null
+      const product = Array.isArray(it.products) ? it.products[0] : it.products
+      const rawImages = Array.isArray(product?.product_images)
+        ? [...product.product_images]
+        : product?.product_images
+        ? [product.product_images]
+        : []
+
+      rawImages.sort((a: any, b: any) => (a?.sort_order ?? 0) - (b?.sort_order ?? 0))
+      const primaryPath = rawImages[0]?.path || null
+
+      let imageUrl: string | null = null
+      if (primaryPath) {
+        if (primaryPath.startsWith('http://') || primaryPath.startsWith('https://') || primaryPath.startsWith('/')) {
+          imageUrl = primaryPath
+        } else if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          imageUrl = `${storageBaseUrl}/${primaryPath.replace(/^product-images\//, '')}`
+        } else {
+          imageUrl = primaryPath
+        }
+      }
+
+      const shippingAddr = (order?.shipping_address as any) || {}
+      const orderRawCode = order?.code || '-'
+      const invoiceNumber = formatOrderInvoice(orderRawCode, order?.created_at || it.created_at, it.id)
+      const buyerName =
+        buyerProfile?.display_name ||
+        shippingAddr.recipientName ||
+        shippingAddr.recipient_name ||
+        shippingAddr.name ||
+        'Pembeli'
+      const buyerPhone = buyerProfile?.phone || shippingAddr.phone || '-'
+
+      return {
+        id: it.id,
+        orderId: it.order_id,
+        orderCode: orderRawCode,
+        invoiceNumber,
+        orderStatus: order?.status || 'pending_payment',
+        orderDate: it.created_at || order?.created_at,
+        paidAt: order?.paid_at,
+        title: it.title,
+        price: Number(it.price),
+        qty: it.qty,
+        shippingCost: Number(it.shipping_cost || 0),
+        netAmount: Number(it.net_amount || (Number(it.price) * Number(it.qty))),
+        commissionAmount: Number(it.commission_amount || 0),
+        buyerNote: it.buyer_note || shippingAddr.buyerNote || null,
+        fulfilmentStatus: it.fulfilment_status as FulfilmentStatus,
+        trackingNumber: it.tracking_number,
+        productType: product?.type || 'physical',
+        productSlug: product?.slug,
+        imageUrl,
+        shippingAddress: shippingAddr,
+        buyer: {
+          id: buyerProfile?.id || order?.profile_id,
+          name: buyerName,
+          phone: buyerPhone,
+          avatar: buyerProfile?.avatar_url || null,
+          email: shippingAddr.email || null,
+        },
+      }
+    })
+
+    return { success: true, orders: formatted }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Gagal memuat pesanan masuk'
+    return { success: false, error: msg }
+  }
+}
+
+/**
+ * 7b. GET VENDOR ORDER DETAIL
+ * Mengambil data rincian satu pesanan untuk vendor.
+ * Mendukung pencarian berdasarkan order_id (id orders) maupun item_id (id order_items).
+ */
+export async function getVendorOrderDetailAction(id: string): Promise<{
+  success: boolean
+  order?: any
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user || profile?.role !== 'vendor') {
+      return { success: false, error: 'Unauthorized' }
+    }
+
+    const admin = createAdminClient()
+
+    const { data: shop } = await admin
+      .from('shops')
+      .select('id, name, slug')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
+
+    let targetOrderId = id
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)
+
+    if (isUuid) {
+      // Cek apakah parameter `id` merupakan order_items.id milik toko ini
+      const { data: itemMatch } = await admin
+        .from('order_items')
+        .select('order_id')
+        .eq('id', id)
+        .eq('shop_id', shop.id)
+        .maybeSingle()
+
+      targetOrderId = itemMatch ? itemMatch.order_id : id
+    } else {
+      // 1. Cek langsung kecocokan order code (contoh: ORD-20261119-XXXX)
+      const { data: orderByCode } = await admin
+        .from('orders')
+        .select('id')
+        .eq('code', id)
+        .maybeSingle()
+
+      if (orderByCode) {
+        targetOrderId = orderByCode.id
+      } else {
+        // 2. Cek kecocokan jika input berupa format invoice (contoh: INV-2026-XXXXX)
+        const cleanSuffix = id.replace(/^INV-\d+-/i, '').replace(/^[#A-Za-z]+-/, '')
+        const { data: ordersWithSuffix } = await admin
+          .from('orders')
+          .select('id, code')
+          .ilike('code', `%${cleanSuffix}%`)
+          .limit(1)
+
+        if (ordersWithSuffix && ordersWithSuffix.length > 0) {
+          targetOrderId = ordersWithSuffix[0].id
+        } else {
+          return { success: false, error: 'Pesanan tidak ditemukan' }
+        }
+      }
+    }
+
+    // Ambil order utama
+    const { data: order, error: orderErr } = await admin
+      .from('orders')
+      .select('*')
+      .eq('id', targetOrderId)
+      .maybeSingle()
+
+    if (orderErr || !order) {
+      return { success: false, error: 'Pesanan tidak ditemukan' }
+    }
+
+    // Ambil profile pembeli
+    let buyerProfile = null
+    if (order.profile_id) {
+      const { data: pData } = await admin
+        .from('profiles')
+        .select('id, display_name, phone, avatar_url')
+        .eq('id', order.profile_id)
+        .maybeSingle()
+      buyerProfile = pData
+    }
+
+    // Ambil log pembayaran
+    const { data: payments } = await admin
+      .from('payments')
+      .select('id, payment_type, midtrans_status, gross_amount, created_at')
+      .eq('order_id', targetOrderId)
+      .order('created_at', { ascending: false })
+
+    // Ambil items milik toko ini
+    const { data: items, error: itemsErr } = await admin
+      .from('order_items')
+      .select(`
+        *,
+        products (
+          id,
+          title,
+          type,
+          slug,
+          product_images (path, sort_order)
+        )
+      `)
+      .eq('order_id', targetOrderId)
+      .eq('shop_id', shop.id)
+
+    if (itemsErr) {
+      return { success: false, error: itemsErr.message }
+    }
+
+    if (!items || items.length === 0) {
+      return { success: false, error: 'Pesanan tidak ditemukan untuk toko Anda' }
+    }
+
+    const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}/storage/v1/object/public/product-images`
+
+    const formattedItems = (items || []).map((it: any) => {
       const product = Array.isArray(it.products) ? it.products[0] : it.products
       const rawImages = Array.isArray(product?.product_images)
         ? [...product.product_images]
@@ -1189,33 +1403,53 @@ export async function getVendorOrdersAction(filterStatus?: string): Promise<{
       return {
         id: it.id,
         orderId: it.order_id,
-        orderCode: order?.code || '-',
-        orderStatus: order?.status || 'pending_payment',
-        orderDate: it.created_at,
-        paidAt: order?.paid_at,
         title: it.title,
         price: Number(it.price),
         qty: it.qty,
-        netAmount: Number(it.net_amount),
-        commissionAmount: Number(it.commission_amount),
+        shippingCost: Number(it.shipping_cost || 0),
+        netAmount: Number(it.net_amount || (Number(it.price) * Number(it.qty))),
+        commissionAmount: Number(it.commission_amount || 0),
         buyerNote: it.buyer_note,
         fulfilmentStatus: it.fulfilment_status as FulfilmentStatus,
         trackingNumber: it.tracking_number,
         productType: product?.type || 'physical',
         productSlug: product?.slug,
         imageUrl,
-        shippingAddress: order?.shipping_address || {},
-        buyer: {
-          name: buyerProfile?.display_name || 'Pembeli',
-          phone: buyerProfile?.phone || '-',
-          avatar: buyerProfile?.avatar_url,
-        },
       }
     })
 
-    return { success: true, orders: formatted }
+    const shipping = (order.shipping_address as any) || {}
+    const invoiceNumber = formatOrderInvoice(order.code, order.created_at, order.id)
+    const latestPayment = payments && payments.length > 0 ? payments[0] : null
+
+    return {
+      success: true,
+      order: {
+        id: order.id,
+        code: order.code,
+        invoiceNumber,
+        status: order.status,
+        total: order.total,
+        createdAt: order.created_at,
+        paidAt: order.paid_at,
+        shippingAddress: shipping,
+        buyer: {
+          id: buyerProfile?.id || order.profile_id,
+          name: buyerProfile?.display_name || shipping.recipientName || 'Pembeli',
+          phone: buyerProfile?.phone || shipping.phone || '-',
+          avatar: buyerProfile?.avatar_url || null,
+          email: shipping.email || null,
+        },
+        payment: {
+          paymentType: latestPayment?.payment_type || 'Pembayaran Otomatis Midtrans',
+          status: latestPayment?.midtrans_status || order.status,
+          paidAt: order.paid_at || order.created_at,
+        },
+        items: formattedItems,
+      },
+    }
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Gagal memuat pesanan masuk'
+    const msg = err instanceof Error ? err.message : 'Gagal memuat rincian pesanan'
     return { success: false, error: msg }
   }
 }
@@ -1237,14 +1471,29 @@ export async function updateVendorFulfilmentAction(
       return { success: false, error: 'Unauthorized' }
     }
 
-    const supabase = await createClient()
+    const admin = createAdminClient()
 
-    // Jalankan RPC vendor_update_fulfilment
-    const { data, error } = await supabase.rpc('vendor_update_fulfilment', {
-      p_item_id: itemId,
-      p_status: status,
-      p_tracking: trackingNumber?.trim() || null,
-    })
+    const { data: shop } = await admin
+      .from('shops')
+      .select('id')
+      .eq('profile_id', user.id)
+      .single()
+
+    if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
+
+    const updatePayload: { fulfilment_status: FulfilmentStatus; updated_at: string; tracking_number?: string | null } = {
+      fulfilment_status: status,
+      updated_at: new Date().toISOString(),
+    }
+    if (trackingNumber !== undefined) {
+      updatePayload.tracking_number = trackingNumber.trim() || null
+    }
+
+    const { error } = await admin
+      .from('order_items')
+      .update(updatePayload)
+      .eq('id', itemId)
+      .eq('shop_id', shop.id)
 
     if (error) {
       return { success: false, error: error.message || 'Gagal memperbarui status pengiriman' }
@@ -1254,7 +1503,277 @@ export async function updateVendorFulfilmentAction(
     revalidatePath('/vendor')
     revalidatePath('/orders')
 
-    return { success: Boolean(data) }
+    return { success: true }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem'
+    return { success: false, error: msg }
+  }
+}
+
+/**
+ * 8b. TERIMA PESANAN VENDOR (Status waiting -> processing + Saldo masuk kantong toko vendor)
+ */
+export async function acceptVendorOrderAction(itemId: string): Promise<{
+  success: boolean
+  creditedAmount?: number
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user || profile?.role !== 'vendor') {
+      return { success: false, error: 'Unauthorized: Vendor only' }
+    }
+
+    const admin = createAdminClient()
+
+    // Ambil data toko vendor
+    const { data: shop } = await admin
+      .from('shops')
+      .select('id, name, description')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
+
+    // Ambil order_item
+    const { data: item, error: itemErr } = await admin
+      .from('order_items')
+      .select('id, order_id, title, price, qty, net_amount, fulfilment_status, orders(code, status)')
+      .eq('id', itemId)
+      .eq('shop_id', shop.id)
+      .maybeSingle()
+
+    if (itemErr || !item) {
+      return { success: false, error: 'Item pesanan tidak ditemukan' }
+    }
+
+    const orderData = Array.isArray(item.orders) ? item.orders[0] : item.orders
+    if (orderData?.status === 'cancelled') {
+      return { success: false, error: 'Pesanan telah dibatalkan oleh sistem atau pembeli' }
+    }
+
+    if (item.fulfilment_status !== 'waiting') {
+      return {
+        success: false,
+        error: `Pesanan tidak dapat diterima karena status saat ini adalah: ${item.fulfilment_status}`,
+      }
+    }
+
+    // 1. Update status order_item menjadi processing (Sedang Dikemas)
+    const { error: updateErr } = await admin
+      .from('order_items')
+      .update({
+        fulfilment_status: 'processing',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', itemId)
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message || 'Gagal memperbarui status pesanan' }
+    }
+
+    // 2. Hitung nominal yang masuk ke dompet vendor (net_amount atau subtotal)
+    const orderCode = orderData?.code || item.order_id.slice(0, 8)
+    const creditedAmount = Number(item.net_amount || (Number(item.price) * Number(item.qty)))
+
+    // 3. Catat mutasi kredit ke metadata saldo toko vendor (shops.description.balance & ledger)
+    const currentMeta = parseShopMetadata(shop.description)
+    const currentBalance = Number(currentMeta.balance || 0)
+    const newBalance = currentBalance + creditedAmount
+
+    const invoiceCode = formatOrderInvoice(orderCode, new Date().toISOString(), item.id)
+    const ledgerEntry = {
+      id: `TX-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      type: 'credit' as const,
+      amount: creditedAmount,
+      description: `Penerimaan pesanan ${invoiceCode} (${item.title})`,
+      orderId: item.order_id,
+      itemId: item.id,
+      createdAt: new Date().toISOString(),
+    }
+
+    const currentLedger = Array.isArray(currentMeta.ledger) ? currentMeta.ledger : []
+    const updatedLedger = [ledgerEntry, ...currentLedger]
+
+    const updatedMeta: ShopMetadata = {
+      ...currentMeta,
+      balance: newBalance,
+      ledger: updatedLedger,
+    }
+
+    await admin
+      .from('shops')
+      .update({
+        description: serializeShopMetadata(updatedMeta),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', shop.id)
+
+    revalidatePath('/vendor/orders')
+    revalidatePath('/vendor/balance')
+    revalidatePath('/vendor')
+    revalidatePath(`/vendor/orders/${item.order_id}`)
+    revalidatePath(`/vendor/orders/${item.id}`)
+
+    return { success: true, creditedAmount }
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem'
+    return { success: false, error: msg }
+  }
+}
+
+/**
+ * 8c. TOLAK PESANAN VENDOR (Status waiting -> cancelled + Refund otomatis)
+ */
+export async function rejectVendorOrderAction(
+  itemId: string,
+  reason?: string
+): Promise<{
+  success: boolean
+  refundAmount?: number
+  error?: string
+}> {
+  try {
+    const { user, profile } = await getUser()
+    if (!user || profile?.role !== 'vendor') {
+      return { success: false, error: 'Unauthorized: Vendor only' }
+    }
+
+    const admin = createAdminClient()
+
+    // Ambil data toko vendor
+    const { data: shop } = await admin
+      .from('shops')
+      .select('id, name, description')
+      .eq('profile_id', user.id)
+      .maybeSingle()
+
+    if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
+
+    // Ambil order_item beserta detail produk
+    const { data: item, error: itemErr } = await admin
+      .from('order_items')
+      .select('id, order_id, product_id, title, price, qty, net_amount, fulfilment_status, products(id, type, stock), orders(id, code, status)')
+      .eq('id', itemId)
+      .eq('shop_id', shop.id)
+      .maybeSingle()
+
+    if (itemErr || !item) {
+      return { success: false, error: 'Item pesanan tidak ditemukan' }
+    }
+
+    if (item.fulfilment_status === 'cancelled') {
+      return { success: false, error: 'Pesanan sudah dibatalkan sebelumnya.' }
+    }
+
+    if (item.fulfilment_status === 'shipped' || item.fulfilment_status === 'completed') {
+      return { success: false, error: 'Pesanan yang sedang dikirim atau sudah selesai tidak dapat ditolak.' }
+    }
+
+    // 1. Jika pesanan sebelumnya sempat berstatus processing (saldo sudah masuk), tarik saldo kembali
+    if (item.fulfilment_status === 'processing') {
+      const netAmount = Number(item.net_amount || (Number(item.price) * Number(item.qty)))
+      const currentMeta = parseShopMetadata(shop.description)
+      const currentBalance = Number(currentMeta.balance || 0)
+      const newBalance = Math.max(0, currentBalance - netAmount)
+
+      const orderData = Array.isArray(item.orders) ? item.orders[0] : item.orders
+      const orderCode = orderData?.code || item.order_id.slice(0, 8)
+      const invoiceCode = formatOrderInvoice(orderCode, new Date().toISOString(), item.id)
+
+      const debitLedgerEntry = {
+        id: `TX-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        type: 'debit' as const,
+        amount: netAmount,
+        description: `Pembatalan/Tolak pesanan ${invoiceCode} (${item.title})`,
+        orderId: item.order_id,
+        itemId: item.id,
+        createdAt: new Date().toISOString(),
+      }
+
+      const currentLedger = Array.isArray(currentMeta.ledger) ? currentMeta.ledger : []
+      const updatedMeta: ShopMetadata = {
+        ...currentMeta,
+        balance: newBalance,
+        ledger: [debitLedgerEntry, ...currentLedger],
+      }
+
+      await admin
+        .from('shops')
+        .update({
+          description: serializeShopMetadata(updatedMeta),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', shop.id)
+    }
+
+    // 2. Update status order_item menjadi cancelled
+    const { error: cancelErr } = await admin
+      .from('order_items')
+      .update({
+        fulfilment_status: 'cancelled',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', itemId)
+
+    if (cancelErr) {
+      return { success: false, error: cancelErr.message || 'Gagal membatalkan pesanan' }
+    }
+
+    // 3. Kembalikan stok produk jika produk fisik
+    const product = Array.isArray(item.products) ? item.products[0] : item.products
+    if (product && product.type === 'physical' && typeof product.stock === 'number') {
+      await admin
+        .from('products')
+        .update({
+          stock: product.stock + Number(item.qty),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', product.id)
+    }
+
+    // 4. Catat transaksi refund otomatis di tabel payments
+    const refundAmount = Number(item.price) * Number(item.qty)
+
+    await admin.from('payments').insert({
+      order_id: item.order_id,
+      payment_type: 'refund',
+      midtrans_status: 'refund',
+      gross_amount: refundAmount,
+      raw: {
+        type: 'auto_refund',
+        item_id: item.id,
+        reason: reason || 'Pesanan ditolak oleh penjual (stok habis / toko tutup sementara)',
+        status: 'refund_processed',
+        timestamp: new Date().toISOString(),
+      },
+      signature_valid: true,
+    })
+
+    // 5. Jika seluruh item dalam order ini berstatus cancelled, update order status ke cancelled
+    const { data: remainingItems } = await admin
+      .from('order_items')
+      .select('id, fulfilment_status')
+      .eq('order_id', item.order_id)
+
+    const allCancelled = (remainingItems || []).every((it) => it.fulfilment_status === 'cancelled')
+    if (allCancelled) {
+      await admin
+        .from('orders')
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', item.order_id)
+    }
+
+    revalidatePath('/vendor/orders')
+    revalidatePath('/vendor')
+    revalidatePath('/orders')
+    revalidatePath(`/vendor/orders/${item.order_id}`)
+    revalidatePath(`/vendor/orders/${item.id}`)
+
+    return { success: true, refundAmount }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem'
     return { success: false, error: msg }
@@ -1286,9 +1805,9 @@ export async function getVendorBalanceDataAction(): Promise<{
       return { success: false, error: 'Unauthorized' }
     }
 
-    const supabase = await createClient()
+    const admin = createAdminClient()
 
-    const { data: shop } = await supabase
+    const { data: shop } = await admin
       .from('shops')
       .select('*')
       .eq('profile_id', user.id)
@@ -1296,20 +1815,20 @@ export async function getVendorBalanceDataAction(): Promise<{
 
     if (!shop) return { success: false, error: 'Toko tidak ditemukan' }
 
-    // Hitung total completed net_amount
-    const { data: completedItems } = await supabase
+    // Hitung total pesanan diterima (processing, shipped, completed)
+    const { data: activeItems } = await admin
       .from('order_items')
-      .select('net_amount')
+      .select('net_amount, fulfilment_status')
       .eq('shop_id', shop.id)
-      .eq('fulfilment_status', 'completed')
+      .in('fulfilment_status', ['processing', 'shipped', 'completed'])
 
-    const totalNetCompleted = (completedItems || []).reduce(
+    const totalNetCompleted = (activeItems || []).reduce(
       (acc, it) => acc + Number(it.net_amount || 0),
       0
     )
 
     // Ambil daftar permohonan penarikan dana
-    const { data: payouts } = await supabase
+    const { data: payouts } = await admin
       .from('payout_requests')
       .select('*')
       .eq('shop_id', shop.id)
@@ -1321,9 +1840,10 @@ export async function getVendorBalanceDataAction(): Promise<{
       .filter((p) => p.status === 'pending' || p.status === 'paid')
       .reduce((acc, p) => acc + Number(p.amount), 0)
 
-    const availableBalance = Math.max(0, totalNetCompleted - pendingPaidPayouts)
-
     const meta = parseShopMetadata(shop.description)
+    const baseBalance = typeof meta.balance === 'number' ? meta.balance : totalNetCompleted
+    const availableBalance = Math.max(0, baseBalance - pendingPaidPayouts)
+
     const bankDetails = {
       bankName: (shop as any).bank_name || meta.bank_name || '',
       accountNo: (shop as any).bank_account_number || meta.bank_account_number || '',

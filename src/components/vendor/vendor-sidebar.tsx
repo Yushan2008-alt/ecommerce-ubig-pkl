@@ -51,7 +51,7 @@ const NAV_ITEMS = [
   },
   {
     href: '/vendor/orders',
-    label: 'Pesanan Masuk',
+    label: 'Pesanan',
     icon: ShoppingBag,
     exact: false,
   },

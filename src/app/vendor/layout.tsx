@@ -41,7 +41,7 @@ export default async function VendorLayout({
         }}
       />
       <main className="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto space-y-6">{children}</div>
+        <div className="w-full max-w-[1600px] mx-auto space-y-6">{children}</div>
       </main>
     </div>
   )
