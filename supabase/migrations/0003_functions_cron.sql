@@ -580,10 +580,10 @@ begin
     raise exception 'Anda belum memiliki toko terdaftar';
   end if;
 
-  -- Hitung total pendapatan bersih dari item yang statusnya completed
-  select coalesce(sum(net_amount), 0) into v_completed_net
+  -- Hitung total pendapatan bersih dari item yang statusnya processing, shipped, atau completed
+  select coalesce(sum(coalesce(net_amount, price * qty)), 0) into v_completed_net
   from public.order_items
-  where shop_id = v_shop_id and fulfilment_status = 'completed';
+  where shop_id = v_shop_id and fulfilment_status in ('processing', 'shipped', 'completed');
 
   -- Hitung total penarikan yang sedang pending atau sudah paid
   select coalesce(sum(amount), 0) into v_pending_paid_payouts

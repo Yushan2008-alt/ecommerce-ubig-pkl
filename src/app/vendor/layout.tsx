@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { VendorSidebar } from '@/components/vendor/vendor-sidebar'
 
 export const metadata = {
-  title: 'Dashboard Vendor — Krafita Vendor Center',
+  title: 'Dashboard | Krafita',
   description: 'Kelola produk, pantau pesanan masuk, saldo penjualan, dan pengaturan toko Krafita.',
 }
 

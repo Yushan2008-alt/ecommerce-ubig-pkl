@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -16,6 +16,7 @@ import {
   Truck,
   Loader2,
   MapPin,
+  X,
 } from 'lucide-react'
 import {
   DashboardDateFilter,
@@ -61,6 +62,23 @@ export function VendorDashboardClient({
   const router = useRouter()
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [optimisticStatusMap, setOptimisticStatusMap] = useState<Record<string, FulfilmentStatus>>({})
+  const [dismissed, setDismissed] = useState(false)
+
+  useEffect(() => {
+    try {
+      const isDismissed = localStorage.getItem(`onboarding_dismissed_${shop?.id}`)
+      if (isDismissed === 'true') {
+        setDismissed(true)
+      }
+    } catch {}
+  }, [shop?.id])
+
+  const handleDismissOnboarding = () => {
+    setDismissed(true)
+    try {
+      localStorage.setItem(`onboarding_dismissed_${shop?.id}`, 'true')
+    } catch {}
+  }
 
   // Gabungkan data pesanan terbaru dari server dengan status pemenuhan optimistik lokal
   const ordersList = useMemo(() => {
@@ -251,14 +269,24 @@ export function VendorDashboardClient({
       </div>
 
       {/* 2. CHECKLIST ONBOARDING PROGRESS */}
-      {completedCount < 4 && (
+      {completedCount < 4 && !dismissed && (
         <div className="p-5 rounded-2xl bg-gradient-to-r from-emerald-500/5 via-teal-500/5 to-primary/5 border border-[#00a699]/30 space-y-4 shadow-xs">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-xs font-extrabold text-foreground">
               <Sparkles className="w-4 h-4 text-[#00a699]" />
               <span>Lengkapi Profil Toko Anda</span>
             </div>
-            <span className="text-xs font-bold text-[#00a699]">{progressPercent}%</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#00a699]">{progressPercent}%</span>
+              <button
+                type="button"
+                onClick={handleDismissOnboarding}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-lg transition-colors cursor-pointer"
+                title="Tutup checklist onboarding"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">

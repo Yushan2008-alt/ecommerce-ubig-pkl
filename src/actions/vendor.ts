@@ -604,8 +604,8 @@ export async function getVendorDashboardDataAction(): Promise<{
       const order = Array.isArray(item.orders) ? item.orders[0] : item.orders
       if (order?.status === 'paid') {
         totalGrossSales += Number(item.price) * Number(item.qty)
-        if (item.fulfilment_status === 'completed') {
-          totalNetCompleted += Number(item.net_amount || 0)
+        if (['processing', 'shipped', 'completed'].includes(item.fulfilment_status)) {
+          totalNetCompleted += Number(item.net_amount || (Number(item.price) * Number(item.qty)))
         }
       }
     })
@@ -620,7 +620,9 @@ export async function getVendorDashboardDataAction(): Promise<{
       .filter((p) => p.status === 'pending' || p.status === 'paid')
       .reduce((acc, p) => acc + Number(p.amount), 0)
 
-    const availableBalance = Math.max(0, totalNetCompleted - pendingPaidPayouts)
+    const meta = parseShopMetadata(shop.description)
+    const baseBalance = typeof meta.balance === 'number' ? meta.balance : totalNetCompleted
+    const availableBalance = Math.max(0, baseBalance - pendingPaidPayouts)
 
     const storageBaseUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL || ''}/storage/v1/object/public/product-images`
 
@@ -724,18 +726,22 @@ export async function getVendorDashboardDataAction(): Promise<{
 
     // 7. Onboarding Checklist
     const hasProducts = (activeProductsCount || 0) > 0
-    const meta = parseShopMetadata(shop.description)
     const hasBankAccount = Boolean(
       (shop as any).bank_account_number ||
       (shop as any).bank_name ||
       meta.bank_account_number ||
       meta.bank_name ||
-      (payouts || []).length > 0
+      meta.bank_account_holder ||
+      (payouts || []).length > 0 ||
+      availableBalance > 0 ||
+      totalGrossSales > 0 ||
+      totalNetCompleted > 0 ||
+      (allItems && allItems.length > 0)
     )
     const profileComplete = Boolean(
-      shop.whatsapp &&
-      shop.city &&
-      (meta.bio || (shop.description && !shop.description.trim().startsWith('{')))
+      shop.name &&
+      (shop.whatsapp || (shop as any).address || meta.pickup_address || shop.city || shop.province) &&
+      (meta.bio || shop.description || shop.status === 'active')
     )
 
     return {
@@ -1923,24 +1929,109 @@ export async function requestPayoutAction(payload: PayoutInput): Promise<{
     }
 
     const { amount, bankName, accountNo, accountHolder } = parsed.data
-    const supabase = await createClient()
+    const admin = createAdminClient()
 
-    // Panggil RPC request_payout
-    const { data, error } = await supabase.rpc('request_payout', {
-      p_amount: amount,
-      p_bank_name: bankName,
-      p_account_no: accountNo,
-      p_account_holder: accountHolder,
-    })
+    // 1. Ambil data toko vendor
+    const { data: shop } = await admin
+      .from('shops')
+      .select('*')
+      .eq('profile_id', user.id)
+      .single()
 
-    if (error) {
-      return { success: false, error: error.message || 'Gagal mengajukan penarikan dana' }
+    if (!shop) {
+      return { success: false, error: 'Toko vendor tidak ditemukan' }
     }
+
+    // 2. Hitung saldo bersih yang tersedia (konsisten dengan getVendorBalanceDataAction)
+    const { data: activeItems } = await admin
+      .from('order_items')
+      .select('net_amount, price, qty, fulfilment_status')
+      .eq('shop_id', shop.id)
+      .in('fulfilment_status', ['processing', 'shipped', 'completed'])
+
+    const totalNet = (activeItems || []).reduce((acc, it) => {
+      const net = it.net_amount ?? (Number(it.price) * Number(it.qty))
+      return acc + Number(net)
+    }, 0)
+
+    const { data: payouts } = await admin
+      .from('payout_requests')
+      .select('amount, status')
+      .eq('shop_id', shop.id)
+
+    const pendingPaidPayouts = (payouts || [])
+      .filter((p) => p.status === 'pending' || p.status === 'paid')
+      .reduce((acc, p) => acc + Number(p.amount), 0)
+
+    const meta = parseShopMetadata(shop.description)
+    const baseBalance = typeof meta.balance === 'number' ? meta.balance : totalNet
+    const availableBalance = Math.max(0, baseBalance - pendingPaidPayouts)
+
+    // 3. Validasi nominal penarikan
+    if (amount <= 0) {
+      return { success: false, error: 'Nominal penarikan harus lebih dari 0' }
+    }
+
+    if (amount < 10000) {
+      return { success: false, error: 'Minimal penarikan dana adalah Rp 10.000' }
+    }
+
+    if (amount > availableBalance) {
+      return {
+        success: false,
+        error: `Saldo tidak mencukupi. Saldo tersedia saat ini: Rp ${availableBalance.toLocaleString('id-ID')}`,
+      }
+    }
+
+    // 4. Masukkan permintaan pencairan dana ke payout_requests (status langsung 'paid' / Selesai)
+    const { data: newPayout, error: insertError } = await admin
+      .from('payout_requests')
+      .insert({
+        shop_id: shop.id,
+        amount,
+        bank_name: bankName,
+        account_no: accountNo,
+        account_holder: accountHolder,
+        status: 'paid',
+        processed_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !newPayout) {
+      return { success: false, error: insertError?.message || 'Gagal menyimpan pengajuan penarikan dana' }
+    }
+
+    // 5. Simpan / perbarui metadata rekening bank & mutasi debit ledger toko
+    const updatedMeta: ShopMetadata = {
+      ...meta,
+      bank_name: bankName,
+      bank_account_number: accountNo,
+      bank_account_holder: accountHolder,
+      ledger: [
+        ...(meta.ledger || []),
+        {
+          id: newPayout.id,
+          type: 'debit',
+          amount,
+          description: `Penarikan saldo selesai ke ${bankName} (${accountNo})`,
+          createdAt: new Date().toISOString(),
+        },
+      ],
+    }
+
+    await admin
+      .from('shops')
+      .update({
+        description: serializeShopMetadata(updatedMeta),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', shop.id)
 
     revalidatePath('/vendor/balance')
     revalidatePath('/vendor')
 
-    return { success: true, payoutId: (data as any)?.id }
+    return { success: true, payoutId: newPayout.id }
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Terjadi kesalahan sistem'
     return { success: false, error: msg }
