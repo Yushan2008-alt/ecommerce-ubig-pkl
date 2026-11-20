@@ -393,7 +393,7 @@ export default function OrderDetailsPage({
             <div className="mb-6 p-3 rounded-xl bg-muted/40 border border-border/60 flex items-center gap-2.5 text-xs text-muted-foreground">
               <RotateCcw className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
               <span>
-                Pesanan dibatalkan. Dana otomatis dikembalikan (refund) ke saldo atau metode pembayaran Anda.
+                Pesanan dibatalkan. Dana Dikembalikan.
               </span>
             </div>
           )}
