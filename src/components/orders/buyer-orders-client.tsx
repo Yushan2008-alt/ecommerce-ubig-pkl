@@ -26,6 +26,8 @@ import { getBuyerOrdersAction, confirmEntireOrderReceivedAction, type BuyerOrder
 import { toast } from 'sonner'
 import { useLanguage } from '@/context/language-context'
 import { Button } from '@/components/ui/button'
+import { formatTimeAgo, formatFullDate, formatOrderInvoice } from '@/lib/utils'
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip'
 
 interface BuyerOrdersClientProps {
   initialOrders: BuyerOrder[]
@@ -115,12 +117,12 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
     window.addEventListener('focus', handleFocus)
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Polling interval lembut (setiap 8 detik) untuk memastikan data selalu sinkron
+    // Polling interval cadangan (setiap 60 detik) untuk mencegah beban berlebih & lag
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
         reloadOrders(false)
       }
-    }, 8000)
+    }, 60000)
 
     return () => {
       supabase.removeChannel(channel)
@@ -167,7 +169,8 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
       // 2. Filter Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim()
-        const matchCode = ord.code.toLowerCase().includes(q)
+        const invoiceStr = formatOrderInvoice(ord.code, ord.createdAt, ord.id).toLowerCase()
+        const matchCode = ord.code.toLowerCase().includes(q) || invoiceStr.includes(q)
         const matchProduct = ord.items.some((it) => it.title.toLowerCase().includes(q))
         const matchShop = ord.items.some((it) => it.shopName.toLowerCase().includes(q))
         if (!matchCode && !matchProduct && !matchShop) {
@@ -259,8 +262,9 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
   }
 
   return (
-    <div className="min-h-[75vh] py-6 sm:py-10 bg-slate-50/40 dark:bg-background">
-      <div className="container mx-auto px-4 max-w-6xl">
+    <TooltipProvider>
+      <div className="min-h-[75vh] py-6 sm:py-10 bg-slate-50/40 dark:bg-background">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl">
         {/* Header Judul Halaman */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
@@ -373,11 +377,11 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-border/80 bg-muted/40 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                      <th className="py-3 px-5">Pesanan</th>
-                      <th className="py-3 px-5">Produk</th>
-                      <th className="py-3 px-4">Total</th>
-                      <th className="py-3 px-4 text-center">Status</th>
-                      <th className="py-3 px-5 text-right">Aksi</th>
+                      <th className="py-3.5 px-6">No. Pesanan</th>
+                      <th className="py-3.5 px-6">Produk</th>
+                      <th className="py-3.5 px-5">Total</th>
+                      <th className="py-3.5 px-5 text-center">Status</th>
+                      <th className="py-3.5 px-6 text-right">Aksi</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/60 text-xs">
@@ -392,25 +396,30 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                           onClick={() => router.push(`/orders/${ord.id}`)}
                           className="hover:bg-muted/30 transition-colors cursor-pointer group"
                         >
-                          {/* 1. Pesanan & Toko */}
-                          <td className="py-4 px-5 align-top">
+                          {/* 1. No. Pesanan & Waktu Relatif */}
+                          <td className="py-5 px-6 align-top whitespace-nowrap">
                             <div className="space-y-1.5">
-                              <div className="flex items-center gap-1.5 text-foreground font-bold">
-                                <Store className="w-3.5 h-3.5 text-[#00a699] shrink-0" />
-                                <span className="truncate max-w-[170px]">{firstItem?.shopName || 'Toko Krafita'}</span>
-                              </div>
-                              <span className="font-mono text-xs font-semibold text-[#00a699] group-hover:underline block">
-                                {ord.code}
+                              <span className="font-mono text-xs font-semibold text-foreground group-hover:text-[#00a699] transition-colors block">
+                                {formatOrderInvoice(ord.code, ord.createdAt, ord.id)}
                               </span>
-                              <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                                <Clock className="w-3 h-3 text-muted-foreground/60 shrink-0" />
-                                <span>{formatDate(ord.createdAt)}</span>
-                              </div>
+                              <Tooltip>
+                                <TooltipTrigger
+                                  type="button"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-default"
+                                >
+                                  <Clock className="w-3 h-3 text-muted-foreground/70 shrink-0" />
+                                  <span suppressHydrationWarning>{formatTimeAgo(ord.createdAt)}</span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" align="start" className="text-xs py-1 px-2.5">
+                                  <span>{formatFullDate(ord.createdAt)}</span>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </td>
 
                           {/* 2. Produk */}
-                          <td className="py-4 px-5 align-top">
+                          <td className="py-5 px-6 align-top">
                             <div className="flex items-start gap-3">
                               <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-muted shrink-0 border border-border shadow-2xs">
                                 {firstItem?.imageUrl ? (
@@ -448,7 +457,7 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                           </td>
 
                           {/* 3. Total Belanja */}
-                          <td className="py-4 px-4 align-top whitespace-nowrap">
+                          <td className="py-5 px-5 align-top whitespace-nowrap">
                             <div className="space-y-0.5">
                               <span className="text-sm font-bold text-foreground block">
                                 {formatPrice(ord.total)}
@@ -460,12 +469,12 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                           </td>
 
                           {/* 4. Status */}
-                          <td className="py-4 px-4 align-top text-center whitespace-nowrap">
+                          <td className="py-5 px-5 align-top text-center whitespace-nowrap">
                             {renderStatusBadge(ord.computedStatus)}
                           </td>
 
                           {/* 5. Aksi */}
-                          <td className="py-4 px-5 align-top text-right" onClick={(e) => e.stopPropagation()}>
+                          <td className="py-5 px-6 align-top text-right" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-end gap-2">
                               {ord.computedStatus === 'unpaid' ? (
                                 <Link
@@ -526,13 +535,13 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                       onClick={() => router.push(`/orders/${ord.id}`)}
                       className="p-4 space-y-3 hover:bg-muted/20 active:bg-muted/40 transition-colors cursor-pointer"
                     >
-                      {/* Baris Atas: Toko & Status */}
+                      {/* Baris Atas: No. Pesanan & Status */}
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <Store className="w-3.5 h-3.5 text-[#00a699] shrink-0" />
-                          <span className="font-bold text-xs text-foreground truncate">
-                            {firstItem?.shopName || 'Toko Krafita'}
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="font-mono text-xs font-semibold text-foreground">
+                            {formatOrderInvoice(ord.code, ord.createdAt, ord.id)}
                           </span>
+                          <span className="text-[11px] text-muted-foreground">• {formatTimeAgo(ord.createdAt)}</span>
                         </div>
                         {renderStatusBadge(ord.computedStatus)}
                       </div>
@@ -631,5 +640,6 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
         </div>
       </div>
     </div>
-  )
+  </TooltipProvider>
+)
 }

@@ -20,6 +20,7 @@ import {
   Copy,
   Receipt,
   Star,
+  RotateCcw,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -108,12 +109,12 @@ export default function OrderDetailsPage({
     window.addEventListener('focus', handleFocus)
     document.addEventListener('visibilitychange', handleVisibilityChange)
 
-    // Polling interval lembut (setiap 6 detik) sebagai backup sinkronisasi
+    // Polling interval cadangan (setiap 60 detik) sebagai backup sinkronisasi
     const intervalId = setInterval(() => {
       if (document.visibilityState === 'visible') {
         fetchOrder()
       }
-    }, 6000)
+    }, 60000)
 
     return () => {
       isMounted = false
@@ -250,28 +251,40 @@ export default function OrderDetailsPage({
       ? 'completed'
       : 'unpaid')
 
+  // Status dan nominal pengembalian dana jika pesanan ditolak/dibatalkan
+  const isRefunded = orderData?.isRefunded || Boolean(order.paid_at && currentStatus === 'cancelled')
+  const refundAmount = orderData?.refundAmount || Number(order.total || 0)
+  const isRejectedByVendor =
+    orderData?.isRejectedByVendor || items?.some((it: any) => it.fulfilment_status === 'cancelled')
+
+  // Format ekspedisi kurir agar singkat, padat, dan jelas
+  const formattedCourier = (() => {
+    let courier = (shippingInfo.courier || 'Krafita Express').trim()
+    if (courier.includes('/')) {
+      courier = courier.split('/')[0].trim()
+    }
+    let service = (shippingInfo.shippingService || '').trim()
+    if (service.toLowerCase().includes('reguler')) service = 'Reguler'
+    else if (service.toLowerCase().includes('instant') || service.toLowerCase().includes('kilat')) service = 'Instant'
+    else if (service.toLowerCase().includes('kargo') || service.toLowerCase().includes('hemat')) service = 'Kargo'
+
+    if (service && !courier.toLowerCase().includes(service.toLowerCase())) {
+      return `${courier} (${service})`
+    }
+    return courier
+  })()
+
   return (
     <div className="min-h-screen bg-slate-50/50 py-8 sm:py-12">
       <div className="container mx-auto px-4 max-w-4xl">
         {/* Navigation Top Bar */}
         <div className="flex items-center justify-between mb-6">
           <Link
-            href="/"
+            href="/orders"
             className="text-xs font-semibold text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
           >
-            <ArrowLeft className="w-4 h-4" /> Kembali Belanja
+            <ArrowLeft className="w-4 h-4" /> Kembali
           </Link>
-          <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={fetchOrder}
-              className="text-xs font-medium h-8 gap-1.5 cursor-pointer"
-            >
-              <RefreshCw className="w-3.5 h-3.5" /> Segarkan Status
-            </Button>
-          </div>
         </div>
 
         {/* Card Status & Ringkasan Singkat Pesanan */}
@@ -323,9 +336,14 @@ export default function OrderDetailsPage({
                 </span>
               )}
               {currentStatus === 'cancelled' && (
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-500">
-                  <AlertCircle className="w-3.5 h-3.5" /> Pesanan Dibatalkan
-                </span>
+                <div className="flex flex-col sm:items-end gap-0.5">
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-rose-500/90">
+                    <AlertCircle className="w-3.5 h-3.5" /> Pesanan Dibatalkan
+                  </span>
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
+                    <RotateCcw className="w-3 h-3 text-muted-foreground" /> Dana Dikembalikan (Refund)
+                  </span>
+                </div>
               )}
 
               {/* Tombol Konfirmasi Bayar Sekarang HANYA muncul jika pesanan belum bayar (unpaid) */}
@@ -370,12 +388,22 @@ export default function OrderDetailsPage({
             </div>
           </div>
 
+          {/* Keterangan Pengembalian Dana Minimalis & Singkat Padat */}
+          {currentStatus === 'cancelled' && (
+            <div className="mb-6 p-3 rounded-xl bg-muted/40 border border-border/60 flex items-center gap-2.5 text-xs text-muted-foreground">
+              <RotateCcw className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+              <span>
+                Pesanan dibatalkan. Dana otomatis dikembalikan (refund) ke saldo atau metode pembayaran Anda.
+              </span>
+            </div>
+          )}
+
           {/* Info Nomor Resi & Kurir */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-muted/30 border border-border/60">
             <div>
-              <span className="text-[11px] text-muted-foreground block">Ekspedisi Logistik</span>
+              <span className="text-[11px] text-muted-foreground block">Kurir Pengiriman</span>
               <span className="text-xs font-bold text-foreground">
-                {shippingInfo.courier || 'Krafita Express'} ({shippingInfo.shippingService || 'Reguler'})
+                {formattedCourier}
               </span>
             </div>
             <div>
@@ -419,6 +447,7 @@ export default function OrderDetailsPage({
               const isDone = step.completed
               const isCurrent = step.current
               const isCancelledStep = step.isCancelled
+              const isRefundStep = step.isRefund
 
               return (
                 <div key={index} className="relative group">
@@ -427,6 +456,8 @@ export default function OrderDetailsPage({
                     className={`absolute -left-6 sm:-left-8 top-0.5 w-5 sm:w-6 h-5 sm:h-6 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-xs ${
                       isCancelledStep
                         ? 'bg-rose-500 text-white'
+                        : isRefundStep
+                        ? 'bg-muted text-foreground border border-border font-bold'
                         : isDone
                         ? 'bg-[#00a699] text-white'
                         : isCurrent
@@ -434,7 +465,7 @@ export default function OrderDetailsPage({
                         : 'bg-muted text-muted-foreground border border-border'
                     }`}
                   >
-                    {isCancelledStep ? '✕' : isDone ? '✓' : index + 1}
+                    {isCancelledStep ? '✕' : isRefundStep ? '✓' : isDone ? '✓' : index + 1}
                   </div>
 
                   {/* Konten Step */}
@@ -444,6 +475,8 @@ export default function OrderDetailsPage({
                         className={`text-sm font-semibold ${
                           isCancelledStep
                             ? 'text-rose-500'
+                            : isRefundStep
+                            ? 'text-foreground'
                             : isDone || isCurrent
                             ? 'text-foreground'
                             : 'text-muted-foreground'

@@ -345,6 +345,12 @@ export async function getOrderDetailsAction(orderId: string) {
       }
     }
 
+    // Hitung apakah pesanan mengalami penolakan/pembatalan setelah dibayar (Dana Dikembalikan)
+    const isPaidBeforeCancel = Boolean(paidAt)
+    const isRejectedByVendor = mappedItems.some((i: any) => i.fulfilment_status === 'cancelled')
+    const isRefunded = isPaidBeforeCancel || Boolean(order.status === 'cancelled' && paidAt)
+    const refundAmount = isRefunded ? Number(order.total || 0) : 0
+
     // Timeline tahapan pengiriman (singkat, padat, jelas)
     let trackingSteps: any[] = []
 
@@ -359,11 +365,21 @@ export async function getOrderDetailsAction(orderId: string) {
         },
         {
           title: 'Pesanan Dibatalkan',
-          description: 'Pesanan ini telah dibatalkan.',
+          description: isRejectedByVendor
+            ? 'Pesanan ditolak oleh penjual.'
+            : 'Pesanan telah dibatalkan.',
+          time: formatTime(new Date(order.updated_at || order.created_at)),
+          completed: true,
+          current: false,
+          isCancelled: true,
+        },
+        {
+          title: 'Pengembalian Dana (Refund)',
+          description: 'Dana telah dikembalikan ke metode pembayaran Anda.',
           time: formatTime(new Date(order.updated_at || order.created_at)),
           completed: true,
           current: true,
-          isCancelled: true,
+          isRefund: true,
         },
       ]
     } else {
@@ -431,6 +447,9 @@ export async function getOrderDetailsAction(orderId: string) {
         trackingNumber,
         trackingSteps,
         computedStatus,
+        isRefunded,
+        refundAmount,
+        isRejectedByVendor,
       },
     }
   } catch (err: unknown) {
