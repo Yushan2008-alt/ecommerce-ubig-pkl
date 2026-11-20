@@ -141,7 +141,7 @@ export const CATALOG_CATEGORIES: CategoryNavData[] = [
       {
         title_id: 'Koleksi Sepatu Boots',
         title_en: 'Boots Collection',
-        imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=500&q=80',
+        imageUrl: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&w=500&q=80',
         link: '/products?category=shoes&subcategory=boots',
       },
       {
@@ -829,7 +829,7 @@ export const CATALOG_PRODUCTS: CatalogProduct[] = [
     rating: 4.8,
     wishlistCount: 3,
     featured: true,
-    imageUrl: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?auto=format&fit=crop&w=600&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&w=600&q=80',
     tags_id: ['sepatu', 'boots', 'kulit', 'pria', 'chelsea', 'hugo boss'],
     tags_en: ['shoes', 'boots', 'leather', 'men', 'chelsea', 'hugo boss'],
   },

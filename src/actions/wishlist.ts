@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { getUser } from '@/lib/auth'
+import { CATALOG_PRODUCTS } from '@/lib/catalog-data'
 import type { WishlistProductItem } from '@/types/wishlist'
 
 /**
@@ -120,12 +121,27 @@ export async function getWishlistAction(): Promise<{
       if (!prod) continue
       const shop = prod.shops as any
 
-      let imageUrl = 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=600&q=80'
+      let imageUrl = ''
       if (prod.product_images && prod.product_images.length > 0) {
         const sorted = [...prod.product_images].sort((a, b) => a.sort_order - b.sort_order)
         const path = sorted[0]?.path
         if (path) {
           imageUrl = path.startsWith('http') ? path : `${storageBaseUrl}/${path}`
+        }
+      }
+
+      if (!imageUrl) {
+        const catalogMatch = CATALOG_PRODUCTS.find(
+          (c) =>
+            c.id === prod.id ||
+            c.slug === prod.slug ||
+            (c.title_id && c.title_id.toLowerCase() === prod.title?.toLowerCase()) ||
+            (c.title_en && c.title_en.toLowerCase() === prod.title?.toLowerCase())
+        )
+        if (catalogMatch) {
+          imageUrl = catalogMatch.imageUrl
+        } else {
+          imageUrl = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&w=600&q=80'
         }
       }
 

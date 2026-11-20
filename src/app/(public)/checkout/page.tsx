@@ -48,6 +48,7 @@ import {
 import { consumeDownloadAction } from '@/actions/download'
 import { AddressModal } from '@/components/account/address-modal'
 import { Button } from '@/components/ui/button'
+import { CATALOG_PRODUCTS } from '@/lib/catalog-data'
 
 declare global {
   interface Window {
@@ -151,6 +152,11 @@ function CheckoutWizard() {
   const queryTitle = searchParams.get('title')
   const queryPrice = searchParams.get('price') ? Number(searchParams.get('price')) : null
   const queryType = (searchParams.get('type') as 'physical' | 'digital') || 'physical'
+  const queryImageUrl = searchParams.get('imageUrl') || searchParams.get('image') || ''
+  const queryShopId = searchParams.get('shopId') || ''
+  const queryShopName = searchParams.get('shopName') || ''
+  const queryShopCity = searchParams.get('shopCity') || ''
+  const queryQty = searchParams.get('qty') ? Math.max(1, Number(searchParams.get('qty'))) : 1
 
   // Data Barang Checkout
   const [checkoutItems, setCheckoutItems] = useState<MarketplaceOrderItemPayload[]>([])
@@ -395,16 +401,55 @@ function CheckoutWizard() {
         await refreshAddresses()
 
         if (isBuyNow && queryProductId && queryTitle && queryPrice) {
+          let resolvedImageUrl = queryImageUrl
+          let resolvedShopName = queryShopName || 'Krafita Official Store'
+          let resolvedShopId = queryShopId || '06f642de-654a-4c48-87c0-aaee352d8ad4'
+          let resolvedShopCity = queryShopCity || 'Jakarta Selatan'
+
+          // Cari di katalog produk jika imageUrl atau detail vendor belum lengkap
+          const catalogMatch = CATALOG_PRODUCTS.find(
+            (p) =>
+              p.id === queryProductId ||
+              p.slug === queryProductId ||
+              (p.title_id && p.title_id.toLowerCase() === queryTitle.toLowerCase()) ||
+              (p.title_en && p.title_en.toLowerCase() === queryTitle.toLowerCase())
+          )
+
+          if (catalogMatch) {
+            if (!resolvedImageUrl) {
+              resolvedImageUrl = catalogMatch.imageUrl
+            }
+            if (!queryShopName && catalogMatch.vendor) {
+              resolvedShopName = catalogMatch.vendor
+            }
+          }
+
+          // Fallback cerdas berdasarkan nama produk jika imageUrl tetap kosong
+          if (!resolvedImageUrl) {
+            const lowerTitle = queryTitle.toLowerCase()
+            if (lowerTitle.includes('sepatu') || lowerTitle.includes('boot') || lowerTitle.includes('sneaker') || lowerTitle.includes('pantofel')) {
+              resolvedImageUrl = 'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&w=600&q=80'
+            } else if (lowerTitle.includes('kemeja') || lowerTitle.includes('baju') || lowerTitle.includes('kaos') || lowerTitle.includes('jaket')) {
+              resolvedImageUrl = 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=600&q=80'
+            } else if (lowerTitle.includes('kursi') || lowerTitle.includes('meja') || lowerTitle.includes('sofa') || lowerTitle.includes('lemari')) {
+              resolvedImageUrl = 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80'
+            } else if (lowerTitle.includes('tas') || lowerTitle.includes('dompet')) {
+              resolvedImageUrl = 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=600&q=80'
+            } else {
+              resolvedImageUrl = 'https://images.unsplash.com/photo-1602810318383-e386cc2a3ccf?auto=format&fit=crop&w=600&q=80'
+            }
+          }
+
           setCheckoutItems([
             {
               productId: queryProductId,
               title: queryTitle,
               price: queryPrice,
-              qty: 1,
-              imageUrl: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80',
-              shopId: '06f642de-654a-4c48-87c0-aaee352d8ad4',
-              shopName: 'Krafita Official Store',
-              shopCity: 'Jakarta Selatan',
+              qty: queryQty,
+              imageUrl: resolvedImageUrl,
+              shopId: resolvedShopId,
+              shopName: resolvedShopName,
+              shopCity: resolvedShopCity,
               type: queryType,
               buyerNote: '',
             },
@@ -443,7 +488,18 @@ function CheckoutWizard() {
     }
 
     initCheckout()
-  }, [isBuyNow, queryProductId, queryTitle, queryPrice, queryType])
+  }, [
+    isBuyNow,
+    queryProductId,
+    queryTitle,
+    queryPrice,
+    queryType,
+    queryImageUrl,
+    queryShopId,
+    queryShopName,
+    queryShopCity,
+    queryQty,
+  ])
 
   // Polling Auto-Sync Status Pembayaran saat berada di Step 2 (Pembayaran)
   useEffect(() => {
@@ -1085,7 +1141,7 @@ function CheckoutWizard() {
                                 <Image
                                   src={
                                     item.imageUrl ||
-                                    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80'
+                                    'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&w=400&q=80'
                                   }
                                   alt={item.title}
                                   fill
@@ -1123,7 +1179,7 @@ function CheckoutWizard() {
                               <Image
                                 src={
                                   item.imageUrl ||
-                                  'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80'
+                                  'https://images.unsplash.com/photo-1608256246200-53e635b5b65f?auto=format&fit=crop&w=400&q=80'
                                 }
                                 alt={item.title}
                                 fill

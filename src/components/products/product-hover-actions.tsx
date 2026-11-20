@@ -87,7 +87,16 @@ export function ProductHoverActions({ product, className = '' }: ProductHoverAct
           e.preventDefault()
           e.stopPropagation()
           const productType = product.isDigital ? 'digital' : 'physical'
-          router.push(`/checkout?buyNow=true&productId=${encodeURIComponent(product.id)}&title=${encodeURIComponent(product.title)}&price=${product.price}&type=${productType}`)
+          const params = new URLSearchParams({
+            buyNow: 'true',
+            productId: product.id,
+            title: product.title,
+            price: product.price.toString(),
+            type: productType,
+            imageUrl: product.imageUrl || '',
+            shopName: product.vendor || 'Krafita Official Store',
+          })
+          router.push(`/checkout?${params.toString()}`)
         }}
         aria-label="Beli Langsung"
         title="Beli Langsung Tanpa Keranjang"

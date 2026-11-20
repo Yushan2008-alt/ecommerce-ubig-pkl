@@ -409,7 +409,7 @@ export function BuyerOrdersClient({ initialOrders }: BuyerOrdersClientProps) {
                                   className="inline-flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors cursor-default"
                                 >
                                   <Clock className="w-3 h-3 text-muted-foreground/70 shrink-0" />
-                                  <span suppressHydrationWarning>{formatTimeAgo(ord.createdAt)}</span>
+                                  <span className="whitespace-nowrap" suppressHydrationWarning>{formatTimeAgo(ord.createdAt)}</span>
                                 </TooltipTrigger>
                                 <TooltipContent side="top" align="start" className="text-xs py-1 px-2.5">
                                   <span>{formatFullDate(ord.createdAt)}</span>

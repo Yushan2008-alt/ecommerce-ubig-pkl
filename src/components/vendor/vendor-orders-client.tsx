@@ -538,18 +538,18 @@ export function VendorOrdersClient({
             {/* Desktop Table View (Hidden on mobile) */}
             <div className="hidden md:block rounded-2xl border border-border/80 bg-card overflow-hidden shadow-xs w-full max-w-full min-w-0">
               <div className="w-full max-w-full min-w-0 overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[1020px] h-auto">
+                <table className="w-full text-left text-xs min-w-[1180px] h-auto">
                   {/* Header Tabel Responsif (Sesuai Referensi Gambar) */}
                   <thead className="bg-muted/30 text-muted-foreground font-semibold border-b border-border/80">
                     <tr>
-                      <th className="py-4 px-4 w-[13%]">Pesanan</th>
-                      <th className="py-4 px-4 w-[24%]">Produk</th>
-                      <th className="py-4 px-4 w-[14%]">Pembeli</th>
-                      <th className="py-4 px-4 w-[16%]">Pengiriman</th>
-                      <th className="py-4 px-4 w-[11%]">Total</th>
-                      <th className="py-4 px-3 w-[11%] text-center">Status</th>
-                      <th className="py-4 px-3 w-[11%] text-center">Aksi</th>
-                      <th className="py-4 px-4 w-[12%] text-right whitespace-nowrap">Waktu Pesanan</th>
+                      <th className="py-4 px-4 min-w-[130px] whitespace-nowrap">Pesanan</th>
+                      <th className="py-4 px-4 min-w-[220px]">Produk</th>
+                      <th className="py-4 px-4 min-w-[130px] whitespace-nowrap">Pembeli</th>
+                      <th className="py-4 px-4 min-w-[160px] whitespace-nowrap">Pengiriman</th>
+                      <th className="py-4 px-4 min-w-[110px] whitespace-nowrap">Total</th>
+                      <th className="py-4 px-3 min-w-[120px] text-center whitespace-nowrap">Status</th>
+                      <th className="py-4 px-3 min-w-[120px] text-center whitespace-nowrap">Aksi</th>
+                      <th className="py-4 px-4 min-w-[140px] text-right whitespace-nowrap">Waktu Pesanan</th>
                     </tr>
                   </thead>
 
@@ -743,14 +743,14 @@ export function VendorOrdersClient({
                             </div>
                           </td>
 
-                          {/* 8. Waktu Pesanan (Kolom posisi paling kanan, time-ago + tooltip waktu lengkap) */}
-                          <td className="py-5 px-4 text-right align-middle">
+                          {/* 8. Waktu Pesanan (Kolom posisi paling kanan, time-ago + tooltip waktu lengkap, single line nowrap) */}
+                          <td className="py-5 px-4 text-right align-middle whitespace-nowrap">
                             <Tooltip>
                               <TooltipTrigger
-                                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end"
+                                className="text-xs text-muted-foreground hover:text-foreground cursor-pointer underline decoration-dotted underline-offset-2 transition-colors inline-flex items-center gap-1.5 justify-end whitespace-nowrap"
                               >
                                 <Clock className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                                <span suppressHydrationWarning>
+                                <span className="whitespace-nowrap" suppressHydrationWarning>
                                   {formatTimeAgo(ord.orderDate)}
                                 </span>
                               </TooltipTrigger>
